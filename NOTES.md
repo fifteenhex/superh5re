@@ -7,8 +7,9 @@ reproduce it. Confirmed facts move to `docs/`.
 
 - Scope of the first core: SHmedia only, or SHmedia + SHcompact.
 - Target FPGA board.
-- SH-5 System Architecture volumes 1 and 2 (05-SA-10001, 05-SA-10002): not
-  found yet; only volume 3 (Debug) is in `refs/manuals/`.
+- Missing documents, see `refs/sources.md`: System Architecture volumes 1
+  (Yumpu flipbook only) and 2 (not found), ABI spec, datasheets, assembly
+  syntax (Yumpu only), SuperHyway interface definitions.
 
 ## 2026-11-01
 
@@ -22,3 +23,6 @@ reproduce it. Confirmed facts move to `docs/`.
   python3 tools/pdfstrings.py <pdf> 4      # first text streams
   python3 tools/pdfgrep.py <pdf> 'regex'   # streams whose text matches
   ```
+- Surveyed the web for further SH-5 material; results in `refs/sources.md`.
+  The 2004 SuperH, Inc. document catalogue (via the Wayback Machine) confirms
+  the four CPU Core PDFs are the original files (sizes match).
