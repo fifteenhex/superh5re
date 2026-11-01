@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+
+# simulation / synthesis outputs
+obj_dir/
+*.vcd
+*.fst
+*.log
+*.jou
+*.bit
+*.bin
+*.dcp
+.Xil/
+vivado*.str
