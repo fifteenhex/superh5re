@@ -7,6 +7,9 @@ reproduce it. Confirmed facts move to `docs/`.
 
 - Scope of the first core: SHmedia only, or SHmedia + SHcompact.
 - Target FPGA board.
+- Deferred, pending decision: adding the MPR 1999 article and Hot Chips 13
+  slides to `refs/`; rebuilding the Yumpu-only documents from page images;
+  importing the binutils 2.30 CGEN SH-5 description and `sim/sh64` sources.
 - Missing documents, see `refs/sources.md`: System Architecture volumes 1
   (Yumpu flipbook only) and 2 (not found), ABI spec, datasheets, assembly
   syntax (Yumpu only), SuperHyway interface definitions.
