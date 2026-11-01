@@ -60,6 +60,17 @@ internal name SH8000, ST name ST50.
 | NetBSD | netbsd-3 branch (port added 2002-07, removed 2007-04) | `sys/arch/sh5/`, `sys/arch/evbsh5/` |
 | QEMU | never supported SH-5 | |
 
+## SH-5 binaries
+
+NetBSD release binaries for evbsh5 remain on
+`https://archive.netbsd.org/pub/NetBSD-archive/NetBSD-<ver>/evbsh5-sh5el/`
+for 2.0, 2.0.2, 2.1, 3.0, 3.0.1, 3.0.2, 3.1 (directory `evbsh5/` in 3.1.1).
+Each has `binary/kernel/netbsd-CAYMAN.gz` (32-bit ABI) and
+`netbsd-CAYMAN64.gz` (64-bit ABI), about 1.1 MB each, full binary sets
+(base, comp, etc, games, man, misc, text, X sets, kern-CAYMAN, kern-CAYMAN64)
+and checksums (SHA512 from 3.0). Source sets are in `source/sets/`.
+These are the only known publicly available SH-5 executables.
+
 ## Hardware
 
 - Evaluation silicon: SH5-101, SH5-103 (SuperH part names); Cayman development
