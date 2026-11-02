@@ -4,7 +4,7 @@
 # The tree holds the static /rescue tools, symlinks into it, a minimal
 # /etc and device nodes from root.spec.  Image size 12 MB.
 set -e
-BASE=$1; TOOLS=$2; OUT=$3
+BASE=$(realpath "$1"); TOOLS=$(realpath "$2"); OUT=$(realpath -m "$3")
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(mktemp -d)
 cd "$ROOT"
