@@ -3,7 +3,7 @@
 
 usage: qrun.py [--qemu PATH] [--kernel FILE] [--timeout S] [--qemu-args 'ARGS']
                [--log FILE] [--on-timeout STEP]... step...
-steps: expect:TEXT   wait for TEXT on the console
+steps: expect:TEXT   wait for TEXT on the console (A||B waits for either)
        send:TEXT     type TEXT (\\r and \\n escapes allowed)
        sleep:N       keep reading for N seconds
        mon:CMD       run CMD on the QEMU monitor (output goes to the transcript)
@@ -58,14 +58,16 @@ def main(argv):
             return bool(d)
         return False
 
-    def expect(text, t):
+    def expect(texts, t):
+        """Wait for any of texts (a list of alternatives)."""
         nonlocal buf
         end = time.time() + t
         while time.time() < end:
-            i = buf.find(text.encode())
-            if i >= 0:
-                buf = buf[i + len(text):]
-                return True
+            for text in texts:
+                i = buf.find(text.encode())
+                if i >= 0:
+                    buf = buf[i + len(text):]
+                    return True
             readsome(min(0.5, max(0.0, end - time.time())))
         return False
 
@@ -97,7 +99,7 @@ def main(argv):
         kind, _, val = step.partition(':')
         val = val.replace('\\r', '\r').replace('\\n', '\n')
         if kind == 'expect':
-            if not expect(val, timeout - (time.time() - start)):
+            if not expect(val.split('||'), timeout - (time.time() - start)):
                 print('TIMEOUT waiting for %r' % val)
                 return False
         elif kind == 'send':
