@@ -1,0 +1,477 @@
+--- a/usr/src/usr.sbin/inetd/inetd.c	2004-11-28 05:40:47.000000000 +0000
++++ b/usr/src/usr.sbin/inetd/inetd.c	2026-11-02 13:59:23.769270661 +0000
+@@ -388,7 +388,7 @@
+ static int	my_kevent(const struct kevent *, size_t, struct kevent *,
+ 		size_t);
+ static struct kevent *	allocchange(void);
+-static int	getline(int, char *, int);
++static int	nb_local_getline(int, char *, int);
+ static void	spawn(struct servtab *, int);
+ #ifdef MULOG
+ static void	dolog(struct servtab *, int);
+@@ -2112,7 +2112,7 @@
+  */
+ 
+ static int		/* # of characters upto \r,\n or \0 */
+-getline(int fd,	char *buf, int len)
++nb_local_getline(int fd,	char *buf, int len)
+ {
+ 	int count = 0, n;
+ 
+@@ -2143,7 +2143,7 @@
+ 	int len;
+ 
+ 	/* Get requested service name */
+-	if ((len = getline(ctrl, service, MAX_SERV_LEN)) < 0) {
++	if ((len = nb_local_getline(ctrl, service, MAX_SERV_LEN)) < 0) {
+ 		strwrite(ctrl, "-Error reading service name\r\n");
+ 		goto reject;
+ 	}
+--- a/usr/src/usr.bin/unifdef/unifdef.c	2003-08-07 11:16:55.000000000 +0000
++++ b/usr/src/usr.bin/unifdef/unifdef.c	2026-11-02 13:59:23.750419599 +0000
+@@ -238,7 +238,7 @@
+ static void             error(const char *);
+ static int              findsym(const char *);
+ static void             flushline(bool);
+-static Linetype         getline(void);
++static Linetype         nb_local_getline(void);
+ static Linetype         ifeval(const char **);
+ static void             ignoreoff(void);
+ static void             ignoreon(void);
+@@ -524,7 +524,7 @@
+ 
+ 	for (;;) {
+ 		linenum++;
+-		lineval = getline();
++		lineval = nb_local_getline();
+ 		trans_table[ifstate[depth]][lineval]();
+ 		debug("process %s -> %s depth %d",
+ 		    linetype_name[lineval],
+@@ -538,7 +538,7 @@
+  * help from skipcomment().
+  */
+ static Linetype
+-getline(void)
++nb_local_getline(void)
+ {
+ 	const char *cp;
+ 	int cursym;
+--- a/usr/src/usr.bin/ftp/main.c	2005-07-24 10:32:14.000000000 +0000
++++ b/usr/src/usr.bin/ftp/main.c	2026-11-02 13:59:23.762762841 +0000
+@@ -647,7 +647,7 @@
+ 					fprintf(ttyout, "%s ", p);
+ 				(void)fflush(ttyout);
+ 			}
+-			num = getline(stdin, line, sizeof(line), NULL);
++			num = nb_local_getline(stdin, line, sizeof(line), NULL);
+ 			switch (num) {
+ 			case -1:	/* EOF */
+ 			case -2:	/* error */
+--- a/usr/src/usr.bin/ftp/cmds.c	2005-07-24 10:32:29.000000000 +0000
++++ b/usr/src/usr.bin/ftp/cmds.c	2026-11-02 13:59:23.763057089 +0000
+@@ -166,7 +166,7 @@
+ 	while (1) {
+ 		fprintf(ttyout, "%s %s [anpqy?]? ", cmd, file);
+ 		(void)fflush(ttyout);
+-		if (getline(stdin, line, sizeof(line), &errormsg) < 0) {
++		if (nb_local_getline(stdin, line, sizeof(line), &errormsg) < 0) {
+ 			mflag = 0;
+ 			fprintf(ttyout, "%s; %s aborted\n", errormsg, mname);
+ 			return (0);
+--- a/usr/src/usr.bin/ftp/util.c	2006-05-26 16:47:46.000000000 +0000
++++ b/usr/src/usr.bin/ftp/util.c	2026-11-02 13:59:23.763557644 +0000
+@@ -414,7 +414,7 @@
+ 		else
+ 			fprintf(ttyout, "Name (%s): ", host);
+ 		errormsg = NULL;
+-		nlen = getline(stdin, tmp, sizeof(tmp), &errormsg);
++		nlen = nb_local_getline(stdin, tmp, sizeof(tmp), &errormsg);
+ 		if (nlen < 0) {
+ 			fprintf(ttyout, "%s; %s aborted.\n", errormsg, "login");
+ 			code = -1;
+@@ -518,7 +518,7 @@
+ 	fprintf(ttyout, "(%s) ", prompt);
+ 	line[len++] = ' ';
+ 	errormsg = NULL;
+-	nlen = getline(stdin, line + len, sizeof(line)-len, &errormsg);
++	nlen = nb_local_getline(stdin, line + len, sizeof(line)-len, &errormsg);
+ 	if (nlen < 0) {
+ 		fprintf(ttyout, "%s; %s aborted.\n", errormsg, "operation");
+ 		intr(0);
+@@ -1274,7 +1274,7 @@
+  *	-3	line was too long
+  */
+ int
+-getline(FILE *stream, char *buf, size_t buflen, const char **errormsg)
++nb_local_getline(FILE *stream, char *buf, size_t buflen, const char **errormsg)
+ {
+ 	int	rv, ch;
+ 	size_t	len;
+--- a/usr/src/usr.bin/ftp/extern.h	2005-07-24 10:29:52.000000000 +0000
++++ b/usr/src/usr.bin/ftp/extern.h	2026-11-02 13:59:23.763749976 +0000
+@@ -141,7 +141,7 @@
+ void	get(int, char **);
+ struct cmd *getcmd(const char *);
+ int	getit(int, char **, int, const char *);
+-int	getline(FILE *, char *, size_t, const char **);
++int	nb_local_getline(FILE *, char *, size_t, const char **);
+ struct option *getoption(const char *);
+ char   *getoptionvalue(const char *);
+ void	getremoteinfo(void);
+--- a/usr/src/usr.bin/ftp/fetch.c	2005-08-28 10:16:27.000000000 +0000
++++ b/usr/src/usr.bin/ftp/fetch.c	2026-11-02 13:59:23.761630158 +0000
+@@ -192,7 +192,7 @@
+ 		fprintf(ttyout, "%s\n", user);
+ 	} else {
+ 		(void)fflush(ttyout);
+-		if (getline(stdin, user, sizeof(user), &errormsg) < 0) {
++		if (nb_local_getline(stdin, user, sizeof(user), &errormsg) < 0) {
+ 			warnx("%s; can't authenticate", errormsg);
+ 			goto cleanup_auth_url;
+ 		}
+@@ -1046,7 +1046,7 @@
+ 
+ 				fprintf(ttyout,
+ 				    "Authorization failed. Retry (y/n)? ");
+-				if (getline(stdin, reply, sizeof(reply), NULL)
++				if (nb_local_getline(stdin, reply, sizeof(reply), NULL)
+ 				    < 0) {
+ 					goto cleanup_fetch_url;
+ 				}
+--- a/usr/src/usr.sbin/lpr/lpc/cmds.c	2004-10-30 08:44:26.000000000 +0000
++++ b/usr/src/usr.sbin/lpr/lpc/cmds.c	2026-11-02 13:59:23.775795343 +0000
+@@ -170,7 +170,7 @@
+ 		printf("\tcannot open lock file\n");
+ 		goto out;
+ 	}
+-	if (!getline(fp) || flock(fileno(fp), LOCK_SH|LOCK_NB) == 0) {
++	if (!nb_local_getline(fp) || flock(fileno(fp), LOCK_SH|LOCK_NB) == 0) {
+ 		(void)fclose(fp);	/* unlocks as well */
+ 		printf("\tno daemon to abort\n");
+ 		goto out;
+@@ -1067,7 +1067,7 @@
+ 		seteuid(uid);
+ 		if (fp == NULL)
+ 			continue;
+-		while (getline(fp) > 0)
++		while (nb_local_getline(fp) > 0)
+ 			if (line[0] == 'P')
+ 				break;
+ 		(void)fclose(fp);
+--- a/usr/src/usr.sbin/lpr/lpd/printjob.c	2004-10-30 08:44:26.000000000 +0000
++++ b/usr/src/usr.sbin/lpr/lpd/printjob.c	2026-11-02 13:59:23.776078328 +0000
+@@ -378,12 +378,12 @@
+ 	 *                    (after we print it. (Pass 2 only)).
+ 	 *		M -- "mail" to user when done printing
+ 	 *
+-	 *      getline reads a line and expands tabs to blanks
++	 *      nb_local_getline reads a line and expands tabs to blanks
+ 	 */
+ 
+ 	/* pass 1 */
+ 
+-	while (getline(cfp))
++	while (nb_local_getline(cfp))
+ 		switch (line[0]) {
+ 		case 'H':
+ 			strlcpy(fromhost, line+1, sizeof(fromhost));
+@@ -488,7 +488,7 @@
+ 
+ pass2:
+ 	fseek(cfp, 0L, 0);
+-	while (getline(cfp))
++	while (nb_local_getline(cfp))
+ 		switch (line[0]) {
+ 		case 'L':	/* identification line */
+ 			if (!SH && HL)
+@@ -784,7 +784,7 @@
+ 	/*
+ 	 * pass 1
+ 	 */
+-	while (getline(cfp)) {
++	while (nb_local_getline(cfp)) {
+ 	again:
+ 		if (line[0] == 'S') {
+ 			cp = line+1;
+@@ -801,7 +801,7 @@
+ 		}
+ 		if (line[0] >= 'a' && line[0] <= 'z') {
+ 			strlcpy(last, line, sizeof(last));
+-			while ((i = getline(cfp)) != 0)
++			while ((i = nb_local_getline(cfp)) != 0)
+ 				if (strcmp(last, line))
+ 					break;
+ 			switch (sendfile('\3', last+1)) {
+@@ -828,7 +828,7 @@
+ 	 * pass 2
+ 	 */
+ 	fseek(cfp, 0L, 0);
+-	while (getline(cfp))
++	while (nb_local_getline(cfp))
+ 		if (line[0] == 'U' && strchr(line+1, '/') == 0)
+ 			(void)unlink(line+1);
+ 	/*
+--- a/usr/src/usr.sbin/lpr/common_source/lp.h	2004-04-24 02:59:19.000000000 +0000
++++ b/usr/src/usr.sbin/lpr/common_source/lp.h	2026-11-02 13:59:23.776385064 +0000
+@@ -107,7 +107,7 @@
+ void     dump(char *, char *, int);
+ void	 fatal(const char *, ...)
+ 	__attribute__((__format__(__printf__, 1, 2)));
+-int	 getline(FILE *);
++int	 nb_local_getline(FILE *);
+ int	 getport(char *, int);
+ int	 getq(struct queue *(*[]));
+ void     header(void);
+--- a/usr/src/usr.sbin/lpr/common_source/rmjob.c	2004-10-30 08:44:26.000000000 +0000
++++ b/usr/src/usr.sbin/lpr/common_source/rmjob.c	2026-11-02 13:59:23.776001850 +0000
+@@ -174,7 +174,7 @@
+ 			return(0);
+ 	}
+ 	seteuid(uid);
+-	if (!getline(fp)) {
++	if (!nb_local_getline(fp)) {
+ 		(void)fclose(fp);
+ 		return(0);		/* no daemon present */
+ 	}
+@@ -209,7 +209,7 @@
+ 	if ((cfp = fopen(file, "r")) == NULL)
+ 		fatal("cannot open %s", file);
+ 	seteuid(uid);
+-	while (getline(cfp)) {
++	while (nb_local_getline(cfp)) {
+ 		switch (line[0]) {
+ 		case 'U':  /* unlink associated files */
+ 			if (strchr(line+1, '/') || strncmp(line+1, "df", 2))
+@@ -260,7 +260,7 @@
+ 	if ((cfp = fopen(file, "r")) == NULL)
+ 		return(0);
+ 	seteuid(uid);
+-	while (getline(cfp)) {
++	while (nb_local_getline(cfp)) {
+ 		if (line[0] == 'P')
+ 			break;
+ 	}
+--- a/usr/src/usr.sbin/lpr/common_source/displayq.c	2004-10-30 08:44:25.000000000 +0000
++++ b/usr/src/usr.sbin/lpr/common_source/displayq.c	2026-11-02 13:59:23.776451676 +0000
+@@ -331,7 +331,7 @@
+ 	if (remote || garbage || strcmp(cf, current))
+ 		rank++;
+ 	j = 0;
+-	while (getline(cfp)) {
++	while (nb_local_getline(cfp)) {
+ 		switch (line[0]) {
+ 		case 'P': /* Was this file specified in the user's list? */
+ 			if (!inlist(line+1, cf)) {
+--- a/usr/src/usr.sbin/lpr/common_source/common.c	2004-11-16 06:00:37.000000000 +0000
++++ b/usr/src/usr.sbin/lpr/common_source/common.c	2026-11-02 13:59:23.776300247 +0000
+@@ -190,7 +190,7 @@
+  * Returns 0 at EOF or the number of characters read.
+  */
+ int
+-getline(FILE *cfp)
++nb_local_getline(FILE *cfp)
+ {
+ 	int linel = 0, c;
+ 	char *lp = line;
+--- a/usr/src/usr.bin/ctags/C.c	2005-02-17 17:29:58.000000000 +0000
++++ b/usr/src/usr.bin/ctags/C.c	2026-11-02 12:59:59.835141992 +0000
+@@ -165,7 +165,7 @@
+ 				 *	foo\n
+ 				 *	(arg1,
+ 				 */
+-				getline();
++				ctags_getline();
+ 				curline = lineno;
+ 				if (func_entry()) {
+ 					++level;
+@@ -194,7 +194,7 @@
+ 		case ';':
+ 			if (t_def && level == t_level) {
+ 				t_def = NO;
+-				getline();
++				ctags_getline();
+ 				if (sp != tok)
+ 					*sp = EOS;
+ 				pfnote(tok, lineno);
+@@ -229,7 +229,7 @@
+ 						 * get line immediately;
+ 						 * may change before '{'
+ 						 */
+-						getline();
++						ctags_getline();
+ 						if (str_entry(c))
+ 							++level;
+ 						break;
+@@ -394,7 +394,7 @@
+ 	}
+ 	*sp = EOS;
+ 	if (dflag || c == '(') {	/* only want macros */
+-		getline();
++		ctags_getline();
+ 		pfnote(tok, curline);
+ 	}
+ skip:	if (c == '\n') {		/* get rid of rest of define */
+--- a/usr/src/usr.bin/ctags/ctags.h	2005-02-17 17:29:58.000000000 +0000
++++ b/usr/src/usr.bin/ctags/ctags.h	2026-11-02 12:59:59.835242551 +0000
+@@ -80,7 +80,7 @@
+ extern char	searchar;		/* ex search character */
+ 
+ extern int	cicmp(const char *);
+-extern void	getline(void);
++extern void	ctags_getline(void);
+ extern void	pfnote(const char *, int);
+ extern int	skip_key(int);
+ extern void	put_entries(NODE *);
+--- a/usr/src/usr.bin/ctags/fortran.c	2005-02-17 17:29:58.000000000 +0000
++++ b/usr/src/usr.bin/ctags/fortran.c	2026-11-02 12:59:59.835295943 +0000
+@@ -130,7 +130,7 @@
+ 			continue;
+ 		*cp = EOS;
+ 		(void)strlcpy(tok, lbp, sizeof(tok));
+-		getline();			/* process line for ex(1) */
++		ctags_getline();			/* process line for ex(1) */
+ 		pfnote(tok, lineno);
+ 		pfcnt = YES;
+ 	}
+--- a/usr/src/usr.bin/ctags/lisp.c	2005-02-17 17:29:58.000000000 +0000
++++ b/usr/src/usr.bin/ctags/lisp.c	2026-11-02 12:59:59.835389193 +0000
+@@ -105,7 +105,7 @@
+ 		*cp = EOS;
+ 		(void)strlcpy(tok, lbp, sizeof(tok));
+ 		*cp = savedc;
+-		getline();
++		ctags_getline();
+ 		pfnote(tok, lineno);
+ 	}
+ 	/*NOTREACHED*/
+--- a/usr/src/usr.bin/ctags/print.c	2005-02-17 17:29:58.000000000 +0000
++++ b/usr/src/usr.bin/ctags/print.c	2026-11-02 12:59:59.835346098 +0000
+@@ -51,12 +51,12 @@
+ #include "ctags.h"
+ 
+ /*
+- * getline --
++ * ctags_getline --
+  *	get the line the token of interest occurred on,
+  *	prepare it for printing.
+  */
+ void
+-getline(void)
++ctags_getline(void)
+ {
+ 	long	saveftell;
+ 	int	c;
+--- a/usr/src/usr.bin/ctags/yacc.c	2005-02-17 17:29:58.000000000 +0000
++++ b/usr/src/usr.bin/ctags/yacc.c	2026-11-02 12:59:59.835015039 +0000
+@@ -105,7 +105,7 @@
+ 			while (GETC(!=, EOF) && (intoken(c) || c == '.'))
+ 				*sp++ = c;
+ 			*sp = EOS;
+-			getline();		/* may change before ':' */
++			ctags_getline();		/* may change before ':' */
+ 			while (iswhite(c)) {
+ 				if (c == '\n')
+ 					SETLINE;
+--- a/usr/src/usr.bin/gencat/gencat.c	2004-01-05 23:23:34.000000000 +0000
++++ b/usr/src/usr.bin/gencat/gencat.c	2026-11-02 13:04:53.272607282 +0000
+@@ -126,7 +126,7 @@
+ static	char   *cskip __P((char *));
+ static	void	error __P((char *, char *));
+ static	void	nomem __P((void));
+-static	char   *getline __P((int));
++static	char   *gencat_getline __P((int));
+ static	char   *getmsg __P((int, char *, char));
+ static	void	warning __P((char *, char *));
+ static	char   *wskip __P((char *));
+@@ -262,7 +262,7 @@
+ }
+ 
+ static char *
+-getline(fd)
++gencat_getline(fd)
+ 	int     fd;
+ {
+ 	static long curlen = BUFSIZ;
+@@ -371,7 +371,7 @@
+ 				++cptr;
+ 				switch (*cptr) {
+ 				case '\0':
+-					cptr = getline(fd);
++					cptr = gencat_getline(fd);
+ 					if (!cptr)
+ 						error(NULL, "premature end of file");
+ 					msglen += strlen(cptr);
+@@ -444,7 +444,7 @@
+ 
+ 	/* XXX: init sethead? */
+ 
+-	while ((cptr = getline(fd))) {
++	while ((cptr = gencat_getline(fd))) {
+ 		if (*cptr == '$') {
+ 			++cptr;
+ 			if (strncmp(cptr, "set", 3) == 0) {
+--- a/usr/src/bin/pax/options.c	2005-02-10 17:48:33.000000000 +0000
++++ b/usr/src/bin/pax/options.c	2026-11-02 13:59:23.743763235 +0000
+@@ -86,7 +86,7 @@
+ static void printflg(unsigned int);
+ static int c_frmt(const void *, const void *);
+ static off_t str_offt(char *);
+-static char *getline(FILE *fp);
++static char *nb_local_getline(FILE *fp);
+ static void pax_options(int, char **);
+ static void pax_usage(void);
+ static void tar_options(int, char **);
+@@ -94,7 +94,7 @@
+ static void cpio_options(int, char **);
+ static void cpio_usage(void);
+ 
+-/* errors from getline */
++/* errors from nb_local_getline */
+ #define GETLINE_FILE_CORRUPT 1
+ #define GETLINE_OUT_OF_MEM 2
+ static int getline_error;
+@@ -1155,7 +1155,7 @@
+ 						tty_warn(1, "Unable to open file '%s' for read", file);
+ 						tar_usage();
+ 					}
+-					while ((str = getline(fp)) != NULL) {
++					while ((str = nb_local_getline(fp)) != NULL) {
+ 						if (dirisnext) {
+ 							dir = str;
+ 							dirisnext = 0;
+@@ -1245,7 +1245,7 @@
+ 					tty_warn(1, "Unable to open file '%s' for read", file);
+ 					tar_usage();
+ 				}
+-				while ((str = getline(fp)) != NULL) {
++				while ((str = nb_local_getline(fp)) != NULL) {
+ 					if (dirisnext) {
+ 						if (ftree_add(str, 1) < 0)
+ 							tar_usage();
+@@ -1560,7 +1560,7 @@
+ 				    optarg);
+ 				cpio_usage();
+ 			}
+-			while ((str = getline(fp)) != NULL) {
++			while ((str = nb_local_getline(fp)) != NULL) {
+ 				pat_add(str, NULL);
+ 			}
+ 			fclose(fp);
+@@ -1716,7 +1716,7 @@
+ 		 * no read errors allowed on updates/append operation!
+ 		 */
+ 		maxflt = 0;
+-		while ((str = getline(stdin)) != NULL) {
++		while ((str = nb_local_getline(stdin)) != NULL) {
+ 			ftree_add(str, 0);
+ 		}
+ 		if (getline_error) {
+@@ -1944,7 +1944,7 @@
+ }
+ 
+ char *
+-getline(FILE *f)
++nb_local_getline(FILE *f)
+ {
+ 	char *name, *temp;
+ 	size_t len;

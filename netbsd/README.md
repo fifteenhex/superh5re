@@ -15,8 +15,10 @@ HOST_CFLAGS="-O -fcommon -Wno-error -Wno-implicit-function-declaration -Wno-impl
 and the patches in `patches/`:
 
 - `tools_gcc_Makefile.patch`: build only the C compiler.
-- `usr.bin_ctags_getline.patch`, `usr.bin_gencat_gencat.c.patch`,
-  `bin_pax_options.c.patch`: rename `getline`, which clashes with glibc.
+- `getline_renames.patch`: rename `getline` in ctags, gencat, pax, ftp,
+  unifdef, inetd and lpr, which clashes with glibc.
+
+Apply with `patch -p1` in the directory containing `usr/src`.
 
 The gcc install step needs `tools/lib/gcc-lib/sh5le--netbsd/3.3.3` to exist.
 Resulting cross compiler: `sh5le--netbsd-gcc` (gcc 3.3.3, binutils 2.15).

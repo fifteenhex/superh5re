@@ -1,0 +1,11 @@
+--- a/usr/src/tools/gcc/Makefile	2005-05-27 22:37:20.000000000 +0000
++++ b/usr/src/tools/gcc/Makefile	2026-11-02 13:46:56.766139707 +0000
+@@ -9,7 +9,7 @@
+ 		--disable-multilib \
+ 		--enable-threads \
+ 		--program-transform-name="s,^,${MACHINE_GNU_PLATFORM}-," \
+-		--enable-languages="c c++ objc f77"
++		--enable-languages="c"
+ 
+ MAKE_ARGS=	MACHINE= MAKEINFO=${TOOL_MAKEINFO:Q} \
+ 		LIBGCC= LIBGCC1= LIBGCC1_TEST= LIBGCC2= INSTALL_LIBGCC= \
