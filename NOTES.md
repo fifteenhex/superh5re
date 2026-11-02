@@ -29,3 +29,8 @@ reproduce it. Confirmed facts move to `docs/`.
 - Surveyed the web for further SH-5 material; results in `refs/sources.md`.
   The 2004 SuperH, Inc. document catalogue (via the Wayback Machine) confirms
   the four CPU Core PDFs are the original files (sizes match).
+
+## 2026-11-02
+
+- Read the netbsd-3 `sys/arch/sh5` and `sys/arch/evbsh5` sources. Facts in
+  `docs/cayman-platform.md`; QEMU plan in `docs/plan-qemu-netbsd.md`.
