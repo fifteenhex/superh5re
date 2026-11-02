@@ -71,6 +71,34 @@ Each has `binary/kernel/netbsd-CAYMAN.gz` (32-bit ABI) and
 and checksums (SHA512 from 3.0). Source sets are in `source/sets/`.
 These are the only known publicly available SH-5 executables.
 
+Hardware history of the NetBSD port (sources: NetBSD CVS history via the
+GitHub mirror, mail-index.netbsd.org, netbsd.org release pages, the archived
+NetBSD/sh5 port page):
+
+- 2002-07 to 2002-10: written by Steve Woodford (Wasabi Systems) on a Cayman
+  board; dmesg of NetBSD 1.6I CAYMAN64 #45 (2002-10-20), SH-5 at 256 MHz,
+  128 MB, NFS root, PCI audio/SCSI/ethernet tested.
+- 2003-11/12: runtime bug fixes (trap frame printing, scif rx) by scw.
+- netbsd-2-0 branched spring 2004 (before 2004-04-17). scw's last commits
+  before it (2004-03-17) are toolchain/ABI fixes. 2.0 released 2004-12-09.
+- 2005-01-29: scw commits a DMAC driver for hardware page copy/zero,
+  cache/TLB performance work and a page-fault fix. Last hardware-driven
+  change in the tree.
+- netbsd-3 branched 2005-03-16; 3.0 released 2005-12-23, 3.1 2006-11,
+  3.1.1 2008. Only sh5 pullup requested by scw (#850, 2005-09) is a build fix.
+- 2006-09-09: timecounter conversion committed "Compile tested only. Ok
+  steve@" (trunk only, not in any evbsh5 release).
+- 2007-04-08: port removed, "lack of interest, compounded by a lack of
+  available SH5 hardware".
+- The port-sh5 and port-evbsh5 lists never carried a user report: only test
+  posts, spam, the 2006 timecounter patch and one SH7780 thread.
+- No release ever shipped INSTALL notes for evbsh5 (installation/ is empty).
+
+Conclusion: real-hardware boots are documented only for -current in 2002-2003
+and implied up to 2005-01. No release build (2.0 to 3.1.1) is documented as
+having been booted. 3.0/3.1 kernels contain the last hardware-tested sh5 code
+(January 2005) plus later machine-independent changes untested on sh5.
+
 ## Hardware
 
 - Evaluation silicon: SH5-101, SH5-103 (SuperH part names); Cayman development
