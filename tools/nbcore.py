@@ -15,10 +15,13 @@ def load(path):
     if data[:4] == b'\x7fELF':
         return [data]
     cores = []
-    for m in re.finditer(rb'CORE-BEGIN (\S+).*?\n(.*?)CORE-END', data, re.S):
-        hexdata = b''.join(re.findall(rb'[0-9a-f]+', m.group(2).replace(b'!', b'\n')))
+    for m in re.finditer(rb'CORE-BEGIN (/\S+)\r?\n(.*?)CORE-END', data, re.S):
+        body = m.group(2).split(b'\n', 1)[1] if b'\n' in m.group(2) else b''
+        toks = [t.strip() for t in body.replace(b'\r', b'').replace(b'\n', b'').split(b'!')]
+        hexdata = b''.join(t for t in toks if t and re.fullmatch(rb'[0-9a-f]+', t))
         try:
             cores.append(gzip.decompress(bytes.fromhex(hexdata.decode())))
+            print('== %s' % m.group(1).decode())
         except Exception as e:
             print('%s: cannot decode: %s' % (m.group(1).decode(), e))
     return cores

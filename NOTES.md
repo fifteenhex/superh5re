@@ -84,3 +84,26 @@ reproduce it. Confirmed facts move to `docs/`.
   the TLB arrays flushes the QEMU TLB). QEMU `-d pcall` logs user syscalls
   and RTE, `-d guest_errors` logs user faults with a register dump;
   `tools/qrun.py` gained `mon:` steps and `--on-timeout`.
+- 2026-11-02 (debugging the user process crashes): QEMU `-d guest_errors`
+  dumps registers and both TLB arrays at a user fault; `-d mmu` logs TLB
+  writes, ASID changes and user TLB misses; `-d pcall` logs syscalls/RTE;
+  `info tlb` in the monitor. Findings:
+  - Crash site in sh is `forkchild`/`forkparent` (jobs.c): `jp->ps` holds
+    string bytes ("r/lo", "/usr") or an odd pointer, and the child's copy
+    of `mflag` (optlist[4], in .data) is non-zero while the parent's is 0.
+    Two different pages (heap, .data) differ between parent and child.
+  - Processes forked by init also die: the kernel hits a copyinstr fault
+    for the exec path, then traps with IADDERR because trap.c zero-extends
+    `pcb_onfault` (fixed in the patch set; Vol.1: EAs outside the
+    sign-extended neff range raise IADDERR/RADDERR/WADDERR).
+  - A duplicate-TLB-entry check found only benign cases: the STB1 cache-op
+    helper maps the window page in slot 63 with ASID 1 while the generic
+    SH entry for the same page and PA is still present.
+  - Crashes are not deterministic even with `-icount`: the RTC model
+    returns host time. Boots crash in roughly half the runs; the hang in
+    `/etc/rc` is a process looping on wait4() = ECHILD.
+  - Kernel TLB invalidation protocol (slot cookies, R bit) checked against
+    stb1_locore.S and pmap.c; QEMU flushes its TLB on every TLB array
+    write, so it cannot hold a translation the arrays do not.
+  - Core dumps can be fetched over the console (`tools/nbcore.py`); the
+    root login shell is csh, so run `exec sh` first.
