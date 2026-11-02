@@ -9,7 +9,7 @@ include 	"arch/evbsh5/conf/std.evbsh5.el"
 # Cayman board under QEMU, root on an embedded memory disk
 options 	MEMORY_DISK_HOOKS
 options 	MEMORY_DISK_IS_ROOT	# force root on memory disk
-options 	MEMORY_DISK_ROOT_SIZE=24576	# size of memory disk, in blocks
+options 	MEMORY_DISK_ROOT_SIZE=65536	# size of memory disk, in blocks
 
 maxusers	8
 
@@ -186,3 +186,4 @@ gphyter* at mii? phy ?			# NS83861 Gig-E PHY
 #
 scsibus*	at scsi?
 sd*		at scsibus? target ? lun ?
+options 	MEMORY_RBFLAGS=0	# boot multi-user from the memory disk

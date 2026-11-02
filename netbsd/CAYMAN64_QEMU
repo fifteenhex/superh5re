@@ -1,0 +1,5 @@
+# CAYMAN_QEMU built with the 64-bit ABI; runs 32-bit userland via COMPAT_NETBSD32.
+include 	"arch/evbsh5/conf/CAYMAN_QEMU"
+makeoptions 	SH5_ABI=64
+options 	EXEC_ELF64
+options 	COMPAT_NETBSD32

@@ -1,0 +1,55 @@
+--- a/usr/src/sys/arch/sh5/sh5/in_cksum.S	2005-01-29 11:22:30.000000000 +0000
++++ b/usr/src/sys/arch/sh5/sh5/in_cksum.S	2026-11-02 13:40:25.929418711 +0000
+@@ -313,8 +313,16 @@
+ #endif
+ 	ldlo.q	r4, IP_SRC, r19		/* Note: Assumes ip_src/ip_dst are */
+ 	ldhi.q	r4, IP_SRC+7, r20	/*       contiguous in memory */
+-	or	r19, r20, r19
+-	ADDC	(r19, r2, r2)		/* sum += ip->ip_{src,dst} */
++	/*
++	 * Fold the destination address down from bits 63:32 before adding.
++	 * The running sum in r2 is added to with plain adds later on, so it
++	 * must not be allowed to get within 2^33 of overflowing; with an
++	 * unfolded broadcast address it would (udps_badsum on every
++	 * broadcast UDP packet).
++	 */
++	mshfhi.l r20, r63, r20
++	add	r19, r2, r2		/* sum += ip->ip_src */
++	add	r20, r2, r2		/* sum += ip->ip_dst */
+ 	movi	0, r3
+ #endif	/* INET */
+ 
+--- a/usr/src/sys/arch/sh5/include/param.h	2004-03-24 15:38:42.000000000 +0000
++++ b/usr/src/sys/arch/sh5/include/param.h	2026-11-02 14:39:41.756315768 +0000
+@@ -99,7 +99,11 @@
+  * clusters (MAPPED_MBUFS), MCLBYTES must also be an integral multiple
+  * of the hardware page size.
+  */
++#ifdef _LP64
++#define	MSIZE		512		/* size of an mbuf */
++#else
+ #define	MSIZE		256		/* size of an mbuf */
++#endif
+ 
+ #ifndef MCLSHIFT
+ #define	MCLSHIFT	11		/* convert bytes to m_buf clusters */
+--- a/usr/src/sys/arch/sh5/include/vmparam.h	2005-09-30 08:50:32.000000000 +0000
++++ b/usr/src/sys/arch/sh5/include/vmparam.h	2026-11-02 15:33:19.501278846 +0000
+@@ -116,7 +116,17 @@
+  * USRSTACK is the top of user stack. 
+  */
+ #define USRSTACK	VM_MAXUSER_ADDRESS
++#ifdef _LP64
++/*
++ * Keep 32-bit processes below 2GB: effective addresses are sign-extended
++ * from bit 31, so a 32-bit address above 0x80000000 would fall outside
++ * the process map when the kernel sees it in TEA.
++ */
++#define VM_MAXUSER_ADDRESS32	(0x80000000UL - PAGE_SIZE)
++#define USRSTACK32	VM_MAXUSER_ADDRESS32
++#else
+ #define USRSTACK32	((u_int32_t)USRSTACK)
++#endif
+ 
+ /* Virtual memory resoruce limit. */
+ #define MAXTSIZ                 (64 * 1024 * 1024)      /* max text size */
