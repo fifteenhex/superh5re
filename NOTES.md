@@ -34,3 +34,14 @@ reproduce it. Confirmed facts move to `docs/`.
 
 - Read the netbsd-3 `sys/arch/sh5` and `sys/arch/evbsh5` sources. Facts in
   `docs/cayman-platform.md`; QEMU plan in `docs/plan-qemu-netbsd.md`.
+- QEMU: new `sh5` target and `cayman` machine (branch `intern-sh5-20261102`
+  in the qemu repository). The NetBSD 3.1 `netbsd-CAYMAN` kernel boots to
+  the `root device:` prompt with SCIF console; autoconfiguration finds cpu,
+  pbridge, intc, cprc, tmu, scif, rtc, femi and sysfpga. The kernel's
+  built-in boot flags include RB_KDB, so it stops in DDB first; `c` continues.
+
+  ```
+  qemu-system-sh5 -M cayman -kernel netbsd-CAYMAN -nographic -d int,guest_errors,unimp -D boot.log
+  ```
+  Open: CTC/TMU calibration reads 2x (PLL reported 1024 MHz), no root
+  device (needs sm0 ethernet + NFS, or a kernel with an md root).
