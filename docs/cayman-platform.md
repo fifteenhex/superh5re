@@ -28,7 +28,14 @@ Architecture Volume 1 when available.
   NetBSD relies on this: `pmap_bootstrap` writes SR = 0xf0 just to clear
   BL, `sh5_setasid` switches the ASID with RTE, and `cpu_switch` restores a
   saved SR with PUTCON expecting the ASID to be unaffected.
-- USR register: GPR and FPR dirty bits (8 groups each).
+- USR register: bits 7:0 GPRS, bits 15:8 FPRS. Bit i is set by hardware when
+  any of R8i..R8i+7 (FR8i..FR8i+7) is written; software clears bits with
+  PUTCON (Volume 1, 15.2.11). NetBSD saves and restores an FP register
+  group on context switch and signal delivery only when its FPRS bit is set
+  (`cpu_switch.S` FPSV/FPRS macros, `sh5_fpsave`), and the exception entry
+  code preserves USR across handlers. gcc 3.3 uses FP registers as integer
+  scratch (`fmov.ls`/`fmov.sl`), so an emulator that does not set the dirty
+  bits leaks FP state between processes and corrupts pointers at random.
 - FPSCR: RM bit 0, FLAG bits 6:2, ENABLE 11:7, CAUSE 17:12 (I,U,O,Z,V,E),
   DN bit 18. DR2i is FR2i (high half) : FR2i+1 (low half). The kernel
   enables the FPU (clears SR.FD) at boot and writes FPSCR = 0x20000.
@@ -97,3 +104,19 @@ INTC registers: ICR_SET 0, ICR_CLEAR 8, INTPRI 0x10.., INTSRC 0x50.., INTREQ
   which breaks DHCP with servers that broadcast their replies. Workaround used
   here: fold `r20` (dst) to 32 bits with `mshfhi.l` before adding, so r2 can
   no longer overflow.
+- `sys/arch/sh5/sh5/trap.c`: after a copyin/copyout fault the resume
+  address is `(register_t)(uintptr_t)pcb_onfault`, which zero-extends a
+  kernel address. Effective addresses outside the sign-extended 32-bit range
+  raise IADDERR (Volume 1, address validity), so a faulting copyinstr in a
+  32-bit kernel ends in "Instruction Address Error in kernel mode" at
+  `Lcopystrerr`. Fix: cast through `intptr_t`.
+- `sys/arch/sh5/include/param.h`: MSIZE 256 is too small for LP64;
+  `sizeof(struct _m_ext) > MHLEN` and the 64-bit kernel panics in mbinit.
+- `sys/arch/sh5/include/vmparam.h`: USRSTACK32 = 0xbffff000 puts the stack
+  of a 32-bit process above 2 GB; the kernel sees the sign-extended address
+  in TEA, outside the process map, and execve fails with EFAULT. Keeping
+  32-bit processes below 0x80000000 works.
+- Boot parameters: `bp_kseg0_phys` and `bp_mem[].physstart` must be unsigned
+  physical addresses. The kernel's built-in defaults are sign-extended; with
+  those the 64-bit pmap's page frame numbers no longer match the PTEL PPN
+  and `PHYS_TO_VM_PAGE` fails for every page.
