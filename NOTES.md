@@ -66,3 +66,21 @@ reproduce it. Confirmed facts move to `docs/`.
   placement. Open: `uname` and `tail` are not in /rescue (expected), RTC
   date read reports "bad date in battery clock", multi-user boot untested,
   SHcompact and the 64-bit kernel untested.
+- 2026-11-02 (later): both kernels reach multi-user with a console login
+  (`netbsd/README.md`). Fixes needed: boot parameters must carry unsigned
+  physical addresses (the kernel's own defaults sign-extend them, but the
+  64-bit pmap then compares sign-extended page frame numbers with the PTEL
+  PPN and PHYS_TO_VM_PAGE fails); LP64 needs 512-byte mbufs; 32-bit
+  processes on the 64-bit kernel must live below 2 GB (TEA is sign-extended
+  from bit 31); `MEMORY_RBFLAGS=0` or the memory-disk root forces single
+  user. 64-bit kernel: `ifconfig`/`route` fail through COMPAT_NETBSD32.
+  Open: timing-dependent user process crashes (SIGBUS/SIGSEGV in sh, tset,
+  grep, csh; fault addresses are ASCII text, so a pointer was overwritten
+  with string data) and one hang in `/etc/rc` with a process looping on
+  wait4() = ECHILD. Six consecutive boots were clean, so neither is
+  deterministic. Checked and found consistent with the manuals: LDLO/LDHI/
+  STLO/STHI byte mappings, IMASK set to the interrupt level on launch,
+  SR.FD in the TB flags, TLB invalidation by slot cookie (every putcfg to
+  the TLB arrays flushes the QEMU TLB). QEMU `-d pcall` logs user syscalls
+  and RTE, `-d guest_errors` logs user faults with a register dump;
+  `tools/qrun.py` gained `mon:` steps and `--on-timeout`.
