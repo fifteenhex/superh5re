@@ -1,0 +1,25 @@
+--- a/gcc/config/sh/sh.c	2026-11-02 22:56:05.120237084 +0000
++++ b/gcc/config/sh/sh.c	2026-11-02 22:56:05.136830852 +0000
+@@ -13643,12 +13643,16 @@
+ 	      && SYMBOLIC_CONST_P (XEXP (XEXP (x, 0), 0)))))
+     return false;
+ 
+-  if (TARGET_SHMEDIA
+-      && ((mode != DFmode && GET_MODE_CLASS (mode) != MODE_VECTOR_FLOAT)
+-	  || x == CONST0_RTX (mode)
+-	  || !TARGET_SHMEDIA_FPU
+-	  || TARGET_SHMEDIA64))
+-    return false;
++  /* SHmedia can materialise any integer constant with movi/shori; only
++     floating-point constants need the pool when an FPU is present.  The
++     original LEGITIMATE_CONSTANT_P macro returned this condition as the
++     result; returning false here forced every constant into memory and
++     recursed forever in emit_move_insn.  */
++  if (TARGET_SHMEDIA)
++    return ((mode != DFmode && GET_MODE_CLASS (mode) != MODE_VECTOR_FLOAT)
++	    || x == CONST0_RTX (mode)
++	    || !TARGET_SHMEDIA_FPU
++	    || TARGET_SHMEDIA64);
+ 
+   return GET_CODE (x) != CONST_DOUBLE
+ 	 || mode == DFmode || mode == SFmode
