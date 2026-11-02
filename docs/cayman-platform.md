@@ -84,3 +84,14 @@ INTC registers: ICR_SET 0, ICR_CLEAR 8, INTPRI 0x10.., INTSRC 0x50.., INTREQ
 - CAYMAN / CAYMAN64: full board, 32-bit or 64-bit ABI. Shipped in releases.
 - SIMULATOR: option SH5_SIM, CPU speed 10 MHz, devices cpu, pbridge, cprc,
   intc, tmu, rtc, clock, dtfcons. MFS and FFS, no network drivers.
+
+## NetBSD 3.x sh5 kernel bugs found by emulation
+
+- `sys/arch/sh5/sh5/in_cksum.S`, `in4_cksum`: the pseudo-header sum
+  (`src | dst << 32` plus `(proto + len) << 8`) is kept unfolded in r2 and the
+  folded per-mbuf sums are later added with a plain `add`, so for a
+  destination of 255.255.255.255 the 64-bit sum overflows and the carry is
+  lost. Every broadcast UDP packet fails checksum verification (udps_badsum),
+  which breaks DHCP with servers that broadcast their replies. Workaround used
+  here: fold `r20` (dst) to 32 bits with `mshfhi.l` before adding, so r2 can
+  no longer overflow.

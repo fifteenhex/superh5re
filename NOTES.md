@@ -45,3 +45,15 @@ reproduce it. Confirmed facts move to `docs/`.
   ```
   Open: CTC/TMU calibration reads 2x (PLL reported 1024 MHz), no root
   device (needs sm0 ethernet + NFS, or a kernel with an md root).
+- Found and worked around a NetBSD/sh5 checksum bug (see
+  `docs/cayman-platform.md`); with it patched, DHCP over the emulated sm0
+  completes. Shipped kernel cannot mount root without an NFS server, so the
+  next step is a self-built kernel with an md root. NetBSD 3.1 cross tools
+  (`build.sh -m evbsh5 tools`) build on a modern host with
+  `HOST_CFLAGS="-O -fcommon -Wno-error -std=gnu89 -DARG_MAX=262144"` plus
+  renaming `getline` in `usr.bin/ctags` and `usr.bin/gencat`; gcc must be
+  built with `-j1` (parallel build produced a bad `tree.o`).
+- DDB is reachable by answering `ddb` at the `root device:` prompt; the
+  emulator passes the kernel symbol table so DDB shows symbols. `qrun.py`
+  (in the work area, not yet in the repo) drives the console with
+  expect/send steps.
