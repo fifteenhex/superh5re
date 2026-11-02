@@ -21,7 +21,7 @@ tar --no-same-permissions -xzf "$BASE" ./rescue ./var ./sbin/nologin \
 	./usr/bin/wc ./usr/bin/id ./usr/bin/env ./usr/bin/printf \
 	./usr/bin/basename ./usr/bin/dirname ./usr/bin/cmp ./usr/bin/tset \
 	./usr/bin/true ./usr/bin/false ./usr/bin/xargs ./usr/bin/find \
-	./usr/bin/hexdump ./usr/bin/du ./usr/bin/vmstat ./usr/bin/netstat \
+	./usr/bin/hexdump ./usr/bin/od ./usr/bin/uuencode ./usr/bin/uudecode ./usr/bin/du ./usr/bin/vmstat ./usr/bin/netstat \
 	./usr/bin/top ./usr/bin/who ./usr/bin/w ./usr/bin/uptime ./usr/bin/less \
 	./usr/bin/more \
 	./usr/sbin/pwd_mkdb ./usr/sbin/dev_mkdb ./usr/sbin/syslogd \

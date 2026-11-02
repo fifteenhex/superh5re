@@ -3,8 +3,8 @@
 
 usage: nbcore.py FILE [ADDR [LEN]]
 FILE is either a core file or a console transcript holding
-"CORE-BEGIN ... CORE-END" blocks of gzip data as hex records separated by '!'
-(as produced by  gzip -c core | hexdump -v -e '32/1 "%02x" "!"').
+"CORE-BEGIN path ... CORE-END" blocks produced in the guest by
+  gzip -c core | uuencode core.gz
 Prints the process info and registers; with ADDR dumps LEN (default 256)
 bytes of memory from the core at that virtual address.
 """
@@ -15,13 +15,25 @@ def load(path):
     if data[:4] == b'\x7fELF':
         return [data]
     cores = []
-    for m in re.finditer(rb'CORE-BEGIN (/\S+)\r?\n(.*?)CORE-END', data, re.S):
-        body = m.group(2).split(b'\n', 1)[1] if b'\n' in m.group(2) else b''
-        toks = [t.strip() for t in body.replace(b'\r', b'').replace(b'\n', b'').split(b'!')]
-        hexdata = b''.join(t for t in toks if t and re.fullmatch(rb'[0-9a-f]+', t))
+    # uuencoded blocks:  gzip -c core | uuencode name  between CORE-BEGIN/CORE-END
+    import binascii
+    for m in re.finditer(rb'CORE-BEGIN (/\S+)(.*?)CORE-END', data, re.S):
+        lines = m.group(2).replace(b'\r', b'').split(b'\n')
         try:
-            cores.append(gzip.decompress(bytes.fromhex(hexdata.decode())))
-            print('== %s' % m.group(1).decode())
+            i = next(k for k, l in enumerate(lines) if l.startswith(b'begin '))
+        except StopIteration:
+            print('%s: no uuencoded data' % m.group(1).decode()); continue
+        raw = b''
+        for l in lines[i + 1:]:
+            if l.startswith(b'end') or not l:
+                break
+            try:
+                raw += binascii.a2b_uu(l)
+            except binascii.Error:
+                raw += binascii.a2b_uu(l[:(((l[0] - 32) & 63) + 2) // 3 * 4 + 1])
+        try:
+            cores.append(gzip.decompress(raw))
+            print('== %s (%d bytes)' % (m.group(1).decode(), len(cores[-1])))
         except Exception as e:
             print('%s: cannot decode: %s' % (m.group(1).decode(), e))
     return cores
