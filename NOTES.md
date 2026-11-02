@@ -57,3 +57,12 @@ reproduce it. Confirmed facts move to `docs/`.
   emulator passes the kernel symbol table so DDB shows symbols. `qrun.py`
   (in the work area, not yet in the repo) drives the console with
   expect/send steps.
+- 2026-11-02: NetBSD 3.1 boots to a single-user shell on the QEMU `cayman`
+  machine using a self-built CAYMAN_QEMU kernel with a 12 MB memory-disk
+  root (`netbsd/README.md`). Verified: ps, df, mount, sysctl, ifconfig and
+  ping to the slirp gateway. Remaining emulator work found on the way:
+  SR.ASID/MD/MMU/WATCH/STEP are read-only to PUTCON; RTC 64 Hz register
+  runs at 128 Hz; .L shifts mask the count to 5 bits; LDLO/LDHI byte
+  placement. Open: `uname` and `tail` are not in /rescue (expected), RTC
+  date read reports "bad date in battery clock", multi-user boot untested,
+  SHcompact and the 64-bit kernel untested.
