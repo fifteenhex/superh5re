@@ -39,6 +39,9 @@ Resulting cross compiler: `sh5le--netbsd-gcc` (gcc 3.3.3, binutils 2.15).
     Effective addresses are sign-extended from bit 31, so a 32-bit stack at
     0xbffff000 appears to the kernel as 0xffffffffbffff000, outside the
     process map, and execve of init fails with EFAULT.
+  - `trap.c`: sign-extend `pcb_onfault` when resuming after a copyin/copyout
+    fault; the zero-extended address is outside the 32-bit effective address
+    space and the CPU raises IADDERR in kernel mode.
 
 ```
 sh build.sh -m evbsh5 -U -u -N 1 -V MKMAN=no -O obj -T tools -j8 kernel=CAYMAN_QEMU
