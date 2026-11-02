@@ -105,3 +105,25 @@ having been booted. 3.0/3.1 kernels contain the last hardware-tested sh5 code
   board (Hitachi), PCI, bi-endian, little-endian by default.
 - Hot Chips 13 block diagram of the evaluation chip: EMI (DDR SDRAM), FEMI
   (SRAM/Flash), PCI, debug, serial.
+
+## Linux userland for SH-5 (sh64)
+
+No prebuilt sh64 root filesystem or binary toolchain is known to exist online
+(checked 2026-11: Debian and Gentoo never had an sh64 port; kernel.org
+crosstool and Bootlin toolchains offer sh2/sh4 only; the SuperH/TimeSys/
+Red Hat GNUPro sh64 deliverables of 2002-2003 are not downloadable).
+
+Components that existed:
+
+| Component | sh64 support | Notes |
+|---|---|---|
+| Linux kernel | `arch/sh64` 2.6.8-2.6.24; `arch/sh` with `CONFIG_SUPERH64` 2.6.25-5.7; removed in 5.8 (37744feebc08 "sh5 never became a product and has probably never really worked") | `arch/sh/configs/cayman_defconfig`, `arch/sh/boards/mach-cayman/` |
+| gcc | `sh64-linux` target until gcc 6 (deprecated), removed in 7 | 2007 reports: 3.2 ICEs, 3.4/4.0/4.1 fail to build for sh64 |
+| binutils | until 2.30 | we build 2.30 `sh64-elf` already |
+| uClibc | `libc/sysdeps/linux/sh64` in uClibc 0.9.28-0.9.33.2 (NPTL in 0.9.32); dropped in uClibc-ng | the only libc with an sh64 port |
+| glibc, musl | no sh64 port | |
+| Buildroot | `BR2_sh64` until 2015.02; deprecated 2015.05, removed 2015.08 | 2015.02 allowed only glibc/eglibc for sh64, so it is doubtful it ever produced a working rootfs |
+| busybox | 2.4-era insmod lists SH5 | plain C, builds for any libc |
+
+Practical route: uClibc 0.9.33.2 + gcc 4.x/5.x `sh64-linux-uclibc` built from
+source, static busybox, kernel 2.6.2x or 3.x with `cayman_defconfig`.
