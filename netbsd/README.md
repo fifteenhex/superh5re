@@ -66,10 +66,10 @@ without a password.
 
 Status:
 
-- CAYMAN_QEMU (32-bit): multi-user, login, network (ping to the gateway).
+- CAYMAN_QEMU (32-bit): multi-user, console login, csh, network (ping to
+  the gateway). 16 consecutive boots without a crash.
 - CAYMAN64_QEMU (64-bit): multi-user and login. `ifconfig` and `route` fail
-  with "Invalid argument" / "Device not configured": the 32-bit network
-  tools do not work through COMPAT_NETBSD32 in NetBSD 3.1.
-- Open: some processes die with SIGBUS/SIGSEGV during rc (two `sh` and
-  `tset` on 32-bit, `grep` and `csh` on 64-bit); one 32-bit boot in four hung
-  in `/etc/rc` with a process looping on `wait4` returning ECHILD.
+  with "Invalid argument" / "Device not configured" and `syslogd` dumps
+  core: the 32-bit userland does not fully work through COMPAT_NETBSD32 in
+  NetBSD 3.1.
+- Boot takes about 40 s on the emulator. The root login shell is csh.

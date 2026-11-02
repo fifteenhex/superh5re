@@ -107,3 +107,14 @@ reproduce it. Confirmed facts move to `docs/`.
     write, so it cannot hold a translation the arrays do not.
   - Core dumps can be fetched over the console (`tools/nbcore.py`); the
     root login shell is csh, so run `exec sh` first.
+- 2026-11-02 (resolved): the random user process crashes and the rc hang
+  were caused by the emulator never setting the USR dirty bits. NetBSD
+  saves/restores FP register groups only when USR.FPRS says they were
+  written; gcc uses FP registers as integer scratch, so FP state leaked
+  between processes. With dirty-bit tracking (QEMU commit "track
+  USR.GPRS/USR.FPRS dirty bits") 16 consecutive 32-bit boots and 4 64-bit
+  boots were clean; a boot takes about 40 s. Experiments that ruled things
+  out before that: whole-TLB flush on every kernel invalidation still
+  crashed (so not TLB bookkeeping); LDLO/LDHI/STLO/STHI mappings match the
+  manual. Open on the 64-bit kernel: syslogd dumps core (COMPAT_NETBSD32),
+  ifconfig/route fail. RTC model uses host time (non-deterministic boots).
