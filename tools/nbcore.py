@@ -24,13 +24,24 @@ def load(path):
         except StopIteration:
             print('%s: no uuencoded data' % m.group(1).decode()); continue
         raw = b''
+        skipped = 0
         for l in lines[i + 1:]:
-            if l.startswith(b'end') or not l:
+            if l.startswith(b'end'):
                 break
+            if not l or any(c < 32 or c > 96 for c in l):
+                skipped += 1
+                continue
+            n = (l[0] - 32) & 63
+            want = (n + 2) // 3 * 4 + 1
+            if len(l) < want:
+                skipped += 1
+                continue
             try:
-                raw += binascii.a2b_uu(l)
+                raw += binascii.a2b_uu(l[:want])
             except binascii.Error:
-                raw += binascii.a2b_uu(l[:(((l[0] - 32) & 63) + 2) // 3 * 4 + 1])
+                skipped += 1
+        if skipped:
+            print('%s: %d damaged lines skipped' % (m.group(1).decode(), skipped))
         try:
             cores.append(gzip.decompress(raw))
             print('== %s (%d bytes)' % (m.group(1).decode(), len(cores[-1])))
