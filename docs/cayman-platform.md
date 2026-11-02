@@ -23,7 +23,13 @@ Architecture Volume 1 when available.
   U=0x200, bits 12.. PPN. Software uses 0x400 and 0x800 as R and M bits.
 - SR bits: IMASK 7:4, Q 8, M 9, CD 11, PR 12, SZ 13, FR 14, FD 15, ASID 23:16,
   WATCH 26, STEP 27, BL 28, MD 30, MMU 31.
+- SR bits MD, MMU, WATCH and STEP are read-only to PUTCON on the STB1;
+  only an event launch or RTE changes them (Volume 4, Table 9). NetBSD
+  relies on this: `pmap_bootstrap` writes SR = 0xf0 just to clear BL.
 - USR register: GPR and FPR dirty bits (8 groups each).
+- FPSCR: RM bit 0, FLAG bits 6:2, ENABLE 11:7, CAUSE 17:12 (I,U,O,Z,V,E),
+  DN bit 18. DR2i is FR2i (high half) : FR2i+1 (low half). The kernel
+  enables the FPU (clears SR.FD) at boot and writes FPSCR = 0x20000.
 - CTC control register: cycle counter, used for delay calibration.
 
 ## Physical memory map (Cayman)
