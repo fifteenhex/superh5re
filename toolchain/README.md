@@ -41,3 +41,24 @@ falls back to the host's.
 The kernel needs libgcc for the 64-bit shift helpers: after `install-gcc`
 run `make all-target-libgcc install-target-libgcc` (works with
 `--without-headers`).
+
+## gcc 6.5 inline division bug (SHmedia)
+
+The default division strategy for SHmedia expands `a / b` and `a % b`
+inline (`divsi_inv_m1`, `_m2`, `_m3`, `_m1_3` in `gcc/config/sh/sh.md`).
+Their scratch operands are plain `=r` clobbers, so the register allocator
+may give a scratch the same register as an input that the split still
+reads afterwards. In Linux 6.15 `lib/crypto/blake2s-selftest.c` the
+sequence `l = (l + 37) % ++i` came out as `sub r0,r0,r0` (the constant 92
+clobbered) and `shard r6,r6,r6` (the shift count clobbered), the remainder
+was garbage and `blake2s_update` ran off the end of its buffer.
+
+`gcc-6.5-sh64-divsi-inv-early-clobber.patch` makes the clobbers
+`=&r`. It is untested: rebuilding gcc needs the gmp/mpfr/mpc sources
+again. The kernel branch avoids the patterns with `-mdiv=call`
+(`__sdivsi3`/`__udivsi3` from `arch/sh/lib64`). Any userland built with
+this gcc needs the patch or `-mdiv=call`.
+
+Related: labels defined in a SHmedia text section are marked ISA32 and
+every reference to them (movi/shori, pt) gets bit 0 set. Data tables must
+live in `.rodata`/`.data` (libgcc works around this with `datalabel`).

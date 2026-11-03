@@ -1,4 +1,10 @@
-# Linux 5.7 on the QEMU Cayman machine
+# Linux on the QEMU Cayman machine
+
+Two kernels boot to the root filesystem panic: 5.7, the last release with
+the SH-5 port, and 6.15, the newest release gcc 6.5 can build, with the
+port revived (see "Linux 6.15" below).
+
+# Linux 5.7
 
 Linux 5.7 is the last release with the SH-5 (sh64) port (removed in 5.8).
 Toolchain: see `../toolchain/README.md` (binutils 2.30, gcc 6.5.0 with the
@@ -56,3 +62,67 @@ guest memory with `tools/printkbuf.py` when the console is not up yet).
 
 Still open: `WARNING at mm/percpu.c:1689` (first percpu chunk marked
 immutable but not fully populated) appears on every percpu allocation.
+
+# Linux 6.15
+
+Branch `intern-sh5-revive-20261103` of the `linux` repository, on `v6.15`.
+6.15 is the last release whose minimum gcc is 5.1 for non-x86 targets;
+6.16 requires gcc 8.1 and binutils 2.30 for everything.
+
+## Build
+
+```
+make ARCH=sh64 CROSS_COMPILE=sh64-linux- cayman_qemu_defconfig
+make -j8 ARCH=sh64 CROSS_COMPILE=sh64-linux- vmlinux
+qemu-system-sh5 -M cayman -kernel vmlinux -append console=ttySC0 -nographic
+```
+
+## Result
+
+Boots to `VFS: Unable to mount root fs on unknown-block(2,0)` in 8.2 s of
+guest time with the SCIF console, TMU, INTC and Cayman EPLD interrupts,
+brd and loop (`logs/linux-6.15-cayman.txt`). No warnings; the 5.7 percpu
+warning is gone.
+
+## Branch contents
+
+1. Reverts of the removal commits: `37744feebc08` (sh: remove sh5 support,
+   5.8), `8a8e54625be2` (Cayman platform, 5.9), `45799491a921`
+   (ARCH=sh64 in the top Makefile, 5.13), `028062ec222d` (modpost
+   `.cranges`, 6.0), `25c7d77d695a` (boot/compressed cache handling,
+   6.10). `644a9cf0d2a8` (docs, checkstack, selftests) is not reverted.
+   Conflicts: Kconfig selects moved under `SUPERH32`, KEXEC/CRASH_DUMP
+   symbols are the new `ARCH_SUPPORTS_*` form, the page size choice is
+   gone (`HAVE_PAGE_SIZE_64KB if CPU_SH4 || CPU_SH5`), `head_$(BITS).o` is
+   in `obj-y`, `bugs.h` no longer exists.
+2. The 5.7 fixes above (minus the linker script and io_uring ones, no
+   longer needed).
+3. API port (one commit): `PFN_PTE_SHIFT`, `pte_mkwrite_novma`, `pmd_pfn`,
+   swap PTE exclusive marker (bit 7, `_PAGE_EXECUTE`, unused by the swap
+   encoding), generic `pgd_offset`/`pte_offset_kernel`, p4d level,
+   `destroy_context` marker, `flush_dcache_folio`, membuf regsets,
+   `ptrace_report_syscall_*`, `secure_computing()`,
+   `resume_user_mode_work`, `copy_thread(kernel_clone_args)`,
+   `__get_wchan`, `show_stack` loglvl, `sys_ni_syscall` for
+   bdflush/_sysctl/lookup_dcookie, `ARCH_HAS_SEARCH_EXTABLE` guard
+   restored in `lib/extable.c`, Cayman added to `boards/Makefile`, SuperIO
+   accessed through its ioremap window (`mv_ioport_map` is gone).
+4. Bugs found while booting, one commit each:
+
+| Symptom | Cause |
+|---|---|
+| `BUG at arch/sh/mm/init.c one_page_table_init` | `pmd_page_vaddr` applied `__va()` to a pmd that already holds a virtual address. |
+| jump to 0x680 from `start_kernel` | `trap_init` saves r28-r30 and never restores them; 0x680 is its `BLOCK_SIZE`. |
+| (prevention) | `is_vmalloc_addr()` is out of line since 5.8; the fast TLB miss handler runs on a 128-byte stack with r2-r5/r18 saved. Inline range check. |
+| NULL `current` after the first context switch | `switchto.S` loaded `next->stack` from a hard-coded offset 4. Use `TASK_STACK` from asm-offsets. |
+| `failed to request irq 32`, `Failed to register Cayman SMSC Mux interrupt` | SPARSE_IRQ is unconditional and nobody allocates descriptors. `irq_alloc_descs` in `plat_irq_setup` and `init_cayman_irq`. |
+| RADDERR in `__sdivsi3_2` | `__div_table` is a label in `.text..SHmedia32`, so the linker sets the ISA bit on every reference and the table pointer is odd. Table moved to `.rodata`. |
+| hang in `sci_set_termios` -> `udelay(9)` | `__const_udelay` multiplied 32-bit and never shifted the 2^32-scaled value down. |
+| blake2s self-test runs `memcpy` off into unmapped memory | gcc 6.5 inline division: see `../toolchain/README.md`. Kernel built with `-mdiv=call`. |
+| `Kernel command line: console=ttySC1,115200` | the Kconfig default became `CMDLINE_OVERWRITE`; defconfig sets `CMDLINE_FROM_BOOTLOADER`. |
+
+Reading the printk ring from guest memory on 6.x: the lockless ring buffer
+stores plain text in `__log_buf`; `strings`-style extraction of the
+`xp /Nxb` dump is enough (`tools/printkbuf.py` decodes the 5.x format only).
+Note that `objdump -d --start-address` prints nothing for the sh64 vmlinux;
+disassemble the whole file and grep.

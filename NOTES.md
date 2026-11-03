@@ -134,3 +134,17 @@ reproduce it. Confirmed facts move to `docs/`.
   (`tests/lib64`) that runs the kernel's string routines standalone.
   Note: the harness must be compiled with the same macros as the kernel;
   the strcpy bug only showed with kconfig.h's `__LITTLE_ENDIAN`.
+- 2026-11-03: Linux 6.15 (newest release buildable with gcc 6.5; 6.16
+  requires gcc 8.1) boots to the root filesystem panic with the SH-5 port
+  revived: branch `intern-sh5-revive-20261103` of `linux` (reverts of the
+  removal commits, API port, nine bug fixes; `linux/README.md` has the
+  table). Boot-stopping bugs in order found: `pmd_page_vaddr` `__va()`,
+  `trap_init` clobbering r28-r30, hard-coded `task_struct.stack` offset in
+  `switchto.S`, no irq descriptors under SPARSE_IRQ, gcc inline division
+  (missing early clobbers, `toolchain/README.md`), `__div_table` ISA bit,
+  `__const_udelay` overflow. Pitfalls: the fast TLB miss handler must not
+  call out-of-line functions; `-d int` shows nested faults with `(panic)`
+  when SR.BL is set; a console pipeline through `tail` showed nothing
+  because `timeout` killed it first, redirect QEMU output to a file.
+  Open: gcc patch untested (needs gmp/mpfr/mpc sources to rebuild gcc);
+  still no sh64 root filesystem.

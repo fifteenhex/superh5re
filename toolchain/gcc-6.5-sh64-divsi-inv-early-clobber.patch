@@ -1,0 +1,70 @@
+--- a/gcc/config/sh/sh.md	2026-11-03 02:10:52.562024752 +0000
++++ b/gcc/config/sh/sh.md	2026-11-03 02:10:52.584000000 +0000
+@@ -3269,11 +3269,11 @@
+ 		    (match_operand:DI 2 "register_operand" "r")
+ 		    (match_operand:SI 3 "register_operand" "r")]
+ 	 UNSPEC_DIV_INV_M1))
+-   (clobber (match_operand:SI 4 "register_operand" "=r"))
+-   (clobber (match_operand:DI 5 "register_operand" "=r"))
+-   (clobber (match_operand:DI 6 "register_operand" "=r"))
+-   (clobber (match_operand:DI 7 "register_operand" "=r"))
+-   (clobber (match_operand:DI 8 "register_operand" "=r"))]
++   (clobber (match_operand:SI 4 "register_operand" "=&r"))
++   (clobber (match_operand:DI 5 "register_operand" "=&r"))
++   (clobber (match_operand:DI 6 "register_operand" "=&r"))
++   (clobber (match_operand:DI 7 "register_operand" "=&r"))
++   (clobber (match_operand:DI 8 "register_operand" "=&r"))]
+   "TARGET_SHMEDIA"
+   "#"
+   "&& !can_create_pseudo_p ()"
+@@ -3316,7 +3316,7 @@
+ 		    (match_operand:SI 2 "register_operand" "r")
+ 		    (match_operand:DI 3 "register_operand" "r")]
+ 	 UNSPEC_DIV_INV_M2))
+-   (clobber (match_operand:DI 4 "register_operand" "=r"))]
++   (clobber (match_operand:DI 4 "register_operand" "=&r"))]
+   "TARGET_SHMEDIA"
+   "#"
+   "&& !can_create_pseudo_p ()"
+@@ -3353,13 +3353,13 @@
+ 		    (match_operand:DI 5 "arith_reg_or_0_operand" "rN")
+ 		    (match_operand:DI 6 "arith_reg_or_0_operand" "rN")]
+ 	 UNSPEC_DIV_INV_M3))
+-   (clobber (match_operand:DI 7 "register_operand" "=r"))
+-   (clobber (match_operand:DI 8 "register_operand" "=r"))
+-   (clobber (match_operand:DI 9 "register_operand" "=r"))
+-   (clobber (match_operand:DI 10 "register_operand" "=r"))
+-   (clobber (match_operand:SI 11 "register_operand" "=r"))
+-   (clobber (match_operand:SI 12 "register_operand" "=r"))
+-   (clobber (match_operand:DI 13 "register_operand" "=r"))]
++   (clobber (match_operand:DI 7 "register_operand" "=&r"))
++   (clobber (match_operand:DI 8 "register_operand" "=&r"))
++   (clobber (match_operand:DI 9 "register_operand" "=&r"))
++   (clobber (match_operand:DI 10 "register_operand" "=&r"))
++   (clobber (match_operand:SI 11 "register_operand" "=&r"))
++   (clobber (match_operand:SI 12 "register_operand" "=&r"))
++   (clobber (match_operand:DI 13 "register_operand" "=&r"))]
+   "TARGET_SHMEDIA"
+   "#"
+   "&& !can_create_pseudo_p ()"
+@@ -3423,13 +3423,13 @@
+ 		    (match_operand:DI 7 "arith_reg_or_0_operand" "rN")
+ 		    (match_operand:DI 8 "arith_reg_or_0_operand" "rN")]
+ 	 UNSPEC_DIV_INV_M3))
+-   (clobber (match_operand:DI 9 "register_operand" "=r"))
+-   (clobber (match_operand:DI 10 "register_operand" "=r"))
+-   (clobber (match_operand:DI 11 "register_operand" "=r"))
+-   (clobber (match_operand:DI 12 "register_operand" "=r"))
+-   (clobber (match_operand:SI 13 "register_operand" "=r"))
+-   (clobber (match_operand:SI 14 "register_operand" "=r"))
+-   (clobber (match_operand:DI 15 "register_operand" "=r"))]
++   (clobber (match_operand:DI 9 "register_operand" "=&r"))
++   (clobber (match_operand:DI 10 "register_operand" "=&r"))
++   (clobber (match_operand:DI 11 "register_operand" "=&r"))
++   (clobber (match_operand:DI 12 "register_operand" "=&r"))
++   (clobber (match_operand:SI 13 "register_operand" "=&r"))
++   (clobber (match_operand:SI 14 "register_operand" "=&r"))
++   (clobber (match_operand:DI 15 "register_operand" "=&r"))]
+   "TARGET_SHMEDIA
+    && (TARGET_DIVIDE_INV_MINLAT
+        || TARGET_DIVIDE_INV20U || TARGET_DIVIDE_INV20L)"

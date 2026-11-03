@@ -1,0 +1,194 @@
+[    0.000000] Linux version 6.15.0-00008-g6fc7d95b1333-dirty (builder@builder) (sh64-linux-gcc (GCC) 6.5.0, GNU ld (GNU Binutils) 2.30) #9 PREEMPT Tue Nov  3 02:01:48 UTC 2026
+[    0.000000] Boot params:
+[    0.000000] ... MOUNT_ROOT_RDONLY - 00000001
+[    0.000000] ... RAMDISK_FLAGS     - 00000000
+[    0.000000] ... ORIG_ROOT_DEV     - 00000200
+[    0.000000] ... LOADER_TYPE       - 00000001
+[    0.000000] ... INITRD_START      - 00000000
+[    0.000000] ... INITRD_SIZE       - 00000000
+[    0.000000] Booting machvec: Hitachi Cayman
+[    0.000000] initrd disabled
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Kernel command line: console=ttySC0
+[    0.000000] printk: log buffer data + meta data: 1048576 + 3276800 = 4325376 bytes
+[    0.000000] Dentry cache hash table entries: 16384 (order: 4, 65536 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 8192 (order: 3, 32768 bytes, linear)
+[    0.000000] Sorting __ex_table...
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 32768
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] I-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] I-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] D-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] D-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] virtual kernel memory layout:
+[    0.000000]     fixmap  : 0xfffd7000 - 0xfffff000   ( 160 kB)
+[    0.000000]     vmalloc : 0xf0000000 - 0xfffd5000   ( 255 MB)
+[    0.000000]     lowmem  : 0xa0000000 - 0xa8000000   ( 128 MB) (cached)
+[    0.000000]       .init : 0xa0ca0000 - 0xa0ce0000   ( 256 kB)
+[    0.000000]       .data : 0xa087caa0 - 0xa0c9f1a0   (4233 kB)
+[    0.000000]       .text : 0xa0001000 - 0xa087caa0   (8686 kB)
+[    0.000000] SLUB: HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] Console: colour dummy device 80x25
+[    0.000000]  sh-tmu.0: ch0: used for clock events
+[    0.000000]  sh-tmu.0: ch0: used for periodic clock events
+[    0.000000]  sh-tmu.0: ch1: used as clock source
+[    0.000000] clocksource: sh-tmu.0: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1834811203156 ns
+[    0.000000] sched_clock: 32 bits at 250 Hz, resolution 4000000ns, wraps every 8589934590000000ns
+[    0.004000] Calibrating delay loop (skipped)... 12.50 BogoMIPS PRESET (lpj=25000)
+[    0.008000] CPU: SH5-101
+[    0.008000] pid_max: default: 32768 minimum: 301
+[    0.096000] Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.100000] Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.828000] rcu: Hierarchical SRCU implementation.
+[    0.832000] rcu: 	Max phase no-delay instances is 1000.
+[    0.968000] Memory: 115124K/131072K available (8682K kernel code, 3361K rwdata, 872K rodata, 256K init, 1126K bss, 15476K reserved, 0K cma-reserved)
+[    1.148000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    1.156000] posixtimers hash table entries: 512 (order: -1, 2048 bytes, linear)
+[    1.160000] futex hash table entries: 256 (order: -1, 3072 bytes, linear)
+[    1.372000] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    1.648000] DMA: preallocated 128 KiB GFP_KERNEL pool for atomic allocations
+[    1.988000] pps_core: LinuxPPS API ver. 1 registered
+[    1.992000] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    1.996000] PTP clock support registered
+[    2.028000] sh_tmu sh-tmu.0: kept as earlytimer
+[    2.368000] clocksource: Switched to clocksource sh-tmu.0
+[    2.684000] NET: Registered PF_INET protocol family
+[    2.744000] IP idents hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    2.844000] tcp_listen_portaddr_hash hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    2.844000] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    2.848000] TCP established hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    2.848000] TCP bind hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    2.852000] TCP: Hash tables configured (established 1024 bind 1024)
+[    2.892000] UDP hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    2.900000] UDP-Lite hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    2.980000] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    3.064000] RPC: Registered named UNIX socket transport module.
+[    3.064000] RPC: Registered udp transport module.
+[    3.064000] RPC: Registered tcp transport module.
+[    3.064000] RPC: Registered tcp-with-tls transport module.
+[    3.064000] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    3.084000] SMSC SuperIO devid 00 rev 00
+[    3.228000] workingset: timestamp_bits=30 max_order=15 bucket_order=0
+[    3.420000] romfs: ROMFS MTD (C) 2007 Red Hat, Inc.
+[    3.444000] io scheduler mq-deadline registered
+[    3.444000] io scheduler kyber registered
+[    5.436000] SuperH (H)SCI(F) driver initialized
+[    5.524000] sh-sci.0: ttySC0 at MMIO 0xa030000 (irq = 40, base_baud = 0) is a scif
+[    5.592000] printk: legacy console [ttySC0] enabled
+[    6.668000] brd: module loaded
+[    7.036000] loop: module loaded
+[    7.088000] NET: Registered PF_PACKET protocol family
+[    7.096000] heartbeat: version 0.1.2 loaded
+[    8.028000] /dev/root: Can't open blockdev
+[    8.044000] VFS: Cannot open root device "" or unknown-block(2,0): error -6
+[    8.056000] Please append a correct "root=" boot option; here are the available partitions:
+[    8.068000] 0100            4096 ram0 
+[    8.072000]  (driver?)
+[    8.084000] 0101            4096 ram1 
+[    8.088000]  (driver?)
+[    8.108000] 0102            4096 ram2 
+[    8.112000]  (driver?)
+[    8.132000] 0103            4096 ram3 
+[    8.136000]  (driver?)
+[    8.156000] 0104            4096 ram4 
+[    8.156000]  (driver?)
+[    8.164000] 0105            4096 ram5 
+[    8.164000]  (driver?)
+[    8.168000] 0106            4096 ram6 
+[    8.168000]  (driver?)
+[    8.172000] 0107            4096 ram7 
+[    8.172000]  (driver?)
+[    8.176000] 0108            4096 ram8 
+[    8.176000]  (driver?)
+[    8.180000] 0109            4096 ram9 
+[    8.180000]  (driver?)
+[    8.184000] 010a            4096 ram10 
+[    8.184000]  (driver?)
+[    8.184000] 010b            4096 ram11 
+[    8.184000]  (driver?)
+[    8.188000] 010c            4096 ram12 
+[    8.188000]  (driver?)
+[    8.192000] 010d            4096 ram13 
+[    8.192000]  (driver?)
+[    8.192000] 010e            4096 ram14 
+[    8.192000]  (driver?)
+[    8.196000] 010f            4096 ram15 
+[    8.196000]  (driver?)
+[    8.200000] List of all bdev filesystems:
+[    8.200000]  ext3
+[    8.200000]  ext4
+[    8.200000]  ext2
+[    8.204000]  minix
+[    8.204000]  romfs
+[    8.204000] 
+[    8.208000] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(2,0)
+[    8.208000] CPU: 0 UID: 0 PID: 1 Comm: swapper Not tainted 6.15.0-00008-g6fc7d95b1333-dirty #9 PREEMPT 
+[    8.208000] Stack: (0xa102bb30 to 0xa102c000)
+[    8.208000] bb20:                                     000000f0 00000001 a0921bc8 00000000 
+[    8.208000] bb40: a102bb50 a000d695 a102bb50 a000d631 00000000 a0ce1ad1 a0011be1 00000000 
+[    8.208000] bb60: a102bb70 a000d6fd 00000000 ffffffff a102bb78 a00027b1 00000000 a102bbe0 
+[    8.208000] bb80: 00000000 a134001b a0002e61 00000005 00000005 a102bc18 a0ca2a55 a0834061 
+[    8.208000] bba0: a0ca2a01 a020e461 a090d958 ffffffff 00000000 00000000 a7f25800 ffffffff 
+[    8.208000] bbc0: a0cd8410 ffffffff a0ca24f9 ffffffff a0cd8408 ffffffff a090da08 ffffffff 
+[    8.208000] bbe0: a102bc18 ffffffff 00000008 00000000 a102b9f0 ffffffff 00000001 00000001 
+[    8.208000] bc00: ffff7fff ffffffff 00000000 ffffffff 00000008 00000000 6e6b6e75 2d6e776f 
+[    8.208000] bc20: 636f6c62 2c32286b a0002930 ffffffff a0ca015d ffffffff a0cd7f98 00000000 
+[    8.208000] bc40: 00000008 a0cd8410 a0ce0024 a102bc98 a0ca2ea1 a0ca18e5 a0066761 a0833f81 
+[    8.208000] bc60: a0cd7fd8 ffffffff a0cdd064 ffffffff a0ca015d ffffffff a0cd7f98 ffffffff 
+[    8.208000] bc80: a09558c4 ffffffff a0ce0014 ffffffff 00000000 00000000 00000000 a0ce0028 
+[    8.208000] bca0: 00000008 a1004c80 a0955fa8 a102bcf8 a0ca3219 a0ca18e5 a0066761 a0833f81 
+[    8.208000] bcc0: a0cd7fd8 ffffffff a0cdd064 ffffffff a0ca015d ffffffff a0cd7f98 ffffffff 
+[    8.208000] bce0: a09558c4 ffffffff a0ce0014 ffffffff 00000000 00000000 a0223681 ffffffff 
+[    8.208000] bd00: a0223541 a09663b4 00000008 a1004c80 a0955fa8 a102bd30 a0ca2051 a0ca18e5 
+[    8.208000] bd20: a0066761 a0833f81 a0cd7fd8 ffffffff a000ea31 00000000 a1030000 a09665c0 
+[    8.208000] bd40: a096dc00 a102bd80 a000ea41 a086eba1 a086e841 a0ca1449 a0011ba1 ffffffff 
+[    8.208000] bd60: 000000f0 00000000 a0011be1 ffffffff a09669a4 ffffffff 00000000 00000000 
+[    8.208000] bd80: 00000000 a1030000 a0959c80 a0010709 a0959c80 a00106f9 00000000 00000000 
+[    8.208000] bda0: 00000000 00000000 40008000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bdc0: 00000000 00000000 00000000 00000000 a000ea01 ffffffff 00000000 00000000 
+[    8.208000] bde0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] be00: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] be20: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] be40: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] be60: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] be80: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bea0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bec0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bee0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bf00: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bf20: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bf40: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bf60: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bf80: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bfa0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bfc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] bfe0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+[    8.208000] 
+[    8.208000] Call trace:
+[    8.208000]  [<a0019fec>] sh64_unwinder_dump+0x8c/0xc0
+[    8.208000]  [<a0018e58>] unwind_stack+0x1b8/0x2a0
+[    8.208000]  [<a0011194>] show_trace.part.2+0x74/0xc0
+[    8.208000]  [<a001162c>] show_stack+0xac/0xe0
+[    8.208000]  [<a000d690>] dump_stack_lvl+0x90/0xd4
+[    8.208000]  [<a000d6f8>] dump_stack+0x24/0x40
+[    8.208000]  [<a00027ac>] panic+0x200/0x4d4
+[    8.208000]  [<a0ca2a50>] mount_root_generic+0x318/0x49c
+[    8.208000]  [<a0ca2e9c>] mount_root+0x2c8/0x328
+[    8.208000]  [<a0ca3214>] prepare_namespace+0x318/0x3c4
+[    8.208000]  [<a0ca204c>] kernel_init_freeable+0x3b0/0x424
+[    8.208000]  [<a000ea3c>] kernel_init+0x3c/0x220
+[    8.208000]  [<a0010704>] ret_from_kernel_thread+0x20/0x40
+[    8.208000] Unable to lookup previous stack frame
+[    8.208000] 
+[    8.208000] 
+[    8.208000] ---[ end Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(2,0) ]---
