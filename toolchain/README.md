@@ -33,3 +33,11 @@ Apply `gcc-6.5-sh64-legitimate-constant.patch` first: in gcc 6.5
 `emit_move_insn` forces each constant into the pool, the pool address is again
 a constant, and cc1 overflows its stack ("internal compiler error:
 Segmentation fault") on functions as small as `int f(void){return 0;}`.
+
+Install binutils and gcc into the same prefix, or symlink the binutils
+programs into `$P/sh64-linux/bin/`: gcc looks for `as` and `ld` there and
+falls back to the host's.
+
+The kernel needs libgcc for the 64-bit shift helpers: after `install-gcc`
+run `make all-target-libgcc install-target-libgcc` (works with
+`--without-headers`).
