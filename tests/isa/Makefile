@@ -29,7 +29,12 @@ OBJS = start.o $(SRCS:.c=.bare.o)
 LDFLAGS += -T bare.ld
 endif
 
-ELF = isatest-$(MODE).elf
+# Per-selection output names so that parallel runs of different groups do not
+# overwrite each other's image, cpio and log.
+SEL = $(if $(GROUPS),-$(subst $(eval) ,_,$(strip $(GROUPS))),)
+ELF = isatest-$(MODE)$(SEL).elf
+CPIO = isatest$(SEL).cpio
+LOG = isatest-$(MODE)$(SEL).log
 
 all: $(ELF)
 
@@ -43,22 +48,22 @@ $(ELF): $(OBJS) $(if $(filter bare,$(MODE)),bare.ld)
 start.o: start.S
 	$(CC) -m5-32media -Wa,-isa=shmedia -c -o $@ $<
 
-isatest.cpio: isatest-nolibc.elf
-	rm -rf initrd && mkdir initrd && cp $< initrd/init && \
-	(cd initrd && echo init | cpio -o -H newc 2>/dev/null) > $@
+$(CPIO): $(ELF)
+	rm -rf initrd$(SEL) && mkdir initrd$(SEL) && cp $< initrd$(SEL)/init && \
+	(cd initrd$(SEL) && echo init | cpio -o -H newc 2>/dev/null) > $@
 
 ifeq ($(MODE),nolibc)
-run: isatest.cpio
+run: $(CPIO)
 	QEMU=$(QEMU) python3 ../../tools/qrun.py --kernel $(KERNEL) --timeout 600 \
-		--qemu-args '-initrd isatest.cpio -append "console=ttySC0 -- $(ARGS)" -no-reboot' \
-		--log isatest-$(MODE).log 'expect:isa: DONE' | grep '^isa:'
+		--qemu-args '-initrd $(CPIO) -append "console=ttySC0 -- $(ARGS)" -no-reboot' \
+		--log $(LOG) 'expect:isa: DONE' | grep '^isa:'
 else
 run: $(ELF)
 	QEMU=$(QEMU) python3 ../../tools/qrun.py --kernel $(ELF) --timeout 600 \
-		--log isatest-$(MODE).log 'expect:isa: DONE' | grep '^isa:'
+		--log $(LOG) 'expect:isa: DONE' | grep '^isa:'
 endif
 
 clean:
-	rm -rf *.o groups/*.o *.elf isatest.cpio initrd *.log
+	rm -rf *.o groups/*.o *.elf *.cpio initrd* *.log
 
 .PHONY: all run clean
