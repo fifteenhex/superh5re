@@ -1,0 +1,356 @@
+--- a/arch/sh/kernel/cpu/sh5/fpu.c	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/kernel/cpu/sh5/fpu.c	2026-11-02 23:01:20.739164527 +0000
+@@ -11,6 +11,8 @@
+  */
+ #include <linux/sched.h>
+ #include <linux/signal.h>
++#include <linux/sched/signal.h>
++#include <asm/ptrace.h>
+ #include <asm/processor.h>
+ 
+ void save_fpu(struct task_struct *tsk)
+--- a/arch/sh/mm/cache-sh5.c	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/mm/cache-sh5.c	2026-11-02 23:02:24.890050351 +0000
+@@ -245,14 +245,14 @@
+ 	int j;
+ 	int set_offset;
+ 
+-	dummy_buffer_base_set = ((int)&dummy_alloco_area &
++	dummy_buffer_base_set = ((unsigned long)&dummy_alloco_area &
+ 				 cpu_data->dcache.entry_mask) >>
+ 				 cpu_data->dcache.entry_shift;
+ 	set_offset = sets_to_purge_base - dummy_buffer_base_set;
+ 
+ 	for (j = 0; j < n_sets; j++, set_offset++) {
+ 		set_offset &= (cpu_data->dcache.sets - 1);
+-		eaddr0 = (unsigned long long)dummy_alloco_area +
++		eaddr0 = (unsigned long long)(unsigned long)dummy_alloco_area +
+ 			(set_offset << cpu_data->dcache.entry_shift);
+ 
+ 		/*
+--- a/arch/sh/mm/extable_64.c	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/mm/extable_64.c	2026-11-02 23:02:24.891413802 +0000
+@@ -13,6 +13,7 @@
+ #include <linux/bsearch.h>
+ #include <linux/rwsem.h>
+ #include <linux/extable.h>
++#include <asm/ptrace.h>
+ #include <linux/uaccess.h>
+ 
+ extern unsigned long copy_user_memcpy, copy_user_memcpy_end;
+--- a/arch/sh/include/asm/syscall_64.h	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/include/asm/syscall_64.h	2026-11-02 23:02:24.894981581 +0000
+@@ -26,7 +26,7 @@
+ static inline long syscall_get_error(struct task_struct *task,
+ 				     struct pt_regs *regs)
+ {
+-	return IS_ERR_VALUE(regs->regs[9]) ? regs->regs[9] : 0;
++	return IS_ERR_VALUE((unsigned long)regs->regs[9]) ? regs->regs[9] : 0;
+ }
+ 
+ static inline long syscall_get_return_value(struct task_struct *task,
+--- a/arch/sh/kernel/signal_64.c	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/kernel/signal_64.c	2026-11-02 23:02:24.909651998 +0000
+@@ -375,7 +375,6 @@
+ {
+ 	struct sigframe __user *frame;
+ 	int err = 0, sig = ksig->sig;
+-	int signal;
+ 
+ 	frame = get_sigframe(&ksig->ka, regs->regs[REG_SP], sizeof(*frame));
+ 
+@@ -403,7 +402,7 @@
+ 		 * On SH5 all edited pointers are subject to NEFF
+ 		 */
+ 		DEREF_REG_PR = neff_sign_extend((unsigned long)
+-			ksig->ka->sa.sa_restorer | 0x1);
++			ksig->ka.sa.sa_restorer | 0x1);
+ 	} else {
+ 		/*
+ 		 * Different approach on SH5.
+@@ -457,7 +456,7 @@
+ 	return 0;
+ }
+ 
+-static int setup_rt_frame(struct ksignal *kig, sigset_t *set,
++static int setup_rt_frame(struct ksignal *ksig, sigset_t *set,
+ 			  struct pt_regs *regs)
+ {
+ 	struct rt_sigframe __user *frame;
+--- a/fs/io_uring.c	2020-05-31 23:49:15.000000000 +0000
++++ b/fs/io_uring.c	2026-11-02 23:09:05.047031727 +0000
+@@ -2322,7 +2322,12 @@
+ 	len = iov[0].iov_len;
+ 	if (len < 0)
+ 		return -EINVAL;
+-	buf = io_rw_buffer_select(req, &len, needs_lock);
++	{
++		/* ssize_t and size_t differ in signedness only; sh64 has int ssize_t */
++		size_t ulen = len;
++		buf = io_rw_buffer_select(req, &ulen, needs_lock);
++		len = ulen;
++	}
+ 	if (IS_ERR(buf))
+ 		return PTR_ERR(buf);
+ 	iov[0].iov_base = buf;
+--- a/arch/sh/Makefile	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/Makefile	2026-11-02 23:09:54.342065922 +0000
+@@ -207,7 +207,7 @@
+ endif
+ 
+ libs-$(CONFIG_SUPERH32)		:= arch/sh/lib/	$(libs-y)
+-libs-$(CONFIG_SUPERH64)		:= arch/sh/lib64/ $(libs-y)
++libs-$(CONFIG_SUPERH64)		:= arch/sh/lib64/ $(libs-y) $(shell $(CC) $(KBUILD_CFLAGS) -print-libgcc-file-name)
+ 
+ BOOT_TARGETS = uImage uImage.bz2 uImage.gz uImage.lzma uImage.xz uImage.lzo \
+ 	       uImage.srec uImage.bin zImage vmlinux.bin vmlinux.srec \
+--- a/arch/sh/Kconfig	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/Kconfig	2026-11-02 23:09:54.342233140 +0000
+@@ -206,6 +206,7 @@
+ config CPU_SH5
+ 	bool
+ 	select CPU_HAS_FPU
++	select SH_INTC
+ 	select SYS_SUPPORTS_SH_TMU
+ 	select SYS_SUPPORTS_HUGETLBFS if MMU
+ 
+--- a/arch/sh/kernel/syscalls_64.S	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/kernel/syscalls_64.S	2026-11-02 23:09:54.346919472 +0000
+@@ -30,7 +30,7 @@
+ 	.long sys_unlink		/* 10 */
+ 	.long sys_execve
+ 	.long sys_chdir
+-	.long sys_time
++	.long sys_time32
+ 	.long sys_mknod
+ 	.long sys_chmod			/* 15 */
+ 	.long sys_lchown16
+@@ -42,12 +42,12 @@
+ 	.long sys_oldumount
+ 	.long sys_setuid16
+ 	.long sys_getuid16
+-	.long sys_stime			/* 25 */
++	.long sys_stime32			/* 25 */
+ 	.long sh64_ptrace
+ 	.long sys_alarm
+ 	.long sys_fstat
+ 	.long sys_pause
+-	.long sys_utime			/* 30 */
++	.long sys_utime32			/* 30 */
+ 	.long sys_ni_syscall	/* old stty syscall holder */
+ 	.long sys_ni_syscall	/* old gtty syscall holder */
+ 	.long sys_access
+@@ -141,7 +141,7 @@
+ 	.long sys_setdomainname
+ 	.long sys_newuname
+ 	.long sys_cacheflush	/* x86: sys_modify_ldt */
+-	.long sys_adjtimex
++	.long sys_adjtimex_time32
+ 	.long sys_mprotect		/* 125 */
+ 	.long sys_sigprocmask
+ 	.long sys_ni_syscall		/* old "create_module" */
+@@ -179,7 +179,7 @@
+ 	.long sys_sched_get_priority_max
+ 	.long sys_sched_get_priority_min  /* 160 */
+ 	.long sys_sched_rr_get_interval
+-	.long sys_nanosleep
++	.long sys_nanosleep_time32
+ 	.long sys_mremap
+ 	.long sys_setresuid16
+ 	.long sys_getresuid16		/* 165 */
+@@ -322,7 +322,7 @@
+ 	.long sys_statfs64
+ 	.long sys_fstatfs64
+ 	.long sys_tgkill
+-	.long sys_utimes
++	.long sys_utimes_time32
+  	.long sys_fadvise64_64		/* 300 */
+ 	.long sys_ni_syscall	/* Reserved for vserver */
+ 	.long sys_ni_syscall	/* Reserved for mbind */
+@@ -350,7 +350,7 @@
+ 	.long sys_mkdirat
+ 	.long sys_mknodat		/* 325 */
+ 	.long sys_fchownat
+-	.long sys_futimesat
++	.long sys_futimesat_time32
+ 	.long sys_fstatat64
+ 	.long sys_unlinkat
+ 	.long sys_renameat		/* 330 */
+--- a/arch/sh/kernel/vmlinux.lds.S	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/kernel/vmlinux.lds.S	2026-11-02 23:16:59.562850090 +0000
+@@ -79,7 +79,7 @@
+ 
+ 	. = ALIGN(PAGE_SIZE);
+ 	__init_end = .;
+-	BSS_SECTION(0, PAGE_SIZE, 4)
++	BSS_SECTION(0, PAGE_SIZE, 8)
+ 	_end = . ;
+ 
+ 	STABS_DEBUG
+--- a/arch/sh/kernel/head_64.S	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/kernel/head_64.S	2026-11-02 23:37:52.017298404 +0000
+@@ -315,6 +315,20 @@
+ 	addi	r22, 8, r22
+ 	bne	r22, r23, tr1		/* Both quad aligned, see vmlinux.lds.S */
+ #endif
++	/*
++	 * head_32.S runs cpu_init() before start_kernel().  Without it
++	 * cpu_probe() never runs on sh64, the cache and TLB descriptors
++	 * stay zero and __update_tlb() reuses ITLB slot 0, the kernel
++	 * text mapping.
++	 */
++	movi	cpu_init, r22
++	ori	r22, 1, r22
++	ptabs	r22, tr1
++	blink	tr1, LINK
++	movi	start_kernel, r32	/* C code clobbers tr0-tr4 */
++	ori	r32, 1, r32
++	ptabs	r32, tr0
++
+ 	pta/u	hopeless, tr1
+ 
+ 	/* Say bye to head.S but be prepared to wrongly get back ... */
+--- a/arch/sh/include/asm/pgalloc.h	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/include/asm/pgalloc.h	2026-11-02 23:27:57.807414474 +0000
+@@ -14,16 +14,28 @@
+ extern void pmd_free(struct mm_struct *mm, pmd_t *pmd);
+ #endif
+ 
++#ifdef CONFIG_SUPERH64
++/*
++ * sh64 pmd entries carry the _KERNPG_TABLE flags: pmd_present() tests
++ * _PAGE_PRESENT and pmd_bad() expects exactly these bits.  A bare pointer
++ * makes every vmalloc/ioremap TLB miss fail in handle_tlbmiss().
++ */
++#define __PMD_TABLE_FLAGS _KERNPG_TABLE
++#else
++#define __PMD_TABLE_FLAGS 0
++#endif
++
+ static inline void pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmd,
+ 				       pte_t *pte)
+ {
+-	set_pmd(pmd, __pmd((unsigned long)pte));
++	set_pmd(pmd, __pmd(__PMD_TABLE_FLAGS | (unsigned long)pte));
+ }
+ 
+ static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd,
+ 				pgtable_t pte)
+ {
+-	set_pmd(pmd, __pmd((unsigned long)page_address(pte)));
++	set_pmd(pmd, __pmd(__PMD_TABLE_FLAGS |
++			   (unsigned long)page_address(pte)));
+ }
+ #define pmd_pgtable(pmd) pmd_page(pmd)
+ 
+--- a/arch/sh/include/asm/pgtable_64.h	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/include/asm/pgtable_64.h	2026-11-02 23:41:15.491615785 +0000
+@@ -128,8 +128,11 @@
+ #define _PAGE_CLEAR_FLAGS	(_PAGE_PRESENT | _PAGE_SHARED | \
+ 				 _PAGE_DIRTY | _PAGE_ACCESSED | _PAGE_WIRED)
+ 
+-/* Mask which drops software flags */
+-#define _PAGE_FLAGS_HARDWARE_MASK	(NEFF_MASK & ~(_PAGE_CLEAR_FLAGS))
++/*
++ * Mask which drops software flags.  NEFF_MASK is the sign-extension part
++ * above bit 31; the hardware PTEL bits are the low 32 bits.
++ */
++#define _PAGE_FLAGS_HARDWARE_MASK	(~NEFF_MASK & ~(_PAGE_CLEAR_FLAGS))
+ 
+ /*
+  * HugeTLB support
+--- a/arch/sh/kernel/ptrace_64.c	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/kernel/ptrace_64.c	2026-11-02 23:50:38.504669845 +0000
+@@ -129,6 +129,8 @@
+ {
+ 	struct pt_regs *regs = child->thread.uregs;
+ 
++	if (!regs)		/* kernel thread, see copy_thread() */
++		return;
+ 	regs->sr |= SR_SSTEP;	/* auto-resetting upon exception */
+ 
+ 	set_tsk_thread_flag(child, TIF_SINGLESTEP);
+@@ -138,6 +140,8 @@
+ {
+ 	struct pt_regs *regs = child->thread.uregs;
+ 
++	if (!regs)		/* kernel thread, see copy_thread() */
++		return;
+ 	regs->sr &= ~SR_SSTEP;
+ 
+ 	clear_tsk_thread_flag(child, TIF_SINGLESTEP);
+--- a/arch/sh/kernel/cpu/irq/intc-sh5.c	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/kernel/cpu/irq/intc-sh5.c	2026-11-02 23:53:23.199041977 +0000
+@@ -120,7 +120,6 @@
+ 
+ void __init plat_irq_setup(void)
+ {
+-	unsigned long long __dummy0, __dummy1=~0x00000000100000f0;
+ 	unsigned long reg;
+ 	int i;
+ 
+@@ -182,13 +181,7 @@
+ #endif
+ 
+ 	/*
+-	 * And now let interrupts come in.
+-	 * sti() is not enough, we need to
+-	 * lower priority, too.
++	 * Interrupts stay masked here; start_kernel() enables them once the
++	 * timer and IRQ descriptors exist ("Interrupts were enabled early").
+ 	 */
+-        __asm__ __volatile__("getcon    " __SR ", %0\n\t"
+-                             "and       %0, %1, %0\n\t"
+-                             "putcon    %0, " __SR "\n\t"
+-                             : "=&r" (__dummy0)
+-                             : "r" (__dummy1));
+ }
+--- a/arch/sh/kernel/process_64.c	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/kernel/process_64.c	2026-11-02 23:56:34.897878011 +0000
+@@ -391,8 +391,13 @@
+ 
+ 	if (unlikely(p->flags & PF_KTHREAD)) {
+ 		memset(childregs, 0, sizeof(struct pt_regs));
+-		childregs->regs[2] = (unsigned long)arg;
+-		childregs->regs[3] = (unsigned long)usp;
++		/*
++		 * Pointers must be sign-extended effective addresses:
++		 * ret_from_kernel_thread does ptabs on regs[3], and a
++		 * zero-extended kernel address raises IADDERR.
++		 */
++		childregs->regs[2] = neff_sign_extend(arg);
++		childregs->regs[3] = neff_sign_extend(usp);
+ 		childregs->sr = (1 << 30); /* not user_mode */
+ 		childregs->sr |= SR_FD; /* Invalidate FPU flag */
+ 		p->thread.pc = (unsigned long) ret_from_kernel_thread;
+--- a/arch/sh/lib64/memset.S	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/lib64/memset.S	2026-11-03 00:16:58.775785954 +0000
+@@ -10,7 +10,7 @@
+ ! Copyright 2002 SuperH Ltd.
+ !
+ 
+-#if __BYTE_ORDER == __LITTLE_ENDIAN
++#ifdef __LITTLE_ENDIAN__
+ #define SHHI shlld
+ #define SHLO shlrd
+ #else
+--- a/arch/sh/lib64/strcpy.S	2020-05-31 23:49:15.000000000 +0000
++++ b/arch/sh/lib64/strcpy.S	2026-11-03 00:16:58.775974999 +0000
+@@ -7,7 +7,7 @@
+ !
+ ! SH5 code Copyright 2002 SuperH Ltd.
+ 
+-#if __BYTE_ORDER == __LITTLE_ENDIAN
++#ifdef __LITTLE_ENDIAN__
+ #define SHHI shlld
+ #define SHLO shlrd
+ #else
+@@ -65,7 +65,7 @@
+ 	add r5, r63, r4
+ 	addi r0, 8, r0
+ shortstring:
+-#if __BYTE_ORDER != __LITTLE_ENDIAN
++#ifndef __LITTLE_ENDIAN__
+ 	pta/l shortstring2,tr1
+ 	byterev r4,r4
+ #endif

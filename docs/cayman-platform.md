@@ -40,6 +40,15 @@ Architecture Volume 1 when available.
   DN bit 18. DR2i is FR2i (high half) : FR2i+1 (low half). The kernel
   enables the FPU (clears SR.FD) at boot and writes FPSCR = 0x20000.
 - CTC control register: cycle counter, used for delay calibration.
+- An aligned load with destination R63 is a software data prefetch: no
+  register result and no exception in exceptional cases (Volume 1, 6.6.1;
+  Volume 2, LD.B). Linux `memcpy` touches its source with `ld.b r3,0,r63`.
+- Effective addresses outside the sign-extended 32-bit range raise
+  IADDERR/RADDERR/WADDERR (Volume 1, address validity). Both NetBSD
+  (`pcb_onfault`) and Linux (`ret_from_kernel_thread`) had zero-extended
+  kernel pointers that trip this.
+- The CPU module's VCR (0x0d000000) is also read at offset 8 by Linux
+  (`cpu_probe`: "CPU.VCR aliased at CIR address on SH5-101").
 
 ## Physical memory map (Cayman)
 
@@ -120,3 +129,19 @@ INTC registers: ICR_SET 0, ICR_CLEAR 8, INTPRI 0x10.., INTSRC 0x50.., INTREQ
   physical addresses. The kernel's built-in defaults are sign-extended; with
   those the 64-bit pmap's page frame numbers no longer match the PTEL PPN
   and `PHYS_TO_VM_PAGE` fails for every page.
+
+## Linux sh64 boot interface
+
+- Entry: physical address of `_stext`, MMU off, SR = anything harmless.
+  `head_64.S` installs ITLB/DTLB slot 0 as a 512 MB page mapping
+  `PAGE_OFFSET + MEMORY_START` (0xa0000000) to 0x80000000 and DTLB slot 1
+  for the SCIF at 0xfa030000, then enables the MMU with RTE.
+- Zero page (`empty_zero_page`, the page before `_stext`): +0x00
+  MOUNT_ROOT_RDONLY, +0x04 RAMDISK_FLAGS, +0x08 ORIG_ROOT_DEV, +0x0c
+  LOADER_TYPE, +0x10 INITRD_START (offset from the RAM base), +0x14
+  INITRD_SIZE, +0x100 command line. The built-in defaults claim an 8 MB
+  initrd at offset 0x800000.
+- Peripherals: PHYS_PERIPHERAL_BLOCK 0x09000000 (INTC +0x01000000, CPRC
+  +0x01010000, TMU +0x01020000, SCIF +0x01030000, RTC +0x01040000), SMSC
+  SuperIO 0x04000000, system FPGA EPLD 0x04002000 (status +0x10, mask
+  +0x20), the same map NetBSD uses.

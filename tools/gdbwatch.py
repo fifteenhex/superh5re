@@ -1,7 +1,8 @@
 #!/usr/bin/env python3 -u
 """Set QEMU gdbstub write watchpoints and log every hit.
 
-usage: gdbwatch.py HOST:PORT ADDR[,LEN] [ADDR[,LEN]...]
+usage: gdbwatch.py HOST:PORT [ADDR[,LEN]|b:ADDR|m:ADDR,LEN]...
+b:ADDR sets a breakpoint, m:ADDR,LEN dumps memory at each stop.
 Connects to a running qemu-system-sh5 started with -gdb tcp::PORT, inserts
 write watchpoints, continues, and on each hit prints the registers (gdb
 numbering: r0-r63, pc, sr, ... as the target's gdbstub defines them) and the
@@ -43,6 +44,14 @@ def main(argv):
     cmd(s, b'?')
     watches = []
     for a in argv[2:]:
+        if a.startswith('b:'):          # b:ADDR  software breakpoint
+            addr = int(a[2:], 0)
+            print('break 0x%x: %s' % (addr, cmd(s, b'Z0,%x,4' % addr).decode()))
+            continue
+        if a.startswith('m:'):          # m:ADDR,LEN  dump memory at every stop
+            addr, _, ln = a[2:].partition(',')
+            watches.append((int(addr, 0), int(ln or '16', 0)))
+            continue
         addr, _, ln = a.partition(',')
         addr = int(addr, 0); ln = int(ln or '4', 0)
         print('watch 0x%x,%d: %s' % (addr, ln, cmd(s, b'Z2,%x,%x' % (addr, ln)).decode()))
@@ -67,8 +76,8 @@ def main(argv):
                   ' '.join('tr%d=%x' % (i, vals[64 + i]) for i in range(8)))
         print('    ' + ' '.join('r%d=%x' % (i, vals[i]) for i in range(0, 32)))
         for addr, ln in watches:
-            mem = cmd(s, b'm%x,10' % addr)
-            print('    mem[0x%x] = %s' % (addr, mem.decode()))
+            mem = cmd(s, b'm%x,%x' % (addr, max(ln, 16)))
+            print('    mem[0x%x] = %s' % (addr, bytes.fromhex(mem.decode()).decode('latin1').encode('unicode_escape').decode()[:200]))
         rsp_send(s, b'c')
 
 if __name__ == '__main__':

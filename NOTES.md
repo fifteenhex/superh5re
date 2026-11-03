@@ -118,3 +118,17 @@ reproduce it. Confirmed facts move to `docs/`.
   crashed (so not TLB bookkeeping); LDLO/LDHI/STLO/STHI mappings match the
   manual. Open on the 64-bit kernel: syslogd dumps core (COMPAT_NETBSD32),
   ifconfig/route fail. RTC model uses host time (non-deterministic boots).
+- 2026-11-03: Linux 5.7 boots on the QEMU Cayman machine to the root
+  filesystem panic (`linux/README.md`). Toolchain: binutils 2.30 and gcc
+  6.5.0 for `sh64-linux`; gcc 6.5 needed a one-line backend fix (every
+  SHmedia constant was deemed illegitimate, cc1 recursed to death on
+  `return 0`). Emulator fixes on the way: loads into R63 are prefetches
+  (no exception), the CPU VCR is also visible at offset 8, the board
+  patches the Linux zero page. Kernel: eighteen files patched, all bit
+  rot (see the README table). Debugging recipe that worked: read the
+  printk ring from guest memory (`tools/printkbuf.py`), `-d exec,cpu
+  -dfilter` on one function for an instruction trace, gdbstub
+  watchpoints/breakpoints (`tools/gdbwatch.py`), and a bare-metal harness
+  (`tests/lib64`) that runs the kernel's string routines standalone.
+  Note: the harness must be compiled with the same macros as the kernel;
+  the strcpy bug only showed with kconfig.h's `__LITTLE_ENDIAN`.

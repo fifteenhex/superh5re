@@ -10,7 +10,7 @@ steps: expect:TEXT   wait for TEXT on the console (A||B waits for either)
 --on-timeout steps run when an expect times out, before QEMU is killed.
 The transcript is printed at the end (and written to --log, default qrun.out).
 """
-import sys, os, subprocess, select, time, socket, tempfile
+import sys, os, subprocess, select, time, socket, tempfile, shlex
 
 def main(argv):
     qemu = os.environ.get('QEMU', 'qemu-system-sh5')
@@ -29,7 +29,7 @@ def main(argv):
         elif a == '--timeout':
             timeout = float(args.pop(0))
         elif a == '--qemu-args':
-            extra = args.pop(0).split()
+            extra = shlex.split(args.pop(0))
         elif a == '--log':
             logname = args.pop(0)
         elif a == '--on-timeout':
