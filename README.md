@@ -14,8 +14,8 @@ and never shipped in a product.
 | Path | Contents |
 |---|---|
 | `NOTES.md` | Journal: findings, decisions, open questions, reproduction steps. |
-| `docs/` | ISA tables, encodings, memory map, pipeline notes. |
+| `docs/` | Platform notes (`cayman-platform.md`), core microarchitecture (`core-design.md`), bus port (`bus-interface.md`). |
 | `refs/` | Source material (manuals) and pointers to external sources. |
 | `tools/` | Scripts. |
 | `tests/isa/` | SHmedia ISA test kit (nolibc and bare-metal builds). |
-| `rtl/` | FPGA design and testbenches. |
+| `rtl/` | FPGA design: constant packages, top-level port contract, lint target. |

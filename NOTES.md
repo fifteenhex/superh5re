@@ -5,8 +5,12 @@ reproduce it. Confirmed facts move to `docs/`.
 
 ## Open questions
 
-- Scope of the first core: SHmedia only, or SHmedia + SHcompact.
-- Target FPGA board.
+- Target FPGA board and clock.
+- Bus: the SuperHyway interface definitions are not held; the core port
+  carries the documented packet fields (`docs/bus-interface.md`) and needs
+  a bridge to whatever the system uses.
+- Failure (bus error) responses have no architectural event; see
+  `docs/bus-interface.md`.
 - Deferred, pending decision: adding the MPR 1999 article and Hot Chips 13
   slides to `refs/`; rebuilding the Yumpu-only documents from page images;
   importing the binutils 2.30 CGEN SH-5 description and `sim/sh64` sources.
@@ -187,3 +191,21 @@ reproduce it. Confirmed facts move to `docs/`.
   exceptions and traps (TRAPA, address errors, FPU enable/exception path),
   privileged instructions (GETCON/PUTCON/GETCFG/PUTCFG, ICBI/OCB* only as
   no-ops), SHcompact.
+- 2026-11-03: FPGA core design, up to the bus interface
+  (`docs/core-design.md`, `docs/bus-interface.md`, `rtl/`). Documented
+  facts used: Vol. 4 (control and configuration registers, MMU and cache
+  implementation, LRU encoding, lookup policies, scratch registers for
+  SHcompact), Vol. 1 ch. 2, 4-6, 9, 15-18 (state, encodings, memory
+  model, events, MMU, caches), Vol. 2 App. A (opcode map), SA Vol. 3 §3.6
+  (SuperHyway packet opcodes, fields, critical-word order, byte masks, via
+  the DBUS mirror), Hot Chips 13 slides (refetched, checksum matched
+  `refs/sources.md`; the PDF itself is still not in the repo). Decisions:
+  pipeline F1 F2 D E1 E2 E3 W as documented, 8-byte fetch blocks, one
+  2-instruction target buffer per TR, in-order completion, 4-entry store
+  buffer, FPU exceptions decided in E1 (the architecture raises O/U/I
+  early so no result is needed), SHmedia first with SHcompact as a later
+  micro-op expansion using the documented scratch registers. The opcode
+  extension table in `rtl/sh5_pkg.sv` is generated from the emulator's
+  decode table because the PDF text extraction loses table columns; the
+  first hand transcription had errors in 20 of 27 rows. `make -C rtl lint`
+  (Verilator) is clean.

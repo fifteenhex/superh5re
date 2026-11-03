@@ -46,6 +46,18 @@ syntax document. No PDF download; page images are served from img.yumpu.com.
 
 Hot Chips 13 facts: 1.5 V, 400 MHz, 7-stage pipeline, 32 KB + 32 KB 4-way
 caches, 64-entry I/D TLBs, SuperHyway 64-bit 200 MHz split-transaction bus.
+Microarchitecture details from the slides (used in `docs/core-design.md`):
+stages F1 F2 D E1 E2 E3 W (slide 7); load latency 3 cycles (ALU +
+D-cache), branch latency 3 cycles (I-cache + decode) hidden by target
+preload; a PT three or more instructions before its BLINK costs no cycles
+(slide 10, PT computes in E1, transfers the fetch address in E2, the
+target is selected when the branch is in D); static prediction with the
+likely bit, "compare and correct" (slide 9); single issue with 4-way
+16-bit SIMD, MMULSUM.WQ issues every cycle (4 multiplies + 4 adds, slides
+12, 14); block diagram IFU, IMU, LSU, FPU (optional), BIU, GR 64 x 64,
+FR 64 x 32, I-/D-cache each with its 64-entry TLB (slide 6); 46 reserved
+control registers not implemented (slide 8); 714 MIPS Dhrystone 1.1,
+2.8 GFLOPS peak, 9.6 GOPS 8-bit peak (slide 4).
 MPR 1999: 209 SHmedia instructions, 208 SHcompact instructions; Hitachi
 internal name SH8000, ST name ST50.
 
