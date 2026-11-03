@@ -58,6 +58,10 @@ module sh5_core
   output logic        trace_fpu_we_o,     // asynchronous FPU writeback this cycle
   output logic [5:0]  trace_fpu_idx_o,
   output logic [127:0] trace_fpu_val_o,
+  output logic        trace_launch_o,     // event launch this cycle
+  output logic [11:0] trace_launch_code_o,
+  output logic [31:0] trace_launch_tea_o,
+  output logic [31:0] trace_launch_pc_o,
 
   // Bus initiator
   output logic        ireq_valid,
@@ -1045,10 +1049,14 @@ module sh5_core
         e1_q <= '0;
         if (d_issue) begin
           e1_q.u   <= d_uop;
-          e1_q.a   <= gr_rd(d_uop.ra);
-          e1_q.b   <= gr_rd(d_uop.rb);
-          e1_q.c   <= gr_rd(d_uop.rc);
-          e1_q.trv <= tr_q[d_uop.trb];
+          // register file reads, bypassing a write that completes this cycle
+          e1_q.a   <= (gw_en && gw_idx == d_uop.ra) ? gw_val :
+                      (fgw_en && fpu_head.rd == d_uop.ra) ? {63'h0, fpu_result[0]} : gr_rd(d_uop.ra);
+          e1_q.b   <= (gw_en && gw_idx == d_uop.rb) ? gw_val :
+                      (fgw_en && fpu_head.rd == d_uop.rb) ? {63'h0, fpu_result[0]} : gr_rd(d_uop.rb);
+          e1_q.c   <= (gw_en && gw_idx == d_uop.rc) ? gw_val :
+                      (fgw_en && fpu_head.rd == d_uop.rc) ? {63'h0, fpu_result[0]} : gr_rd(d_uop.rc);
+          e1_q.trv <= (w_do && !w_exc && w_q.u.wr_tr && w_q.u.tra == d_uop.trb) ? w_q.res[31:0] : tr_q[d_uop.trb];
           e1_q.fa  <= fr_rd64(d_uop.fa, d_uop.fa_w);
           e1_q.fb  <= fr_rd64(d_uop.fb, d_uop.fb_w);
           e1_q.fc  <= fr_rd64(d_uop.fc, d_uop.fc_w);
@@ -1064,7 +1072,23 @@ module sh5_core
           e1_vb_q   <= fr_rd128(d_uop.fb);
           e1_mtrx_q <= fr_rd512(d_uop.fa);
         end
-      end else if (flush) begin
+      end else begin
+        // Held: operands read in D may be overtaken by writes that complete
+        // now (the one-cycle write-back forwarding window closes while the
+        // instruction waits in E1), so E1 snoops the register write ports.
+        if (gw_en) begin
+          if (gw_idx == e1_q.u.ra) e1_q.a <= gw_val;
+          if (gw_idx == e1_q.u.rb) e1_q.b <= gw_val;
+          if (gw_idx == e1_q.u.rc && e1_q.u.cls != UC_FSTORE) e1_q.c <= gw_val;
+        end
+        if (fgw_en) begin
+          if (fpu_head.rd == e1_q.u.ra) e1_q.a <= {63'h0, fpu_result[0]};
+          if (fpu_head.rd == e1_q.u.rb) e1_q.b <= {63'h0, fpu_result[0]};
+          if (fpu_head.rd == e1_q.u.rc && e1_q.u.cls != UC_FSTORE) e1_q.c <= {63'h0, fpu_result[0]};
+        end
+        if (w_do && !w_exc && w_q.u.wr_tr && w_q.u.tra == e1_q.u.trb) e1_q.trv <= w_q.res[31:0];
+      end
+      if (!advance && flush) begin
         // launch while held: the younger stages are discarded (W keeps its
         // acted flag until the pipeline moves)
         e1_q.u.valid <= 1'b0;
@@ -1096,6 +1120,10 @@ module sh5_core
   assign trace_fpu_we_o  = fgw_en || ffw_en;
   assign trace_fpu_idx_o = fpu_head.wr_gpr ? fpu_head.rd : fpu_head.fd;
   assign trace_fpu_val_o = fpu_result;
+  assign trace_launch_o      = w_launch;
+  assign trace_launch_code_o = w_q.u.exc;
+  assign trace_launch_tea_o  = w_q.ea;
+  assign trace_launch_pc_o   = ctrl_new_pc;
 
   assign dbg_fetch_addr_o = if_insn_pc;
   assign dbg_insn_o       = if_insn;

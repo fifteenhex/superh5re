@@ -351,6 +351,9 @@ struct Tb {
             if (t.trace_gpr_we_o) fprintf(trace, " r%d=%016llx", t.trace_gpr_idx_o, (unsigned long long)t.trace_gpr_val_o);
             fputc('\n', trace);
         }
+        if (t.trace_launch_o) {
+            fprintf(trace, "launch code=%03x tea=%08x -> %08x\n", t.trace_launch_code_o, t.trace_launch_tea_o, t.trace_launch_pc_o);
+        }
         if (t.trace_fpu_we_o) {
             fprintf(trace, "fpu f%d=%08x_%08x_%08x_%08x\n", t.trace_fpu_idx_o,
                     t.trace_fpu_val_o[3], t.trace_fpu_val_o[2], t.trace_fpu_val_o[1], t.trace_fpu_val_o[0]);

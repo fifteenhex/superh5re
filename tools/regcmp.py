@@ -38,7 +38,7 @@ def main(argv):
     with open(argv[1]) as f:
         for line in f:
             parts = line.split()
-            if not parts or parts[0] in ('bus', 'fpu'):
+            if not parts or parts[0] in ('bus', 'fpu', 'launch'):
                 continue
             rtl.append(parts)
     bad = 0

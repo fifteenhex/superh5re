@@ -21,7 +21,7 @@ def rtl_pcs(path):
     with open(path) as f:
         for line in f:
             parts = line.split()
-            if not parts or parts[0] in ('bus', 'fpu'):
+            if not parts or parts[0] in ('bus', 'fpu', 'launch'):
                 continue
             # optional leading cycle number
             pc = parts[1] if len(parts) > 2 and len(parts[0]) < 8 else parts[0]
