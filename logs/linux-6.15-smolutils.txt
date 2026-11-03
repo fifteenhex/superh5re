@@ -1,0 +1,163 @@
+[    0.000000] Linux version 6.15.0-00021-g14f64e71fad6-dirty (builder@builder) (sh64-linux-gcc (GCC) 6.5.0, GNU ld (GNU Binutils) 2.30) #20 PREEMPT Tue Nov  3 03:50:06 UTC 2026
+[    0.000000] Boot params:
+[    0.000000] ... MOUNT_ROOT_RDONLY - 00000001
+[    0.000000] ... RAMDISK_FLAGS     - 00000000
+[    0.000000] ... ORIG_ROOT_DEV     - 00000200
+[    0.000000] ... LOADER_TYPE       - 00000001
+[    0.000000] ... INITRD_START      - 00f00000
+[    0.000000] ... INITRD_SIZE       - 000188f1
+[    0.000000] Booting machvec: Hitachi Cayman
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Kernel command line: console=ttySC0 -- smolinit.getty=/dev/ttySC0 smolinit.hostname=cayman
+[    0.000000] printk: log buffer data + meta data: 1048576 + 3276800 = 4325376 bytes
+[    0.000000] Dentry cache hash table entries: 16384 (order: 4, 65536 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 8192 (order: 3, 32768 bytes, linear)
+[    0.000000] Sorting __ex_table...
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 32768
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] I-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] I-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] D-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] D-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] virtual kernel memory layout:
+[    0.000000]     fixmap  : 0xfffd7000 - 0xfffff000   ( 160 kB)
+[    0.000000]     vmalloc : 0xf0000000 - 0xfffd5000   ( 255 MB)
+[    0.000000]     lowmem  : 0xa0000000 - 0xa8000000   ( 128 MB) (cached)
+[    0.000000]       .init : 0xa0cac000 - 0xa0cec000   ( 256 kB)
+[    0.000000]       .data : 0xa08875a0 - 0xa0cab6a0   (4240 kB)
+[    0.000000]       .text : 0xa0001000 - 0xa08875a0   (8729 kB)
+[    0.000000] SLUB: HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] Console: colour dummy device 80x25
+[    0.000000]  sh-tmu.0: ch0: used for clock events
+[    0.000000]  sh-tmu.0: ch0: used for periodic clock events
+[    0.000000]  sh-tmu.0: ch1: used as clock source
+[    0.000000] clocksource: sh-tmu.0: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1834811203156 ns
+[    0.000000] sched_clock: 32 bits at 250 Hz, resolution 4000000ns, wraps every 8589934590000000ns
+[    0.004000] Calibrating delay loop (skipped)... 12.50 BogoMIPS PRESET (lpj=25000)
+[    0.004000] CPU: SH5-101
+[    0.004000] pid_max: default: 32768 minimum: 301
+[    0.032000] Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.036000] Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.236000] rcu: Hierarchical SRCU implementation.
+[    0.236000] rcu: 	Max phase no-delay instances is 1000.
+[    0.268000] Memory: 114860K/131072K available (8725K kernel code, 3364K rwdata, 876K rodata, 256K init, 1131K bss, 15628K reserved, 0K cma-reserved)
+[    0.316000] devtmpfs: initialized
+[    0.364000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.364000] posixtimers hash table entries: 512 (order: -1, 2048 bytes, linear)
+[    0.364000] futex hash table entries: 256 (order: -1, 3072 bytes, linear)
+[    0.420000] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.484000] DMA: preallocated 128 KiB GFP_KERNEL pool for atomic allocations
+[    0.572000] pps_core: LinuxPPS API ver. 1 registered
+[    0.572000] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.572000] PTP clock support registered
+[    0.580000] sh_tmu sh-tmu.0: kept as earlytimer
+[    0.664000] clocksource: Switched to clocksource sh-tmu.0
+[    0.880000] NET: Registered PF_INET protocol family
+[    0.892000] IP idents hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    0.920000] tcp_listen_portaddr_hash hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.920000] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.924000] TCP established hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.928000] TCP bind hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    0.928000] TCP: Hash tables configured (established 1024 bind 1024)
+[    0.940000] UDP hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    0.944000] UDP-Lite hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    0.952000] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.976000] RPC: Registered named UNIX socket transport module.
+[    0.976000] RPC: Registered udp transport module.
+[    0.976000] RPC: Registered tcp transport module.
+[    0.976000] RPC: Registered tcp-with-tls transport module.
+[    0.976000] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    0.992000] SMSC SuperIO devid 00 rev 00
+[    1.048000] Trying to unpack rootfs image as initramfs...
+[    1.048000] workingset: timestamp_bits=30 max_order=15 bucket_order=0
+[    1.120000] romfs: ROMFS MTD (C) 2007 Red Hat, Inc.
+[    1.136000] io scheduler mq-deadline registered
+[    1.144000] io scheduler kyber registered
+[    1.860000] Freeing initrd memory: 96K
+[    2.552000] SuperH (H)SCI(F) driver initialized
+[    2.572000] sh-sci.0: ttySC0 at MMIO 0xa030000 (irq = 40, base_baud = 0) is a scif
+[    2.592000] printk: legacy console [ttySC0] enabled
+[    2.956000] brd: module loaded
+[    3.068000] loop: module loaded
+[    3.096000] NET: Registered PF_PACKET protocol family
+[    3.100000] heartbeat: version 0.1.2 loaded
+[    3.544000] Freeing unused kernel image (initmem) memory: 256K
+[    3.544000] This architecture does not have kernel memory protection.
+[    3.548000] Run /init as init process
+smolutils init (Nov  3 2026, 03:03:40)
+getty: Starting getty on /dev/ttySC0 with shell /bin/smolsh
+smolsh / > [   84.676000] random: crng init done
+
+smolsh / > uname -a
+usage: uname
+Exited with non-zero return code: 1
+smolsh / > ls /bin
+mv	rm	ln	mkdir	rmdir	umount	mount	halt	poweroff	reboot	su	ping	tftp	devmem	resolv	ip	sha256sum	ps	ls	kill	mknod	free	touch	uname	less	man	lsusb	lspci	xxd	rtcwake	hwclock	i2cdump	i2cdetect	i2cset	i2cget	flashcp	nandwrite	nanddump	flash_erase	gpiomon	gpioset	gpioget	gpioinfo	gpiodetect	mtdinfo	smolsh	dmesg	df	chown	chmod	cp	cat	
+smolsh / > df
+Filesystem              1K-blocks         Used    Available  Use% Mounted on
+rootfs                      57720          360        57360    0% /
+devtmpfs                    57720            0        57720    0% /dev
+devpts                          0            0            0    0% /dev/pts
+sysfs                           0            0            0    0% /sys
+proc                            0            0            0    0% /proc
+tmp                         57896            0        57896    0% /tmp
+run                         57896            0        57896    0% /run
+smolsh / > cat /proc/cpuinfo
+machine		: Hitachi Cayman
+processor	: 0
+cpu family	: sh
+cpu type	: SH5-101
+cut		: 0.0
+cpu flags	: none
+cache type	: split (harvard)
+icache size	: 32KiB (4-way)
+dcache size	: 32KiB (4-way)
+address sizes	: 32 bits physical
+bogomips	: 12.50
+smolsh / > ps
+USER		PID		CMD
+root		1		init
+root		2		kthreadd
+root		3		pool_workqueue_release
+root		4		kworker/R-rcu_gp
+root		5		kworker/R-sync_wq
+root		6		kworker/R-kvfree_rcu_reclaim
+root		7		kworker/R-slub_flushwq
+root		8		kworker/R-netns
+root		9		kworker/0:0-events_power_efficient
+root		10		kworker/0:1
+root		11		kworker/0:0H-events_highpri
+root		12		kworker/u4:0-events_unbound
+root		13		kworker/R-mm_percpu_wq
+root		14		ksoftirqd/0
+root		15		rcu_preempt
+root		16		rcu_exp_par_gp_kthread_worker/0
+root		17		rcu_exp_gp_kthread_worker
+root		18		kdevtmpfs
+root		19		kworker/R-inet_frag_wq
+root		20		khungtaskd
+root		21		oom_reaper
+root		22		kworker/R-writeback
+root		23		kcompactd0
+root		24		kworker/R-kblockd
+root		25		kworker/0:1H
+root		26		kworker/R-rpciod
+root		27		kworker/R-xprtiod
+root		28		kworker/u4:1-events_unbound
+root		29		kswapd0
+root		30		kworker/R-nfsiod
+root		31		kworker/u4:2
+1024		33		getty
+1024		34		smolsh
+1024		39		ps
+smolsh / > 

@@ -126,3 +126,9 @@ stores plain text in `__log_buf`; `strings`-style extraction of the
 `xp /Nxb` dump is enough (`tools/printkbuf.py` decodes the 5.x format only).
 Note that `objdump -d --start-address` prints nothing for the sh64 vmlinux;
 disassemble the whole file and grep.
+
+## User space
+
+See `../userspace/README.md`: nolibc has an SHmedia port, smolutils builds
+and runs on this kernel, and the branch carries the fixes that running
+processes exposed (ASIDs, PTE geometry, interrupt demux, ...).

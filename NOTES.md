@@ -148,3 +148,19 @@ reproduce it. Confirmed facts move to `docs/`.
   because `timeout` killed it first, redirect QEMU output to a file.
   Open: gcc patch untested (needs gmp/mpfr/mpc sources to rebuild gcc);
   still no sh64 root filesystem.
+- 2026-11-03: smolutils user space runs on the 6.15 sh64 kernel
+  (`userspace/README.md`, `logs/linux-6.15-smolutils.txt`). nolibc got an
+  SHmedia block (branch `intern-nolibc-sh5-20261103` of `linux`, on
+  v7.3-rc2), smolutils an sh5 target (branch `intern-sh5-smolutils-20261103`;
+  the gitolite branch `intern-sh5-20261103` of smolutils was pushed by
+  mistake from another session's `intern-inc-strings` branch and can be
+  deleted). Kernel fixes in order found: set_pte dropping/sign-extending
+  the software flag bits, sticky thread fault code (`~0 >> n`), missing
+  mv_irq_demux (SCIF TXI landed on irq 59), ASID allocator never seeded on
+  sh64, 32-bit PTE geometry for 64-bit PTEs, unwinder namebuf overflow,
+  flush_thread frame pointer, fast TLB miss stack size. Recipe that found
+  the PTE geometry bug: CONFIG_SLUB_DEBUG_ON reported "Padding overwritten
+  @offset=4080", which was PTE index 0x3fe * 8 of the stack page, written
+  one page past the table. QEMU: SHcompact entry is now a logged RESINST
+  instead of an abort. Open: gcc division patch still untested (needs
+  mpfr/mpc), smolutils networking not tried (SMC91X present, no dhcp run).
