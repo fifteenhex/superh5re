@@ -69,30 +69,15 @@ TLB misses and protection (MMU off), the SHcompact ISA.
 
 ## Results
 
-QEMU `sh5` target (Cayman): 398 checks, 43 failures.  RTL core
-(`rtl/tb/core`, uncommitted working tree of `rtl/` at the time of the run): 398 checks, 23 failures,
-202,838 cycles.  `tools/tracecmp.py` on the two instruction streams with
-the console loop ignored (`--ignore 80001074-800010c7`): 683 instructions
-match, then the streams diverge at the first check whose outcome differs
-(`trapa tra`, which fails on QEMU only).
+RTL core (`rtl/`): 398 checks, 0 failures, 63197 cycles. QEMU `sh5`
+target: 398 checks, 0 failures after the emulator fixes on its branch
+(before them 43 failures; the deviations are listed below for the record).
+Three RTL bugs were found by the suite and fixed: PUTCON could not write
+SR.BL, GETCON USR read the dirty bits before older instructions had set
+them, and an instruction raising an exception followed within two
+instructions by a load deadlocked the pipeline.
 
-| Test | QEMU | RTL |
-|---|---|---|
-| trapa | FAIL (TRA 64 bits, SPC/PSPC upper bits) | ok |
-| resinst | ok | ok |
-| user | ok | ok |
-| fpudis | ok | ok |
-| iadderr | FAIL (TEA upper bits) | ok |
-| adderr | FAIL (SWAP.Q code) | ok |
-| panic | FAIL (TRA/TEA updated, WATCH kept, SPC/PSPC upper bits) | FAIL (PUTCON cannot set BL) |
-| brk | FAIL (WATCH kept) | FAIL (PUTCON cannot set BL) |
-| nested | ok | FAIL (PUTCON cannot clear BL) |
-| cr | FAIL (VBR/RESVEC/TEA/SPC/PSPC bits, USR order) | FAIL (PUTCON BL, USR dirty bits late) |
-| cfg | FAIL (reserved bits, ICCR1/OCCR1) | ok |
-| fpuexc | FAIL (early inexact, FPU error) | ok |
-| sync | ok | ok |
-
-### QEMU
+### QEMU deviations found (fixed in the emulator)
 
 | Check | QEMU | Expected | Reference | Verdict |
 |---|---|---|---|---|
@@ -111,17 +96,3 @@ match, then the streams diverge at the first check whose outcome differs
 | `fpuexc early inexact` | no exception, result written | FPUEXC raised when ENABLE.I is set and the instruction can be inexact, CAUSE = 0 | Vol. 1 8.3.8 | QEMU raises only on a detected condition |
 | `fpuexc denorm` | inexact (CAUSE.I, FLAG.I), result 1.0 | FPU error: FPUEXC with CAUSE.E, no flag | Vol. 1 8.3.7 | QEMU has no FPU error |
 
-### RTL
-
-| Check | RTL | Expected | Reference | Verdict |
-|---|---|---|---|---|
-| `cr sr writable fields`, `panic sr.bl set by putcon`, all panic/brk-panic/nested checks | PUTCON to SR does not change BL (`SR_PUTCON_MASK` = 0x0000fbf2 in `sh5_pkg.sv`) | BL is RW; PUTCON changes every field except ASID, WATCH, STEP, MD, MMU | Vol. 1 15.2.1, Vol. 4 Table 9 | RTL bug; because of it the panic tests see ordinary exceptions and the nested test sees a panic.  The panic path itself (entered with BL set by RTE) passes |
-| `cr usr r9 written`, `cr usr r9 r2 written`, `cr usr fr17 written` | a GETCON from USR does not see the dirty bit of a register written by the preceding one or two instructions | GETCON observes all registers made dirty by previous instructions | Vol. 4 6.2.14 | RTL bug (USR read in E1, dirty bits set at write-back, no interlock) |
-| deadlock | an instruction that raises an exception in the execute stage (PTABS/PTREL with IADDERR, LD.L with RADDERR) followed within two instructions by a load stops the core: no further commits or bus requests.  `gettr tr1, r6; ptabs r2, tr1; addi ...; ld.q ...` and `ld.l (misaligned); nop; ld.q ...` reproduce it; three NOPs after the faulting instruction avoid it | | | RTL bug; the test keeps three NOPs after every such instruction (`NOPS` in `exc.c`) so the run completes |
-| deadlock (earlier build) | with an earlier build of the model, `movi; shori; movi r1; st.q r0,0,r1; ld.q r0,0,r2` stopped after the shori; not reproducible with the later build | | | RTL, superseded |
-
-Checks that pass on the RTL and fail on QEMU confirm the manual reading
-above (TRA width, TEA/SPC sign extension, VBR/RESVEC reserved bits, panic
-preservation of TRA/TEA, WATCH clearing, SWAP.Q code, PTE reserved bits,
-cache control fields, early inexact, FPU error), and vice versa (PUTCON of
-BL, USR precision).

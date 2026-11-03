@@ -209,3 +209,30 @@ reproduce it. Confirmed facts move to `docs/`.
   decode table because the PDF text extraction loses table columns; the
   first hand transcription had errors in 20 of 27 rows. `make -C rtl lint`
   (Verilator) is clean.
+- 2026-11-03: core RTL implemented and brought up (`rtl/`, status table in
+  `docs/core-design.md` §16). Verification: `tests/isa` bare kit 458064
+  checks and `tests/exc` 398 checks pass on the Verilator model; the
+  Linux 6.15 boot instruction stream matches QEMU for the first 6 million
+  instructions (`tools/tracecmp.py`; register writes with
+  `tools/regcmp.py` on `-d exec,nochain,cpu` windows, one-insn-per-tb).
+  Bring-up recipe: `make -C rtl/tb/core build`, run a group with
+  `--trace`, capture QEMU with `-accel tcg,one-insn-per-tb=on -d
+  exec,nochain -D /dev/stdout | head -n N` (uncapped logs fill the disk),
+  compare; for register-level diffs capture a window of `-d cpu` dumps
+  with awk on the Trace count. Core bugs found that way: missing
+  decode-stage kill on a taken branch, store data read before forwarding,
+  no target-register write-back forwarding, loads overtaking stores still
+  in E3, operands read in D going stale during long holds (now E1 snoops
+  the write ports), deadlock between a pending exception and a waiting
+  load (stores now enter the queue in E3, loads can issue from E3),
+  PUTCON unable to write SR.BL, GETCON USR too early, TRAPA operand
+  hazard, STLO.L in the upper word, FPU hazards before issue, 512 MB page
+  mask. Linux boot stop found at 4.44 M instructions:
+  `sh64_dcache_purge_all` passes a zero-extended address to ALLOCO
+  (`(unsigned long long)(unsigned long)` in cache-sh5.c); Vol. 1 6.6.2
+  checks ALLOCO like a store, so the core raises WADDERR; QEMU treats
+  ALLOCO as a no-op and never noticed. Kernel cast changed to sign
+  extension. Open question: whether the evaluation chip checked ALLOCO
+  addresses at all (the 2003 code ran on hardware).
+  tests/exc results on QEMU: 43 deviations from the manual (listed in
+  `tests/exc/README.md`), emulator fixes in progress on the QEMU branch.

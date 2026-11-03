@@ -560,3 +560,23 @@ RTE (SPC bit 0 = 0).
 - Target FPGA board and clock.
 - Whether to implement the debug module's watchpoint comparators inside
   the core.
+
+## 16. Implementation status
+
+`rtl/` implements the core as follows (see `rtl/README.md` for files and
+the test commands).
+
+| Area | State |
+|---|---|
+| Pipeline | D E1 E2 E3 W in order, lockstep hold; loads wait for the bus response in E3; stores enter a 4-entry queue in E3; loads are ordered behind all older stores (no forwarding from the store queue). Branches resolve in E1 and redirect fetch; no prediction, no target preload yet. |
+| Fetch | 8-byte blocks through the bus, 4-entry queue; no I-cache. |
+| ALU, SIMD, FPU | complete; FPU latencies 2 to 63 cycles, one operation in flight. |
+| MMU | ITLB and DTLB lookup and exceptions, configuration registers; all accesses are uncached regardless of PTEL.CB (no caches); ICCR/OCCR stored. Cache instructions perform their address, translation and protection checks only. |
+| Events | all non-debug exceptions, BREAK, PANIC, NMI/DEBUGINT/EXTINT acceptance and INTEVT/IMASK, RTE, SLEEP. Not implemented: single step (DEBUGSS), watchpoints, SHcompact (RESINST on entry). |
+| Bus | Load8/Store8/Swap8 only; VCR target port. |
+
+Verification done: the 458064-check SHmedia ISA kit (`tests/isa`, bare
+mode) and the 398-check exception suite (`tests/exc`) pass on the model; the
+instruction stream of the first six million instructions of the Linux 6.15
+boot matches QEMU (`tools/tracecmp.py`), and register writes match in the
+windows compared with `tools/regcmp.py`.
