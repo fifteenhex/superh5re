@@ -232,7 +232,14 @@ reproduce it. Confirmed facts move to `docs/`.
   (`(unsigned long long)(unsigned long)` in cache-sh5.c); Vol. 1 6.6.2
   checks ALLOCO like a store, so the core raises WADDERR; QEMU treats
   ALLOCO as a no-op and never noticed. Kernel cast changed to sign
-  extension. Open question: whether the evaluation chip checked ALLOCO
-  addresses at all (the 2003 code ran on hardware).
+  extension (kernel branch `intern-sh5-revive-20261103`; build with
+  `ARCH=sh64`, otherwise Kconfig silently selects a 32-bit SuperH
+  configuration). Open question: whether the evaluation chip checked
+  ALLOCO addresses at all (the 2003 code ran on hardware).
+  With that kernel, Linux 6.15 boots on the RTL model to the smolutils
+  shell prompt (init, getty, smolsh) in 191 M cycles; the testbench
+  needed the SCIF transmit interrupt (SCR.TIE level) for user-space tty
+  output, which the kernel console path does not use.
   tests/exc results on QEMU: 43 deviations from the manual (listed in
-  `tests/exc/README.md`), emulator fixes in progress on the QEMU branch.
+  `tests/exc/README.md`), all fixed on the QEMU branch (two commits);
+  QEMU still passes the ISA kit and boots NetBSD and Linux.

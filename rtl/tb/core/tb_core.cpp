@@ -166,6 +166,7 @@ struct Tb {
     Tmu tmu;
     uint32_t cprc_regs[8] = {0};
     uint8_t rcr1 = 0, rcr2 = 0;
+    uint16_t scif_scr = 0;      // SCR: TIE bit 7 raises TXI while set (transmit FIFO is always empty)
     FILE *conlog = nullptr;
     std::deque<Rsp> rsps;
     uint64_t cycle = 0;
@@ -175,6 +176,8 @@ struct Tb {
     bool quiet = false;
     bool bustrace = false;
     uint64_t trace_max = ~0ull, traced = 0;
+    const char *trace_start = nullptr;   // begin tracing when the console printed this
+    bool trace_on = true;
     bool done = false;
     int failures = -1;
     // multi-beat request assembly
@@ -194,8 +197,10 @@ struct Tb {
         uint32_t base = a & 0xffff0000u, off = a & 0xfff8;
         if (is_ram(a)) return mem.rd64(a);
         if (base == SCIF_BASE) {
-            // FSR (+0x10): TDFE | TEND; FRDR/others 0
-            return off == 0x10 ? 0x0060 : 0;
+            // FSR (+0x10): TDFE | TEND; SCR (+0x08) as written; FRDR/others 0
+            if (off == 0x10) return 0x0060;
+            if (off == 0x08) return scif_scr;
+            return 0;
         }
         if (base == INTC_BASE) return lane32(intc.read(off), off) | lane32(intc.read(off + 4), off + 4) * ((off & 7) ? 0 : 1);
         if (base == TMU_BASE)  return lane32(tmu.read(off), off) | lane32(tmu.read(off + 4), off + 4);
@@ -222,8 +227,9 @@ struct Tb {
         uint32_t base = a & 0xffff0000u, off = a & 0xfff8;
         if (is_ram(a)) { mem.wr64(a, v, mask); return; }
         if (base == SCIF_BASE) {
-            // FTDR (+0x0c) is byte lane 4 of the word at +0x08
+            // FTDR (+0x0c) is byte lane 4 of the word at +0x08; SCR is lanes 0..1
             if (off == 0x08 && (mask & 0x10)) putc_out((char)(v >> 32));
+            if (off == 0x08 && (mask & 0x03)) scif_scr = (uint16_t)v;
             return;
         }
         if (base == INTC_BASE || base == TMU_BASE || base == CPRC_BASE) {
@@ -249,6 +255,7 @@ struct Tb {
         intc.set(32, tmu.irq(0));
         intc.set(33, tmu.irq(1));
         intc.set(34, tmu.irq(2));
+        intc.set(42, (scif_scr & 0x80) != 0);    // SCIF TXI
         int level; uint32_t code;
         intc.best(level, code);
         top->extint_valid_i = level > 0;
@@ -259,6 +266,7 @@ struct Tb {
     void putc_out(char c) {
         if (!quiet) { fputc(c, stdout); fflush(stdout); }
         if (conlog) { fputc(c, conlog); fflush(conlog); }
+        if (!trace_on && trace_start && out.find(trace_start) != std::string::npos) trace_on = true;
         out.push_back(c);
         if (out.size() > 4096) out.erase(0, out.size() - 4096);
     }
@@ -343,7 +351,7 @@ struct Tb {
 
     void trace_commit() {
         Vsh5_core &t = *top;
-        if (!trace) return;
+        if (!trace || !trace_on) return;
         if (t.trace_valid_o) {
             if (++traced > trace_max) { fclose(trace); trace = nullptr; return; }
             if (bustrace) fprintf(trace, "%llu ", (unsigned long long)cycle);
@@ -403,6 +411,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--quiet")) tb.quiet = true;
         else if (!strcmp(argv[i], "--bus")) tb.bustrace = true;
         else if (!strcmp(argv[i], "--trace-max") && i + 1 < argc) tb.trace_max = strtoull(argv[++i], nullptr, 0);
+        else if (!strcmp(argv[i], "--trace-start") && i + 1 < argc) { tb.trace_start = argv[++i]; tb.trace_on = false; }
         else if (!strcmp(argv[i], "--done") && i + 1 < argc) done_str = argv[++i];
         else if (!strcmp(argv[i], "--cmdline") && i + 1 < argc) cmdline = argv[++i];
         else if (!strcmp(argv[i], "--initrd") && i + 1 < argc) initrd = argv[++i];

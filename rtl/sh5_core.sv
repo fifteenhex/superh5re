@@ -1122,7 +1122,7 @@ module sh5_core
   assign trace_fpu_val_o = fpu_result;
   assign trace_launch_o      = w_launch;
   assign trace_launch_code_o = w_q.u.exc;
-  assign trace_launch_tea_o  = w_q.ea;
+  assign trace_launch_tea_o  = w_q.u.exc_is_irq ? w_q.u.imm[31:0] : w_q.ea;   // INTEVT for interrupts
   assign trace_launch_pc_o   = ctrl_new_pc;
 
   assign dbg_fetch_addr_o = if_insn_pc;

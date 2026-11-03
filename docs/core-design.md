@@ -578,5 +578,6 @@ the test commands).
 Verification done: the 458064-check SHmedia ISA kit (`tests/isa`, bare
 mode) and the 398-check exception suite (`tests/exc`) pass on the model; the
 instruction stream of the first six million instructions of the Linux 6.15
-boot matches QEMU (`tools/tracecmp.py`), and register writes match in the
-windows compared with `tools/regcmp.py`.
+boot matches QEMU (`tools/tracecmp.py`), register writes match in the
+windows compared with `tools/regcmp.py`, and the kernel boots to the
+smolutils shell prompt on the model (191 M cycles, bus latency 1).
