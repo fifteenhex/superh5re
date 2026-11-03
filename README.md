@@ -17,4 +17,5 @@ and never shipped in a product.
 | `docs/` | ISA tables, encodings, memory map, pipeline notes. |
 | `refs/` | Source material (manuals) and pointers to external sources. |
 | `tools/` | Scripts. |
+| `tests/isa/` | SHmedia ISA test kit (nolibc and bare-metal builds). |
 | `rtl/` | FPGA design and testbenches. |

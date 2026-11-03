@@ -164,3 +164,26 @@ reproduce it. Confirmed facts move to `docs/`.
   one page past the table. QEMU: SHcompact entry is now a logged RESINST
   instead of an abort. Open: gcc division patch still untested (needs
   mpfr/mpc), smolutils networking not tried (SMC91X present, no dhcp run).
+- 2026-11-03: ISA test kit (`tests/isa/`): 9 groups, 458064 checks, C
+  references from the Vol. 2 pseudocode, FPU vectors from host generators
+  with exact arithmetic; builds as a nolibc program and as a bare-metal
+  image from the same sources. Groups were written by parallel agents from
+  a shared harness; both modes pass on the current QEMU branch. Emulator
+  bugs found: MABS saturation, default/signalling NaN conventions (QEMU
+  asserted on the first NaN), tininess after rounding, flags of flushed
+  denormals, FCMPEQ/FCMPUN quiet, FTRC flags and NaN result, FSRRA/FSINA/
+  FCOSA/FIPR/FTRV flags and FIPR/FTRV accuracy (now accumulate in double),
+  PTREL without IADDERR check. Kernel bugs found: no CPU_HAS_FPU (NULL
+  xstate cache), restore_fpu with FD set, FPU state never saved on switch
+  or fork (child saw zeros), fast TLB miss path clobbering r7-r14/r16-r17/
+  r19-r27/r36-r43/r60-r62 (a user loop drifted one byte per page fault),
+  fixmap faults outside the handled range (COW copy oopsed). Vector slot
+  rule: the TLB miss handler must stay inside VBR+0x400..0x600 or
+  trap_init loops forever; bulk code goes in subroutines outside the block.
+  Harness pitfalls: register pointers must be sign-extended
+  (`(u64)(s64)(long)p`), FP scratch use by gcc in integer code triggers the
+  lazy FPU path, raw `.long` encodings for instructions gas lacks
+  (FSINA/FCOSA/FSRRA) or refuses (.L shifts with s > 31). Not covered yet:
+  exceptions and traps (TRAPA, address errors, FPU enable/exception path),
+  privileged instructions (GETCON/PUTCON/GETCFG/PUTCFG, ICBI/OCB* only as
+  no-ops), SHcompact.
