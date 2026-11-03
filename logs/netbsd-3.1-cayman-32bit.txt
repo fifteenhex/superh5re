@@ -1,0 +1,124 @@
+Loaded initial symtab at 0xc245c238, strtab at 0xc2478184, # entries 6768
+Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 3.1 (CAYMAN_QEMU) #3: Mon Nov  2 16:32:59 UTC 2026
+	builder:/obj/sys/arch/evbsh5/compile/CAYMAN_QEMU
+Cayman (QEMU), 32-bit mode
+total memory = 95870976
+avail memory = 91926528
+mainbus0 (root)
+superhyway0 at mainbus0: SuperHyway bus
+cpu0 at superhyway0 p-port 0x0d
+cpu0: SH5 STB1 Evaluation Silicon, Version 0, 256.00 MHz
+cpu0: D-cache 32 KB 32b/line 4-way 256-sets VIPT write-back
+cpu0: I-cache 32 KB 32b/line 4-way 256-sets VIVT
+pbridge0 at superhyway0 p-port 0x09: Peripheral Bridge, Version 0x0
+intc0 at pbridge0 offset 0x1000000: Interrupt Controller
+cprc0 at pbridge0 offset 0x1010000: Clock, Power and Watchdog/Reset Controller
+clock0 at cprc0: PLL frequency - 512MHz
+clock0: External Memory Clock: 64MHz, SuperHyway Clock: 128MHz
+clock0: Peripheral Bus Clock: 21MHz, PCIbus Clock: 21MHz
+clock0: FEMI Bus Clock: 64MHz, ST Legacy Clock: 21MHz
+watchdog at cprc0 not configured
+power at cprc0 not configured
+reset at cprc0 not configured
+tmu0 at pbridge0 offset 0x1020000 ipl 14 intevt 0x400: Timer Unit
+tmu0: Ticks per uS: 5.333
+tmu0: Delay constant: 60
+scif0 at pbridge0 offset 0x1030000 ipl 12 intevt 0x700
+scif0: console
+rtc0 at pbridge0 offset 0x1040000 Real-time Clock
+emi at superhyway0 not configured
+dmac at superhyway0 not configured
+femi0 at superhyway0 p-port 0x08: Flash/External Memory Interface, Version 0x0
+femi0: Base Address: 0x0, Length: 0x8000000
+sysfpga0 at femi0 offset 0x4000000: Cayman System FPGA, Revision: 5 - 02/05/24 (yy/mm/dd)
+sysfpga0: CPUCLKSEL: 400/200/100MHz, CPU Clock Mode: 3
+superio0 at sysfpga0 offset 0x0: FDC37C935 Super IO Controller, Id 0x00, Revision 0
+isa0 at superio0
+sm0 at sysfpga0 offset 0x1000
+sm0: SMC91C111, revision 1, buffer size: 8192
+sm0: MAC address 52:54:00:12:34:56, default media MII (internal PHY)
+alphaled0 at sysfpga0 offset 0x2100: Alphanumeric LED display
+md0: internal 32768 KB image area
+boot device: <unknown>
+root on md0a dumps on md0b
+mountroot: trying nfs...
+mountroot: trying ffs...
+root file system type: ffs
+WARNING: bad date in battery clock -- CHECK AND RESET THE DATE!
+init: copying out path `/sbin/init' 11
+Mon Nov  2 17:23:41 GMT 2026
+Starting file system checks:
+Setting tty flags.
+Setting sysctl variables:
+Starting network.
+Hostname: cayman
+IPv6 mode: host
+Configuring network interfaces: sm0.
+add net default: gateway 10.0.2.2
+Adding interface aliases:
+Building databases...
+Starting syslogd.
+Mounting all filesystems...
+Setting securelevel: kern.securelevel: 0 -> 1
+/etc/rc: WARNING: No swap space configured!
+Starting local daemons:.
+Updating motd.
+Mon Nov  2 17:23:49 GMT 2026
+
+NetBSD/evbsh5 (cayman) (console)
+
+login: root
+Nov  2 17:23:52 cayman login: ROOT LOGIN (root) ON console
+Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 3.1 (CAYMAN_QEMU) #3: Mon Nov 2 16:32:59 UTC 2026
+
+Welcome to NetBSD!
+
+                                                                        Terminal type is vt100.
+We recommend creating a non-root account and using su(1) for root access.
+cayman# exec sh
+# uname -a; sysctl hw.machine hw.machine_arch hw.model hw.physmem; df -k; mount; ps ax; ifconfig sm0; ping -c 3 10.0.2.2; echo LOG-D""ONE
+NetBSD cayman 3.1 NetBSD 3.1 (CAYMAN_QEMU) #3: Mon Nov  2 16:32:59 UTC 2026  builder:/obj/sys/arch/evbsh5/compile/CAYMAN_QEMU evbsh5
+hw.machine = evbsh5
+hw.machine_arch = sh5el
+hw.model = Cayman (QEMU)
+hw.physmem = 95870976
+Filesystem  1K-blocks      Used     Avail Capacity  Mounted on
+/dev/md0a       31711     23324      6802    77%    /
+kernfs              1         1         0   100%    /kern
+/dev/md0a on / type ffs (local)
+kernfs on /kern type kernfs (local)
+PID TTY STAT    TIME COMMAND
+  0 ?   DKs  0:00.00 [swapper]
+  1 ?   Ss   0:00.07 init 
+  2 ?   DK   0:00.04 [pagedaemon]
+  3 ?   DK   0:00.05 [ioflush]
+  4 ?   DK   0:00.08 [aiodoned]
+111 ?   Ss   0:00.05 /usr/sbin/syslogd -s 
+272 ?   Ss   0:00.15 login 
+275 ?   S    0:00.12 sh 
+281 ?   R+   0:00.00 ps ax 
+sm0: flags=8863<UP,BROADCAST,NOTRAILERS,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+        address: 52:54:00:12:34:56
+        media: Ethernet none (none)
+        inet 10.0.2.15 netmask 0xffffff00 broadcast 10.0.2.255
+        inet6 fe80::5054:ff:fe12:3456%sm0 prefixlen 64 scopeid 0x1
+PING 10.0.2.2 (10.0.2.2): 56 data bytes
+64 bytes from 10.0.2.2: icmp_seq=0 ttl=255 time=5.397 ms
+64 bytes from 10.0.2.2: icmp_seq=1 ttl=255 time=1.207 ms
+64 bytes from 10.0.2.2: icmp_seq=2 ttl=255 time=0.622 ms
+
+----10.0.2.2 PING Statistics----
+3 packets transmitted, 3 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 0.622/2.409/5.397/2.604 ms
+LOG-DONE
+#
