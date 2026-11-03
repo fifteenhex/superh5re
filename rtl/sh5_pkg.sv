@@ -101,6 +101,11 @@ package sh5_pkg;
   localparam logic [11:0] EVT_EXECPROT   = 12'haa0;
   localparam logic [11:0] EVT_IADDERR    = 12'hae0;
 
+  // Internal codes for interrupts without an architectural EXPEVT value
+  // (never multiples of 0x20, so they cannot collide with event codes)
+  localparam logic [11:0] EVT_INT_DEBUGINT = 12'h001;
+  localparam logic [11:0] EVT_INT_EXTINT   = 12'h002;
+
   // Handler offsets (Vol. 1 Table 151)
   localparam logic [11:0] VEC_RESET     = 12'h000;  // RESVEC/DBRVEC: CPU reset, panic
   localparam logic [11:0] VEC_EXCEPTION = 12'h100;  // VBR: non-debug, not TLB miss

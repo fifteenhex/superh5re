@@ -1,0 +1,4 @@
+obj/
+obj_dir/
+*.trace
+logs/
