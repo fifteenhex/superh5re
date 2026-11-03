@@ -51,3 +51,24 @@ group under about a minute of emulated time.
 | File | Instructions |
 |---|---|
 | `arith.c` | ADD, ADD.L, ADDZ.L, SUB, SUB.L, ADDI, ADDI.L |
+| `integer.c` | MULS.L, MULU.L, NSB, BYTEREV, CMPEQ, CMPGT, CMPGTU, CMVEQ, CMVNE, MOVI, SHORI |
+| `logic.c` | AND, ANDC, OR, XOR, ANDI, ORI, XORI, SHLLD(.L), SHLRD(.L), SHARD(.L), SHLLI(.L), SHLRI(.L), SHARI(.L) |
+| `loadstore.c` | LD/LDX/ST/STX .B .W .L .Q .UB .UW, LDLO/LDHI/STLO/STHI .L .Q, SWAP.Q, PREFI, ALLOCO, OCBI, OCBP, OCBWB, ICBI |
+| `branch.c` | PTA, PTABS, PTREL, GETTR, BLINK, BEQ, BNE, BGE, BGT, BGEU, BGTU, BEQI, BNEI, NOP |
+| `mmedia1.c` | MADD(S), MSUB(S), MABS, MCMPEQ, MCMPGT, MCMV, MCNVS, MSAD.UBQ, MPERM.W, MSHFHI, MSHFLO, MEXTR1-7 |
+| `mmedia2.c` | MMUL, MMULFX, MMULFXRP, MMULHI/LO.WL, MMULSUM.WQ, MMACFX/MMACNFX.WL, MSHALDS, MSHARD(S), MSHLLD, MSHLRD |
+| `fpu_s.c` | all single-precision FPU instructions incl. FIPR, FTRV, FSINA, FCOSA, FSRRA, FGETSCR, FPUTSCR; vectors from `tools/gen_fpu_s.py` |
+
+FPU vectors are generated on the host (`tools/gen_fpu_*.py`, exact
+rational arithmetic with IEEE rounding and the manual's special-case
+tables) so the expectations do not depend on the target FPU. The
+approximate instructions are checked against the error bounds of Vol. 1
+8.7.3.
+
+Emulator bugs the kit found and that are fixed on the QEMU branch: MABS.W/L
+saturation; NaN conventions (default and signalling NaN), tininess after
+rounding, flags of flushed denormal results, quiet FCMPEQ/FCMPUN, FTRC
+flags and NaN result, FSRRA/FSINA/FCOSA/FIPR/FTRV flags and accuracy.
+Kernel bugs found by running it under Linux: FPU state cache, lazy FPU
+restore, FPU save on context switch and fork, caller-saved registers across
+the fast TLB miss handler, fixmap faults.
