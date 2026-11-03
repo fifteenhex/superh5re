@@ -68,7 +68,11 @@ def main(argv):
                 if i >= 0:
                     buf = buf[i + len(text):]
                     return True
-            readsome(min(0.5, max(0.0, end - time.time())))
+            if not readsome(min(0.5, max(0.0, end - time.time()))) \
+                    and p.poll() is not None:
+                # QEMU exited (crash, abort, shutdown): no point waiting
+                sys.stderr.write('qrun: QEMU exited with status %r\n' % p.returncode)
+                return False
         return False
 
     def monitor(command):

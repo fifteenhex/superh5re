@@ -58,6 +58,7 @@ group under about a minute of emulated time.
 | `mmedia1.c` | MADD(S), MSUB(S), MABS, MCMPEQ, MCMPGT, MCMV, MCNVS, MSAD.UBQ, MPERM.W, MSHFHI, MSHFLO, MEXTR1-7 |
 | `mmedia2.c` | MMUL, MMULFX, MMULFXRP, MMULHI/LO.WL, MMULSUM.WQ, MMACFX/MMACNFX.WL, MSHALDS, MSHARD(S), MSHLLD, MSHLRD |
 | `fpu_s.c` | all single-precision FPU instructions incl. FIPR, FTRV, FSINA, FCOSA, FSRRA, FGETSCR, FPUTSCR; vectors from `tools/gen_fpu_s.py` |
+| `fpu_d.c` | all double-precision FPU instructions, FCNV.SD/DS, FLOAT/FTRC .LD .QD .DL .DQ, FLD/FST .D .P; vectors from `tools/gen_fpu_d.py` |
 
 FPU vectors are generated on the host (`tools/gen_fpu_*.py`, exact
 rational arithmetic with IEEE rounding and the manual's special-case

@@ -41,9 +41,10 @@ all: $(ELF)
 $(ELF): $(OBJS) $(if $(filter bare,$(MODE)),bare.ld)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) -lgcc
 
-%.nolibc.o: %.c harness.h
+# groups include generated vector headers; rebuild when they change
+%.nolibc.o: %.c harness.h $(wildcard groups/*.h)
 	$(CC) $(CFLAGS) -c -o $@ $<
-%.bare.o: %.c harness.h
+%.bare.o: %.c harness.h $(wildcard groups/*.h)
 	$(CC) $(CFLAGS) -c -o $@ $<
 start.o: start.S
 	$(CC) -m5-32media -Wa,-isa=shmedia -c -o $@ $<

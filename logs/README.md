@@ -14,3 +14,5 @@ with `tools/qrun.py` (input lines are echoed by the guest).
 The build host name and object directory in the kernel version strings were
 replaced by `builder` and `/obj/`. The NetBSD clock reads a fixed date because
 the RTC model returns the host time without a battery-backed year.
+| `isa-tests-bare.txt` | `tests/isa` kit, `MODE=bare` image on `qemu-system-sh5 -M cayman` | 458064 checks, 0 failures |
+| `isa-tests-linux-6.15.txt` | same kit as a nolibc process on the 6.15 sh64 kernel | 458064 checks, 0 failures |

@@ -1,0 +1,23 @@
+isa: SH-5 SHmedia ISA test kit
+isa: group arith
+isa: group arith ok 0 failures
+isa: group branch
+isa: group branch ok 0 failures
+isa: group fpu_d
+isa: fpu_d: NaN-producing checks follow
+isa: group fpu_d ok 0 failures
+isa: group fpu_s
+isa: fpu_s: 84620 checks before the NaN-result vectors, 0 failures
+isa: group fpu_s ok 0 failures
+isa: group integer
+isa: group integer ok 0 failures
+isa: group loadstore
+isa: group loadstore ok 0 failures
+isa: group logic
+isa: group logic ok 0 failures
+isa: group mmedia1
+isa: group mmedia1 ok 0 failures
+isa: group mmedia2
+isa: group mmedia2 ok 0 failures
+isa: SUMMARY 458064 tests, 0 failures
+isa: DONE
