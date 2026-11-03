@@ -14,17 +14,20 @@ module sh5_ifu (
   output logic        insn_valid_o,
   output logic [31:0] insn_o,
   output logic [31:0] insn_pc_o,
+  output logic [11:0] insn_fault_o,    // fetch exception code for this block, 0 = none
   input  logic        consume_i,
 
   output logic        req_valid_o,
   input  logic        req_ready_i,
   output logic [31:3] req_addr_o,
   input  logic        rsp_valid_i,
-  input  logic [63:0] rsp_data_i
+  input  logic [63:0] rsp_data_i,
+  input  logic [11:0] rsp_fault_i
 );
 
   logic [31:3] q_addr [4];
   logic [63:0] q_data [4];
+  logic [11:0] q_fault [4];
   logic [1:0]  q_rd_q, q_wr_q;
   logic [2:0]  q_cnt_q;        // filled entries
   logic        half_q;         // 0: low word of the head block is next
@@ -44,6 +47,7 @@ module sh5_ifu (
   assign insn_valid_o = (q_cnt_q != 3'd0);
   assign insn_o       = half_q ? q_data[q_rd_q][63:32] : q_data[q_rd_q][31:0];
   assign insn_pc_o    = {q_addr[q_rd_q], half_q, 2'b00};
+  assign insn_fault_o = q_fault[q_rd_q];
   assign pop          = consume_i && insn_valid_o && half_q;
 
   always_ff @(posedge clk or negedge rst_n) begin
@@ -62,6 +66,7 @@ module sh5_ifu (
       if (rsp_stale) stale_q <= stale_q - 3'd1;
       if (rsp_live) begin
         q_data[q_wr_q] <= rsp_data_i;
+        q_fault[q_wr_q] <= rsp_fault_i;
         q_addr[q_wr_q] <= fetch_pc_q - 29'(inflight_q);
         q_wr_q <= q_wr_q + 2'd1;
       end

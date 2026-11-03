@@ -26,8 +26,13 @@ package sh5_uop_pkg;
     UC_FLOAD,     // memory read into FR
     UC_FSTORE,    // memory write from FR
     UC_FPUTSCR,
+    UC_CACHEOP,   // ALLOCO, ICBI, OCBI, OCBP, OCBWB, PREFI: address and translation checks only (no cache)
     UC_EXC        // exception or interrupt launch when it reaches W
   } uclass_t;
+
+  typedef enum logic [2:0] {
+    COP_PREFI, COP_ALLOCO, COP_ICBI, COP_OCBP, COP_OCBI, COP_OCBWB
+  } cop_t;
 
   typedef enum logic [4:0] {
     A_ADD, A_ADDL, A_ADDZL, A_SUB, A_SUBL,
@@ -113,6 +118,8 @@ package sh5_uop_pkg;
     logic        exc_is_irq;  // interrupt pseudo-op: re-check acceptance at W
     logic        exc_is_reset;// CPURESET pseudo-op
     logic        tea_valid;   // exc delivers an address in TEA
+    logic        fetch_fault; // exc raised by the instruction fetch: TEA = PC
+    cop_t        cop;
     logic [3:0]  irq_level;
     logic        serialize;   // block decode until this instruction leaves W
     logic        long_lat;    // result available only after E3 (load, MM, swap)

@@ -59,8 +59,8 @@ package sh5_pkg;
   localparam int SR_MMU   = 31;
 
   // Fields writable by PUTCON (Vol. 4 Table 9): S, IMASK, Q, M, CD, PR,
-  // SZ, FR, FD. ASID, WATCH, STEP, MD, MMU change only by launch and RTE.
-  localparam logic [31:0] SR_PUTCON_MASK = 32'h0000_fbf2;
+  // SZ, FR, FD, BL. ASID, WATCH, STEP, MD, MMU change only by launch and RTE.
+  localparam logic [31:0] SR_PUTCON_MASK = 32'h1000_fbf2;
   // Implemented bits of SR (everything else reads 0)
   localparam logic [31:0] SR_IMPL_MASK   = 32'hdcff_fbf2;
   // Power-on reset: MD=1, BL=1, FD=1, MMU=0, WATCH=STEP=0, CD=PR=SZ=FR=0

@@ -9,6 +9,7 @@ module sh5_decode
   input  logic        priv_i,       // SR.MD
   input  logic        fpu_dis_i,    // SR.FD or no FPU
   input  logic        isa_compact_i,// ISA bit is 0: SHcompact not implemented
+  input  logic [11:0] fetch_fault_i,// ITLBMISS / EXECPROT from the fetch, 0 = none
   output uop_t        uop_o
 );
 
@@ -201,10 +202,12 @@ module sh5_decode
       OP_STORE56: begin  // cache ops, STLO, STHI, PUTCFG
         u.use_imm = 1'b1; u.imm = s6;
         case (ext)
-          4'd1, 4'd4, 4'd5, 4'd8, 4'd9, 4'd12: begin
-            // PREFI, ALLOCO, ICBI, OCBP, OCBI, OCBWB: no cache in this revision
-            u.cls = UC_NOP;
-          end
+          4'd1:  begin u.cls = UC_CACHEOP; u.cop = COP_PREFI;  u.imm = s6 << 5; end
+          4'd4:  begin u.cls = UC_CACHEOP; u.cop = COP_ALLOCO; u.imm = s6 << 5; end
+          4'd5:  begin u.cls = UC_CACHEOP; u.cop = COP_ICBI;   u.imm = s6 << 5; end
+          4'd8:  begin u.cls = UC_CACHEOP; u.cop = COP_OCBP;   u.imm = s6 << 5; end
+          4'd9:  begin u.cls = UC_CACHEOP; u.cop = COP_OCBI;   u.imm = s6 << 5; end
+          4'd12: begin u.cls = UC_CACHEOP; u.cop = COP_OCBWB;  u.imm = s6 << 5; end
           4'd2: begin u.cls = UC_STORE; u.mkind = M_LO; u.msize = 2'd2; end
           4'd3: begin u.cls = UC_STORE; u.mkind = M_LO; u.msize = 2'd3; end
           4'd6: begin u.cls = UC_STORE; u.mkind = M_HI; u.msize = 2'd2; end
@@ -366,7 +369,11 @@ module sh5_decode
     endcase
 
     // Exception precedence at decode (Vol. 2 A.3, A.6; Vol. 1 Table 157)
-    if (isa_compact_i) begin
+    if (fetch_fault_i != 12'h0) begin
+      u = set_exc(u, fetch_fault_i);
+      u.tea_valid = 1'b1;
+      u.fetch_fault = 1'b1;
+    end else if (isa_compact_i) begin
       u = set_exc(u, EVT_RESINST);
     end else if (insn_r(insn_i) != 4'b0000) begin
       u = set_exc(u, EVT_RESINST);

@@ -4,8 +4,7 @@
 module sh5_ctrl
   import sh5_pkg::*;
 #(
-  parameter bit FPU_PRESENT = 1'b1,
-  parameter int TLB_ENTRIES = 64
+  parameter bit FPU_PRESENT = 1'b1
 ) (
   input  logic        clk,
   input  logic        rst_n,
@@ -79,58 +78,18 @@ module sh5_ctrl
   endfunction
 
   // ------------------------------------------------------------------
-  // Configuration registers: TLB arrays and cache control registers
-  logic [31:0] itlb_pteh_q [TLB_ENTRIES];
-  logic [31:0] itlb_ptel_q [TLB_ENTRIES];
-  logic [31:0] dtlb_pteh_q [TLB_ENTRIES];
-  logic [31:0] dtlb_ptel_q [TLB_ENTRIES];
+  // Cache control registers (Vol. 4 9.2.4, 9.2.7). TLB arrays are in sh5_tlb.
   logic [31:0] iccr0_q, iccr1_q, occr0_q, occr1_q;
 
   assign iccr0_o = iccr0_q;
   assign occr0_o = occr0_q;
 
-  localparam int TLB_IDX_BITS = $clog2(TLB_ENTRIES);
-
-  function automatic logic cfg_is_itlb(input logic [31:0] idx);
-    cfg_is_itlb = (idx[31:24] == 8'h00) && (idx[23:21] == 3'b000) &&
-                  (idx[15:4] < 12'(TLB_ENTRIES)) && (idx[3:1] == 3'b000);
-  endfunction
-  function automatic logic cfg_is_dtlb(input logic [31:0] idx);
-    cfg_is_dtlb = (idx[31:24] == 8'h00) && (idx[23:21] == 3'b100) &&
-                  (idx[15:4] < 12'(TLB_ENTRIES)) && (idx[3:1] == 3'b000);
-  endfunction
-
   always_comb begin
-    logic [TLB_IDX_BITS-1:0] ti;
-    ti = getcfg_idx_i[4 +: TLB_IDX_BITS];
     getcfg_val_o = 64'h0;
-    if (cfg_is_itlb(getcfg_idx_i)) begin
-      getcfg_val_o = {32'h0, getcfg_idx_i[0] ? itlb_ptel_q[ti] : itlb_pteh_q[ti]};
-    end else if (cfg_is_dtlb(getcfg_idx_i)) begin
-      getcfg_val_o = {32'h0, getcfg_idx_i[0] ? dtlb_ptel_q[ti] : dtlb_pteh_q[ti]};
-    end else if (getcfg_idx_i == CFG_ICCR) begin
-      getcfg_val_o = {32'h0, iccr0_q};
-    end else if (getcfg_idx_i == CFG_ICCR + 32'd1) begin
-      getcfg_val_o = {32'h0, iccr1_q};
-    end else if (getcfg_idx_i == CFG_OCCR) begin
-      getcfg_val_o = {32'h0, occr0_q};
-    end else if (getcfg_idx_i == CFG_OCCR + 32'd1) begin
-      getcfg_val_o = {32'h0, occr1_q};
-    end
-  end
-
-  always_ff @(posedge clk) begin
-    logic [TLB_IDX_BITS-1:0] ti;
-    ti = putcfg_idx_i[4 +: TLB_IDX_BITS];
-    if (putcfg_en_i) begin
-      if (cfg_is_itlb(putcfg_idx_i)) begin
-        if (putcfg_idx_i[0]) itlb_ptel_q[ti] <= putcfg_val_i[31:0] & PTEL_IMPL_MASK_ITLB;
-        else                 itlb_pteh_q[ti] <= putcfg_val_i[31:0] & PTEH_IMPL_MASK;
-      end else if (cfg_is_dtlb(putcfg_idx_i)) begin
-        if (putcfg_idx_i[0]) dtlb_ptel_q[ti] <= putcfg_val_i[31:0] & PTEL_IMPL_MASK_DTLB;
-        else                 dtlb_pteh_q[ti] <= putcfg_val_i[31:0] & PTEH_IMPL_MASK;
-      end
-    end
+    if (getcfg_idx_i == CFG_ICCR)                getcfg_val_o = {32'h0, iccr0_q};
+    else if (getcfg_idx_i == CFG_ICCR + 32'd1)   getcfg_val_o = {32'h0, iccr1_q};
+    else if (getcfg_idx_i == CFG_OCCR)           getcfg_val_o = {32'h0, occr0_q};
+    else if (getcfg_idx_i == CFG_OCCR + 32'd1)   getcfg_val_o = {32'h0, occr1_q};
   end
 
   always_ff @(posedge clk or negedge rst_n) begin

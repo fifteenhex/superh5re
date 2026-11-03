@@ -52,11 +52,121 @@ const uint8_t OPC_LOAD8 = 0x31, OPC_LOAD16 = 0x41, OPC_LOAD32 = 0x51;
 const uint8_t OPC_STORE8 = 0x32, OPC_STORE16 = 0x42, OPC_STORE32 = 0x52;
 const uint8_t OPC_SWAP8 = 0x35, OPC_SUCCESS = 0x80, OPC_FAILURE = 0x81;
 
+const uint32_t INTC_BASE = 0x0a000000;
+const uint32_t CPRC_BASE = 0x0a010000;
+const uint32_t TMU_BASE  = 0x0a020000;
 const uint32_t SCIF_BASE = 0x0a030000;
+const uint32_t RTC_BASE  = 0x0a040000;
+const uint32_t RAM_BASE  = 0x80000000;
+const uint32_t RAM_SIZE  = 128u << 20;
+
+// INTEVT codes of the Cayman interrupt sources (NetBSD sh5 intc driver)
+static uint16_t intc_intevt_table[64];
+static void init_intevt() {
+    static const struct { int n; uint16_t code; } t[] = {
+        {0, 0x240}, {1, 0x2a0}, {2, 0x300}, {3, 0x360},
+        {4, 0x800}, {5, 0x820}, {6, 0x840}, {7, 0x860},
+        {12, 0xa00}, {13, 0xa20}, {14, 0xa40}, {15, 0xa60}, {16, 0xa80}, {17, 0xaa0},
+        {18, 0x640}, {19, 0x660}, {20, 0x680}, {21, 0x6a0}, {22, 0x6c0},
+        {32, 0x400}, {33, 0x420}, {34, 0x440}, {35, 0x460}, {36, 0x480}, {37, 0x4a0}, {38, 0x4c0},
+        {39, 0x700}, {40, 0x720}, {41, 0x740}, {42, 0x760},
+        {63, 0x560},
+    };
+    for (auto &e : t) intc_intevt_table[e.n] = e.code;
+}
+#define intc_intevt intc_intevt_table
+
+// Interrupt controller: ICR +0/+8, INTPRI[8] +0x10 step 8, INTSRC +0x50/58,
+// INTREQ +0x60/68, INTENB +0x70/78, INTDISB +0x80/88.
+struct Intc {
+    uint64_t src = 0, enb = 0;
+    uint32_t icr = 0, intpri[8] = {0};
+    void set(int n, bool level) { if (level) src |= 1ull << n; else src &= ~(1ull << n); }
+    // highest priority pending source: level 1..15, 0 = none
+    void best(int &level, uint32_t &code) {
+        level = 0; code = 0;
+        uint64_t pend = src & enb;
+        for (int i = 0; i < 64; i++) if (pend & (1ull << i)) {
+            int p = (intpri[i / 8] >> ((i % 8) * 4)) & 0xf;
+            if (p > level) { level = p; code = intc_intevt[i]; }
+        }
+    }
+    uint32_t read(uint32_t off) {
+        if (off == 0x00 || off == 0x08) return icr;
+        if (off >= 0x10 && off < 0x50) return intpri[(off - 0x10) / 8];
+        switch (off) {
+        case 0x50: return (uint32_t)src;        case 0x58: return src >> 32;
+        case 0x60: return (uint32_t)(src & enb); case 0x68: return (src & enb) >> 32;
+        case 0x70: return (uint32_t)enb;        case 0x78: return enb >> 32;
+        case 0x80: return (uint32_t)~enb;       case 0x88: return ~enb >> 32;
+        }
+        return 0;
+    }
+    void write(uint32_t off, uint32_t v) {
+        if (off == 0x00) icr |= v;
+        else if (off == 0x08) icr &= ~v;
+        else if (off >= 0x10 && off < 0x50) intpri[(off - 0x10) / 8] = v;
+        else if (off == 0x70) enb |= v;
+        else if (off == 0x78) enb |= (uint64_t)v << 32;
+        else if (off == 0x80) enb &= ~(uint64_t)v;
+        else if (off == 0x88) enb &= ~((uint64_t)v << 32);
+    }
+};
+
+// Timer unit (TMU, SH-4 layout): TOCR +0, TSTR +4, channel n: TCOR +8+12n,
+// TCNT +0xc+12n, TCR +0x10+12n. Counts on the peripheral clock, modelled as
+// the core clock divided by PCLK_DIV, further divided by the TCR prescaler.
+const unsigned PCLK_DIV = 12;
+struct Tmu {
+    uint8_t tocr = 0, tstr = 0;
+    uint32_t tcor[3] = {0xffffffff, 0xffffffff, 0xffffffff};
+    uint32_t tcnt[3] = {0xffffffff, 0xffffffff, 0xffffffff};
+    uint16_t tcr[3] = {0, 0, 0};
+    bool unf[3] = {false, false, false};
+    unsigned pre[3] = {0, 0, 0};
+    unsigned pclk = 0;
+    bool irq(int n) const { return unf[n] && (tcr[n] & 0x20); }
+    void tick() {
+        if (++pclk < PCLK_DIV) return;
+        pclk = 0;
+        for (int n = 0; n < 3; n++) {
+            if (!(tstr & (1 << n))) continue;
+            unsigned div = 4u << (2 * (tcr[n] & 7));
+            if (++pre[n] < div) continue;
+            pre[n] = 0;
+            if (tcnt[n] == 0) { tcnt[n] = tcor[n]; unf[n] = true; }
+            else tcnt[n]--;
+        }
+    }
+    uint32_t read(uint32_t off) {
+        if (off == 0) return tocr;
+        if (off == 4) return tstr;
+        int n = (off - 8) / 12, r = (off - 8) % 12;
+        if (n < 0 || n > 2) return 0;
+        if (r == 0) return tcor[n];
+        if (r == 4) return tcnt[n];
+        if (r == 8) return tcr[n] | (unf[n] ? 0x100 : 0);
+        return 0;
+    }
+    void write(uint32_t off, uint32_t v) {
+        if (off == 0) { tocr = v & 1; return; }
+        if (off == 4) { tstr = v & 7; return; }
+        int n = (off - 8) / 12, r = (off - 8) % 12;
+        if (n < 0 || n > 2) return;
+        if (r == 0) tcor[n] = v;
+        else if (r == 4) tcnt[n] = v;
+        else if (r == 8) { if (!(v & 0x100)) unf[n] = false; tcr[n] = v & 0xff; }
+    }
+};
 
 struct Tb {
     Vsh5_core *top;
     Memory mem;
+    Intc intc;
+    Tmu tmu;
+    uint32_t cprc_regs[8] = {0};
+    uint8_t rcr1 = 0, rcr2 = 0;
+    FILE *conlog = nullptr;
     std::deque<Rsp> rsps;
     uint64_t cycle = 0;
     unsigned latency = 1;
@@ -64,6 +174,7 @@ struct Tb {
     FILE *trace = nullptr;
     bool quiet = false;
     bool bustrace = false;
+    uint64_t trace_max = ~0ull, traced = 0;
     bool done = false;
     int failures = -1;
     // multi-beat request assembly
@@ -74,35 +185,80 @@ struct Tb {
     std::vector<uint8_t> req_mask;
 
     bool is_scif(uint32_t a) { return (a & 0xffff0000u) == SCIF_BASE; }
+    bool is_ram(uint32_t a) { return a >= RAM_BASE && a < RAM_BASE + RAM_SIZE; }
+
+    // 32-bit register read placed in its lane of the 8-byte word
+    static uint64_t lane32(uint32_t v, uint32_t a) { return (uint64_t)v << ((a & 4) ? 32 : 0); }
 
     uint64_t dev_read(uint32_t a) {
-        if (is_scif(a)) {
-            uint64_t w = 0;
-            // 0x10 FSR: TDFE | TEND; everything else 0
-            uint32_t off = a & 0xffff & ~7u;
-            if (off == 0x10) w |= (uint64_t)0x0060 << 0;   // FSR at +0x10 is lane 0..1 of the word at 0x10
-            return w;
+        uint32_t base = a & 0xffff0000u, off = a & 0xfff8;
+        if (is_ram(a)) return mem.rd64(a);
+        if (base == SCIF_BASE) {
+            // FSR (+0x10): TDFE | TEND; FRDR/others 0
+            return off == 0x10 ? 0x0060 : 0;
         }
-        return mem.rd64(a);
+        if (base == INTC_BASE) return lane32(intc.read(off), off) | lane32(intc.read(off + 4), off + 4) * ((off & 7) ? 0 : 1);
+        if (base == TMU_BASE)  return lane32(tmu.read(off), off) | lane32(tmu.read(off + 4), off + 4);
+        if (base == CPRC_BASE) {
+            // FRQ: PLL 512 MHz, CPU /2, EMI /8, SuperHyway /4, peripheral /24, PCI /24, FEMI /8, ST /24
+            const uint32_t FRQ = (3 << 0) | (1 << 3) | (0 << 6) | (7 << 12) | (7 << 15) | (3 << 18) | (7 << 21) | 0x400;
+            const uint32_t PLL = (1u << 31) | (1u << 30);
+            if (off == 0x00) return FRQ;
+            if (off == 0x08) return PLL;
+            return cprc_regs[off / 8];
+        }
+        if (base == RTC_BASE) {
+            if (off == 0x38) return (uint64_t)rcr1 | (uint64_t)rcr2 << 32;
+            return 0;
+        }
+        // SuperHyway module VCRs: module id in [47:32], version in [31:16]
+        if ((a >> 24) == 0x0d && off < 0x10) return (uint64_t)0x51e2 << 32;
+        if ((a >> 24) == 0x09 && off == 0)   return (uint64_t)0x448f << 32;
+        if ((a >> 24) == 0x08 && off == 0)   return (uint64_t)0x2185 << 32;
+        return 0;    // system FPGA, debug module, unmapped
     }
 
     void dev_write(uint32_t a, uint64_t v, uint8_t mask) {
-        if (is_scif(a)) {
-            uint32_t off = a & 0xffff & ~7u;
-            if (off == 0x08) {
-                // 0x0c FTDR is byte lane 4 of the word at 0x08
-                if (mask & 0x10) {
-                    char c = (char)(v >> 32);
-                    putc_out(c);
-                }
+        uint32_t base = a & 0xffff0000u, off = a & 0xfff8;
+        if (is_ram(a)) { mem.wr64(a, v, mask); return; }
+        if (base == SCIF_BASE) {
+            // FTDR (+0x0c) is byte lane 4 of the word at +0x08
+            if (off == 0x08 && (mask & 0x10)) putc_out((char)(v >> 32));
+            return;
+        }
+        if (base == INTC_BASE || base == TMU_BASE || base == CPRC_BASE) {
+            for (int half = 0; half < 2; half++) {
+                if (!(mask & (0x0f << (4 * half)))) continue;
+                uint32_t r = off + 4 * half, w = (uint32_t)(v >> (32 * half));
+                if (base == INTC_BASE) intc.write(r, w);
+                else if (base == TMU_BASE) tmu.write(r, w);
+                else if (r == 0x38 && (w & 1)) { fprintf(stderr, "[tb] CPRC reset request\n"); }
+                else cprc_regs[r / 8] = w;
             }
             return;
         }
-        mem.wr64(a, v, mask);
+        if (base == RTC_BASE) {
+            if (off == 0x38) { if (mask & 0x0f) rcr1 = (uint8_t)v; if (mask & 0xf0) rcr2 = (uint8_t)(v >> 32); }
+            return;
+        }
+    }
+
+    // timers and interrupt lines, once per core clock
+    void tick_devices() {
+        tmu.tick();
+        intc.set(32, tmu.irq(0));
+        intc.set(33, tmu.irq(1));
+        intc.set(34, tmu.irq(2));
+        int level; uint32_t code;
+        intc.best(level, code);
+        top->extint_valid_i = level > 0;
+        top->extint_level_i = level;
+        top->extint_code_i = code;
     }
 
     void putc_out(char c) {
         if (!quiet) { fputc(c, stdout); fflush(stdout); }
+        if (conlog) { fputc(c, conlog); fflush(conlog); }
         out.push_back(c);
         if (out.size() > 4096) out.erase(0, out.size() - 4096);
     }
@@ -189,6 +345,7 @@ struct Tb {
         Vsh5_core &t = *top;
         if (!trace) return;
         if (t.trace_valid_o) {
+            if (++traced > trace_max) { fclose(trace); trace = nullptr; return; }
             if (bustrace) fprintf(trace, "%llu ", (unsigned long long)cycle);
             fprintf(trace, "%08x %08x", t.trace_pc_o, t.trace_insn_o);
             if (t.trace_gpr_we_o) fprintf(trace, " r%d=%016llx", t.trace_gpr_idx_o, (unsigned long long)t.trace_gpr_val_o);
@@ -201,7 +358,7 @@ struct Tb {
     }
 };
 
-bool load_elf(Memory &mem, const char *path, uint32_t &entry) {
+bool load_elf(Memory &mem, const char *path, uint32_t &entry, uint32_t &highaddr) {
     std::ifstream f(path, std::ios::binary);
     if (!f) { fprintf(stderr, "cannot open %s\n", path); return false; }
     std::vector<uint8_t> img((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
@@ -211,6 +368,7 @@ bool load_elf(Memory &mem, const char *path, uint32_t &entry) {
     auto r32 = [&](size_t o) { return (uint32_t)img[o] | (uint32_t)img[o+1] << 8 | (uint32_t)img[o+2] << 16 | (uint32_t)img[o+3] << 24; };
     auto r16 = [&](size_t o) { return (uint16_t)(img[o] | img[o+1] << 8); };
     entry = r32(24);
+    highaddr = 0;
     uint32_t phoff = r32(28);
     uint16_t phentsize = r16(42), phnum = r16(44);
     for (unsigned i = 0; i < phnum; i++) {
@@ -220,6 +378,7 @@ bool load_elf(Memory &mem, const char *path, uint32_t &entry) {
         if (type != 1) continue;
         for (uint32_t k = 0; k < memsz; k++)
             mem.wr8(paddr + k, k < filesz ? img[offset + k] : 0);
+        if (paddr + memsz > highaddr) highaddr = paddr + memsz;
     }
     return true;
 }
@@ -228,7 +387,8 @@ bool load_elf(Memory &mem, const char *path, uint32_t &entry) {
 
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
-    const char *elf = nullptr, *tracefile = nullptr;
+    init_intevt();
+    const char *elf = nullptr, *tracefile = nullptr, *cmdline = nullptr, *initrd = nullptr, *conlog = nullptr;
     const char *done_str = "isa: DONE";
     uint64_t max_cycles = 200000000ULL;
     Tb tb;
@@ -239,12 +399,33 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--latency") && i + 1 < argc) tb.latency = strtoul(argv[++i], nullptr, 0);
         else if (!strcmp(argv[i], "--quiet")) tb.quiet = true;
         else if (!strcmp(argv[i], "--bus")) tb.bustrace = true;
+        else if (!strcmp(argv[i], "--trace-max") && i + 1 < argc) tb.trace_max = strtoull(argv[++i], nullptr, 0);
         else if (!strcmp(argv[i], "--done") && i + 1 < argc) done_str = argv[++i];
+        else if (!strcmp(argv[i], "--cmdline") && i + 1 < argc) cmdline = argv[++i];
+        else if (!strcmp(argv[i], "--initrd") && i + 1 < argc) initrd = argv[++i];
+        else if (!strcmp(argv[i], "--console-log") && i + 1 < argc) conlog = argv[++i];
     }
     if (!elf) { fprintf(stderr, "usage: tb_core --elf image.elf [options]\n"); return 2; }
-    uint32_t entry = 0;
-    if (!load_elf(tb.mem, elf, entry)) return 2;
+    uint32_t entry = 0, highaddr = 0;
+    if (!load_elf(tb.mem, elf, entry, highaddr)) return 2;
     if (tracefile) tb.trace = fopen(tracefile, "w");
+    if (conlog) tb.conlog = fopen(conlog, "w");
+    // Linux: command line at empty_zero_page + 0x100 (the page before _stext),
+    // initrd location at +0x10/+0x14 as offset from the RAM base; the initrd is
+    // placed 1 MB aligned after the kernel image.
+    if (cmdline || initrd) {
+        uint32_t zp = (entry & ~1u) - 0x1000;
+        if (cmdline) for (size_t k = 0; k <= strlen(cmdline); k++) tb.mem.wr8(zp + 0x100 + k, cmdline[k]);
+        if (initrd) {
+            std::ifstream f(initrd, std::ios::binary);
+            std::vector<uint8_t> img((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+            uint32_t base = (highaddr + (1u << 20) - 1) & ~((1u << 20) - 1);
+            for (size_t k = 0; k < img.size(); k++) tb.mem.wr8(base + k, img[k]);
+            uint32_t v[2] = { base - RAM_BASE, (uint32_t)img.size() };
+            for (int k = 0; k < 4; k++) { tb.mem.wr8(zp + 0x10 + k, v[0] >> (8 * k)); tb.mem.wr8(zp + 0x14 + k, v[1] >> (8 * k)); }
+            fprintf(stderr, "[tb] initrd at 0x%08x, %zu bytes\n", base, img.size());
+        }
+    }
 
     Vsh5_core top;
     tb.top = &top;
@@ -265,9 +446,10 @@ int main(int argc, char **argv) {
 
     uint64_t done_cycle = 0;
     while (tb.cycle < max_cycles) {
-        // falling edge: present responses for the coming posedge
+        // falling edge: present responses and interrupt lines for the coming posedge
         top.clk = 0;
         tb.drive_response();
+        tb.tick_devices();
         top.eval();
         // sample request/response handshakes as they stand before the edge
         tb.handle_request();
@@ -284,6 +466,7 @@ int main(int argc, char **argv) {
         if (tb.done && tb.cycle > done_cycle + 20) break;
     }
     if (tb.trace) fclose(tb.trace);
+    if (tb.conlog) fclose(tb.conlog);
 
     size_t p = tb.out.rfind("isa: SUMMARY");
     if (p != std::string::npos) {

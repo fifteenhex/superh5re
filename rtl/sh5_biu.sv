@@ -17,6 +17,7 @@ module sh5_biu
   input  logic [31:3] if_req_addr_i,
   output logic        if_rsp_valid_o,
   output logic [63:0] if_rsp_data_o,
+  output logic        if_idle_o,        // no fetch outstanding or undelivered
 
   // data read port: one outstanding access (load or swap)
   input  logic        ld_req_valid_i,
@@ -135,6 +136,7 @@ module sh5_biu
   assign bus_error_o = rsp_fail;
 
   assign if_rsp_valid_o = if_done_q[if_retire_q];
+  assign if_idle_o = !if_busy_q[0] && !if_busy_q[1] && !if_done_q[0] && !if_done_q[1];
   assign if_rsp_data_o  = if_data_q[if_retire_q];
   assign ld_rsp_valid_o = ld_done_q;
   assign ld_rsp_data_o  = ld_data_q;
