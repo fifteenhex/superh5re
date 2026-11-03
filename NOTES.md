@@ -125,7 +125,9 @@ reproduce it. Confirmed facts move to `docs/`.
   `return 0`). Emulator fixes on the way: loads into R63 are prefetches
   (no exception), the CPU VCR is also visible at offset 8, the board
   patches the Linux zero page. Kernel: eighteen files patched, all bit
-  rot (see the README table). Debugging recipe that worked: read the
+  rot (see the README table); the patched tree is also branch
+  `intern-sh5-cayman-20261103` of the `linux` repo (one commit on `v5.7`).
+  Debugging recipe that worked: read the
   printk ring from guest memory (`tools/printkbuf.py`), `-d exec,cpu
   -dfilter` on one function for an instruction trace, gdbstub
   watchpoints/breakpoints (`tools/gdbwatch.py`), and a bare-metal harness

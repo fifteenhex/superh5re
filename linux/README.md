@@ -6,6 +6,10 @@ SHmedia constant fix).
 
 ## Build
 
+The same tree is kept as a git branch: `intern-sh5-cayman-20261103` in the
+`linux` repository, one commit on top of `v5.7` (the patch below plus the
+defconfig as `arch/sh/configs/cayman_qemu_defconfig`). From the tarball:
+
 ```
 tar xJf linux-5.7.tar.xz && cd linux-5.7
 patch -p1 < ../linux/patches/linux-5.7-sh64-cayman.patch
