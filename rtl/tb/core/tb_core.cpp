@@ -290,7 +290,13 @@ int main(int argc, char **argv) {
         unsigned tests = 0, fails = 0;
         if (sscanf(tb.out.c_str() + p, "isa: SUMMARY %u tests, %u failures", &tests, &fails) == 2) tb.failures = (int)fails;
     }
-    fprintf(stderr, "[tb] %llu cycles, %s\n", (unsigned long long)tb.cycle, tb.done ? "done" : "timeout");
+    std::string summary;
+    if (p != std::string::npos) {
+        size_t e = tb.out.find_first_of("\r\n", p);
+        summary = tb.out.substr(p, e == std::string::npos ? std::string::npos : e - p);
+    }
+    fprintf(stderr, "[tb] %llu cycles, %s%s%s\n", (unsigned long long)tb.cycle, tb.done ? "done" : "timeout",
+            summary.empty() ? "" : ", ", summary.c_str());
     top.final();
     return (tb.done && tb.failures <= 0) ? 0 : 1;
 }

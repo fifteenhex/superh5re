@@ -263,10 +263,13 @@ module sh5_core
   logic e1_fpu_issued_q, e1_redir_done_q, e2_issued_q, e3_have_q, w_acted_q;
   logic [63:0] e3_data_q;
 
-  // writeback forwarding register (value written to the GPR file last cycle)
+  // writeback forwarding registers (values written to GR / TR last cycle)
   logic        wb_valid_q;
   logic [5:0]  wb_idx_q;
   logic [63:0] wb_val_q;
+  logic        wbt_valid_q;
+  logic [2:0]  wbt_idx_q;
+  logic [31:0] wbt_val_q;
 
   // FPU scoreboard
   logic [63:0] fr_busy_q, gr_busy_q;
@@ -384,6 +387,7 @@ module sh5_core
     if (e2_q.u.valid && e2_q.u.wr_tr && e2_q.u.tra == idx) fwd_tr = e2_q.res[31:0];
     else if (e3_q.u.valid && e3_q.u.wr_tr && e3_q.u.tra == idx) fwd_tr = e3_q.res[31:0];
     else if (w_q.u.valid && w_q.u.wr_tr && w_q.u.tra == idx && w_q.u.exc == 12'h0) fwd_tr = w_q.res[31:0];
+    else if (wbt_valid_q && wbt_idx_q == idx) fwd_tr = wbt_val_q;
     else fwd_tr = dval;
   endfunction
 
@@ -808,6 +812,7 @@ module sh5_core
       e1_fpu_issued_q <= 1'b0; e1_redir_done_q <= 1'b0; e2_issued_q <= 1'b0;
       e3_have_q <= 1'b0; e3_data_q <= 64'h0; w_acted_q <= 1'b0;
       wb_valid_q <= 1'b0; wb_idx_q <= 6'd0; wb_val_q <= 64'h0;
+      wbt_valid_q <= 1'b0; wbt_idx_q <= 3'd0; wbt_val_q <= 32'h0;
       serial_block_q <= 1'b0; sleeping_q <= 1'b0; reset_q <= 1'b1;
       blink_compact_q <= 1'b0;
       fr_busy_q <= '0; gr_busy_q <= '0;
@@ -839,6 +844,9 @@ module sh5_core
       wb_valid_q <= gw_en;
       wb_idx_q   <= gw_idx;
       wb_val_q   <= gw_val;
+      wbt_valid_q <= w_do && !w_exc && w_q.u.wr_tr;
+      wbt_idx_q   <= w_q.u.tra;
+      wbt_val_q   <= w_q.res[31:0];
 
       // one-shot flags within a held stage
       if (fpu_issue) e1_fpu_issued_q <= 1'b1;
