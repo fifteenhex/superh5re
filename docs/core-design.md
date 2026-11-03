@@ -119,8 +119,8 @@ for ALU operations; their results are simply forwarded early.
   second cycle and the other slots are free for target preload; consistent
   with the block diagram's 64-bit I-cache to IFU path, HC13 slide 6).
 - Fetch queue: 4 entries of 8 bytes (**C**).
-- PC is 32 bits (neff = 32), kept 4-byte aligned; the ISA bit is separate
-  state. Bits 63:32 of PC, SPC, TR are the sign extension of bit 31 (Vol. 4
+- PC is 32 bits (neff = 32), 4-byte aligned in SHmedia (2-byte with
+  SHcompact later); the ISA bit is separate state. Bits 63:32 of PC, SPC, TR are the sign extension of bit 31 (Vol. 4
   §6.2.7 EXP fields, Vol. 1 §3.8).
 - MMU disabled: I-cache bypassed and frozen (Vol. 1 §17.8.1), each fetch
   block is a Load8 bus request, no target preload (§4.4) and no fetch past
@@ -181,7 +181,18 @@ Implementation:
 - With PT at least 3 instructions before the branch and a valid preload
   the taken branch costs 0 cycles (**D**, slide 10: PT E1 computes, E2
   transfers the fetch address, two fetch cycles, selected when the branch
-  is in D).
+  is in D):
+
+  ```
+  cycle        0   1   2   3   4   5   6   7   8
+  PTA          F1  F2  D   E1  E2  E3  W
+  i1               F1  F2  D   E1  E2  E3  W
+  i2                   F1  F2  D   E1  E2  E3  W
+  i3                       F1  F2  D   E1  E2  E3
+  BLINK                        F1  F2  D   E1  E2
+  target block                     F1  F2          (preload, free I-cache slot)
+  target insn                              D   E1  (from the target buffer)
+  ```
 - Target buffers are invalidated by: writes to the TR, SYNCI, RTE, every
   event launch, ICBI, ICCR0 writes, any PUTCFG to the I-cache or ITLB
   region, and whenever SR.MMU = 0 (Vol. 1 §18.11.2 forbids speculative
@@ -403,12 +414,16 @@ buffer and waits for every outstanding response.
 
 - FR file, FPSCR (RM, FLAG, ENABLE, CAUSE, DN; Vol. 4 Table 5), SR.FD
   gate, FGETSCR/FPUTSCR.
-- All FPU exceptions are decided in E1 (**D** makes this possible: Vol. 1
-  §8.3.8 raises O, U, I "early" whenever enabled and the instruction can
-  produce them; V, Z and E depend only on operand classes). So FPUEXC is
-  precise with an arbitrarily deep FP pipeline. CAUSE and FLAG bits are
-  written when the operation completes; FGETSCR and FPUTSCR drain the FP
-  pipe.
+- Whether an instruction raises FPUEXC is decided in E1 (**D** makes this
+  possible: Vol. 1 §8.3.8 raises O, U, I "early" whenever enabled and the
+  instruction can produce them; V, Z and E depend only on operand classes,
+  including the FTRC range check). So no FP result is ever needed to decide
+  a launch and the FP pipe can be arbitrarily deep. The launch itself
+  waits at W until the FP pipe has produced the instruction's actual
+  CAUSE bits, which Vol. 1 §8.3.8 requires to be accurate at launch; the
+  result is not written (Vol. 1 §8.3.6). CAUSE and FLAG bits of
+  non-trapping operations are written when the operation completes;
+  FGETSCR and FPUTSCR drain the FP pipe.
 - Rounding: nearest even and toward zero only; FTRC truncates; tininess
   after rounding; denormal inputs raise E (CAUSE.E) unless DN = 1, in
   which case inputs and results flush to zero and a flushed result signals
