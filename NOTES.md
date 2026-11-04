@@ -312,6 +312,8 @@ reproduce it. Confirmed facts move to `docs/`.
   430/0; Linux 6.15 boots to the shell (207 M cycles). NetBSD command:
   `./obj/Vsh5_core --elf netbsd-qemu --done "login:" --max-cycles
   8000000000` (kernel from `netbsd/`, md root image embedded); the login
-  prompt appeared after 2.34 G cycles, about three hours of simulation;
-  the testbench stops at the done string, so the `--expect/--send` login
-  script after it has not been exercised on NetBSD.
+  prompt appeared after 2.34 G cycles, about three hours of simulation.
+  Scripted login on the final build (`--expect "login: " --send "root\n"
+  --expect "# " --send "uname -a; ps\n" --done "cayman 3.1"`): root logs
+  in, csh starts and `uname -a` answers `NetBSD cayman 3.1`; 2.66 G
+  cycles, 823 M instructions (`rtl/tb/core/logs/netbsd-console7.txt`).

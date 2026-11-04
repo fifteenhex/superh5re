@@ -615,7 +615,8 @@ Verification done: the 458064-check SHmedia ISA kit (`tests/isa`, bare
 mode), the 430-check exception suite (`tests/exc`, whose `mmu` test
 runs with the MMU, the caches and target preload active) and the
 172323-check SHcompact kit (`tests/compact`) pass on the model; NetBSD
-3.1 (CAYMAN_QEMU kernel) boots to the login prompt (2.34 G cycles); the instruction stream of the first 5.3 million instructions of the
+3.1 (CAYMAN_QEMU kernel) boots to multi-user, root logs in on the console
+and runs commands (2.66 G cycles to the `uname -a` output); the instruction stream of the first 5.3 million instructions of the
 Linux 6.15 boot matches QEMU (`tools/tracecmp.py`, interrupt handlers
 skipped), register writes match in the windows compared with
 `tools/regcmp.py`, and the kernel boots to the smolutils shell prompt on
