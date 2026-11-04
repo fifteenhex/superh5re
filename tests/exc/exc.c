@@ -851,6 +851,151 @@ static void t_sync(void)
 	CHECK("expevt kept", GETCON("expevt"), REC(c0 - 1)->expevt);
 }
 
+/* ---- 14. MMU on: translation, target preload, branch prediction ---- */
+
+/* SR.MMU is only written by RTE (Vol. 1 Table 17): return to the next
+ * instruction with SSR = SR with MMU set or cleared. */
+#define SET_MMU(on) do {						\
+	u64 _sr = (GETCON("sr") & ~(u64)SR_MMU) | ((on) ? SR_MMU : 0);	\
+	__asm__ volatile("pta 1f, tr1\n\tgettr tr1, r2\n\t"		\
+			 "putcon r2, spc\n\tputcon %0, ssr\n\trte\n"	\
+			 "1:" : : "r"(_sr) : "r2", "tr1", "memory");	\
+} while (0)
+
+/* Code block patched at run time: exc_smc[0] is movi 1, r2 and
+ * exc_smc_alt[0] is movi 2, r2 (same template, different immediate). */
+__asm__(".section .text.smc, \"ax\"\n\t.balign 32\n\t.globl exc_smc\nexc_smc:\n\t"
+	"movi 1, r2\n\tblink tr1, r63\n\tnop\n\tnop\n\tnop\n\tnop\n\tnop\n\tnop\n\t"
+	".balign 32\n\t.globl exc_smc_alt\nexc_smc_alt:\n\tmovi 2, r2\n\tblink tr1, r63\n\t.previous");
+extern u32 exc_smc[], exc_smc_alt[];
+
+/* Patch the first instruction of exc_smc and call it. The PT with the
+ * l-bit precedes the patch, so that an implementation with target preload
+ * holds the old block when the code is modified; the sequence of Vol. 1
+ * 6.7.1 (store, write back, SYNCO, ICBI, SYNCI) must make the call
+ * execute the new instruction. */
+static u64 smc_patch_call(u32 insn)
+{
+	u64 r;
+
+	__asm__ volatile("ptabs/l %[f], tr0\n\t"
+			 "st.l %[p], 0, %[insn]\n\t"
+			 "ocbp %[p], 0\n\tsynco\n\ticbi %[p], 0\n\tsynci\n\t"
+			 "pta 1f, tr1\n\tblink tr0, r63\n"
+			 "1:\tor r2, r63, %[r]"
+			 : [r] "=&r"(r) : [f] "r"(ADDR(exc_smc) | 1), [p] "r"(ADDR(exc_smc)), [insn] "r"((u64)insn)
+			 : "r2", "tr0", "tr1", "memory");
+	return r;
+}
+
+/* PT/l to tr0 N instructions before a taken BLINK; the skipped path
+ * writes 2, the target adds 4 to 1: result 5 for every distance. */
+#define BLINK_CASE(what, nops) do {					\
+	u64 _v;								\
+	__asm__ volatile("pta/l 1f, tr0\n\tmovi 1, %0\n\t" nops		\
+			 "blink tr0, r63\n\tmovi 2, %0\n"		\
+			 "1:\taddi %0, 4, %0" : "=&r"(_v) : : "tr0");	\
+	CHECK(what, _v, 5);						\
+} while (0)
+
+/* conditional branch with likely bit l on (r2 cmp r63), target writes 1,
+ * fall-through writes 2 */
+#define COND_CASE(what, br, r2val, want) do {				\
+	u64 _v;								\
+	__asm__ volatile("pta/l 1f, tr0\n\tmovi " #r2val ", r2\n\t"	\
+			 "nop\n\tnop\n\tnop\n\t"				\
+			 br " r2, r63, tr0\n\tmovi 2, %0\n\t"		\
+			 "pta 2f, tr1\n\tblink tr1, r63\n"			\
+			 "1:\tmovi 1, %0\n2:" : "=&r"(_v) : : "r2", "tr0", "tr1"); \
+	CHECK(what, _v, want);						\
+} while (0)
+
+static void t_mmu(void)
+{
+	const u64 dr = 0x00800000, ir = 0x00000000;
+	const u64 iccr = 0x01600000, occr = 0x01e00000;
+	u64 c0, v, pc, sr0;
+
+	/* 512 MB pages (Vol. 4 Tables 36-38): code and data at 0x80000000
+	 * cachable (CB = 2), devices at 0 as device space (CB = 1), SH = 1 */
+	PUTCFG(dr + 0, 0x80000003);
+	PUTCFG(dr + 1, 0x80000000 | (1 << 9) | (1 << 8) | (1 << 6) | (3 << 3) | 2);
+	PUTCFG(dr + 16, 0x00000003);
+	PUTCFG(dr + 17, 0x00000000 | (1 << 9) | (1 << 8) | (1 << 6) | (3 << 3) | 1);
+	PUTCFG(ir + 0, 0x80000003);
+	PUTCFG(ir + 1, 0x80000000 | (1 << 9) | (1 << 7) | (3 << 3) | 2);
+	SET_MMU(1);
+	sr0 = GETCON("sr");
+	CHECK("sr.mmu", sr0 & SR_MMU, SR_MMU);
+	/* write-through operand cache so that disabling it loses nothing */
+	PUTCFG(iccr, 1);
+	PUTCFG(occr, 5);
+	CHECK("iccr0", GETCFG(iccr), 1);
+	CHECK("occr0", GETCFG(occr), 5);
+
+	c0 = COUNT;
+	BLINK_CASE("blink pt+0", "");
+	BLINK_CASE("blink pt+1", "nop\n\t");
+	BLINK_CASE("blink pt+2", "nop\n\tnop\n\t");
+	BLINK_CASE("blink pt+3", "nop\n\tnop\n\tnop\n\t");
+	BLINK_CASE("blink pt+6", "nop\n\tnop\n\tnop\n\tnop\n\tnop\n\tnop\n\t");
+	COND_CASE("beq/l taken", "beq/l", 0, 1);
+	COND_CASE("beq/l not taken", "beq/l", 1, 2);
+	COND_CASE("bne/l taken", "bne/l", 1, 1);
+	COND_CASE("bne/l not taken", "bne/l", 0, 2);
+	COND_CASE("beq/u taken", "beq/u", 0, 1);
+	COND_CASE("beq/u not taken", "beq/u", 1, 2);
+
+	/* the TR rewritten after the preload: the branch goes to the new target */
+	__asm__ volatile("pta/l 1f, tr0\n\tpta 2f, tr0\n\tnop\n\tnop\n\tnop\n\t"
+			 "blink tr0, r63\n"
+			 "1:\tmovi 1, %0\n\tpta 3f, tr1\n\tblink tr1, r63\n"
+			 "2:\tmovi 2, %0\n3:" : "=&r"(v) : : "tr0", "tr1");
+	CHECK("tr rewritten", v, 2);
+	/* likely branch not taken, then taken with the same buffer */
+	__asm__ volatile("pta/l 1f, tr0\n\tmovi 0, %0\n\tmovi 1, r2\n\tnop\n\tnop\n"
+			 "1:\taddi %0, 1, %0\n\taddi r2, -1, r2\n\tbne/l r2, r63, tr0\n\tnop"
+			 : "=&r"(v) : : "r2", "tr0");
+	CHECK("loop once", v, 1);
+	__asm__ volatile("pta/l 1f, tr0\n\tmovi 0, %0\n\tmovi 3, r2\n\tnop\n\tnop\n"
+			 "1:\taddi %0, 1, %0\n\taddi r2, -1, r2\n\tbne/l r2, r63, tr0\n\tnop"
+			 : "=&r"(v) : : "r2", "tr0");
+	CHECK("loop thrice", v, 3);
+	CHECK("count", COUNT, c0);
+
+	/* preload of an unmapped page or of device space raises nothing
+	 * (Vol. 1 18.11.2: preload is speculative) */
+	__asm__ volatile("movi 0x4000, r2\n\tshori 0x0000, r2\n\tptabs/l r2, tr0\n\t"
+			 "movi 0x0a03, r2\n\tshori 0x0000, r2\n\tptabs/l r2, tr0\n\t"
+			 "nop\n\tnop\n\tnop\n\tnop\n\tnop\n\tnop" : : : "r2", "tr0");
+	CHECK("preload unmapped", COUNT, c0);
+	/* a predicted branch to a trapping instruction: SPC is the target */
+	__asm__ volatile("pta/l 1f, tr0\n\tgettr tr0, %0\n\tnop\n\tnop\n\tnop\n\t"
+			 "blink tr0, r63\n\tnop\n"
+			 "1:\ttrapa r63\n\tnop" : "=&r"(pc) : : "tr0", "memory");
+	CHECK("trap count", COUNT, c0 + 1);
+	check_launch("trap at target", c0, VEC_EXC, EVT_TRAP, pc, sr0);
+	c0 = COUNT;
+
+	/* code modification with the function block in the target buffer */
+	v = exc_smc[0];
+	CHECK("smc original", smc_patch_call((u32)v), 1);
+	CHECK("smc patched", smc_patch_call(exc_smc_alt[0]), 2);
+	CHECK("smc restored", smc_patch_call((u32)v), 1);
+	CHECK("smc count", COUNT, c0);
+
+	/* back to the reset state: caches off and invalidated, MMU off */
+	__asm__ volatile("synco" : : : "memory");
+	PUTCFG(occr, 2);
+	PUTCFG(iccr, 2);
+	CHECK("occr0 off", GETCFG(occr), 0);
+	CHECK("iccr0 off", GETCFG(iccr), 0);
+	SET_MMU(0);
+	CHECK("sr.mmu off", GETCON("sr") & SR_MMU, 0);
+	PUTCFG(dr + 0, 0); PUTCFG(dr + 1, 0); PUTCFG(dr + 16, 0); PUTCFG(dr + 17, 0);
+	PUTCFG(ir + 0, 0); PUTCFG(ir + 1, 0);
+}
+
 int main(void)
 {
 	exc_area.ctl.exit_tra = 1ULL << 32;	/* no exit trap */
@@ -868,6 +1013,7 @@ int main(void)
 	run("cfg", t_cfg);
 	run("fpuexc", t_fpuexc);
 	run("sync", t_sync);
+	run("mmu", t_mmu);
 	exc_puts("exc: sleep not tested (needs an interrupt source)\n");
 	exc_puts("isa: SUMMARY ");
 	exc_putdec(exc_tests);

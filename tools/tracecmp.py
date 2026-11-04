@@ -2,9 +2,15 @@
 """Compare the instruction stream of the RTL model with QEMU.
 
 usage: tracecmp.py RTL_TRACE QEMU_EXEC_LOG [--max N] [--ignore LO-HI]...
+                   [--irq VEC]
 
 --ignore drops instructions whose PC lies in [LO, HI] (hex) from both
 streams, for polling loops whose trip count depends on device timing.
+--irq VEC (hex): when one stream enters the interrupt vector VEC while the
+other does not, the interrupt handler is skipped in that stream up to the
+return to the interrupted instruction (device timing differs between the
+models, so interrupts fall at different instructions). The skip gives up
+after 200000 instructions.
 
 RTL_TRACE is the commit trace of rtl/tb/core (one line per committed
 instruction: "pc insn [rN=value]"); QEMU_EXEC_LOG is the output of
@@ -54,6 +60,9 @@ def main(argv):
     maxn = None
     if '--max' in argv:
         maxn = int(argv[argv.index('--max') + 1])
+    irq = None
+    if '--irq' in argv:
+        irq = int(argv[argv.index('--irq') + 1], 16)
     ranges = []
     for i, x in enumerate(argv):
         if x == '--ignore':
@@ -68,7 +77,16 @@ def main(argv):
     # QEMU logs a translation block when it is entered; a block abandoned
     # before execution (pending interrupt, I/O) appears twice in a row.
     i = j = dup = 0
+    irqs = [0, 0]
     hist = []
+
+    def skip(seq, k, resume):
+        # index of the first instruction after the handler entered at k
+        for n in range(k + 1, min(len(seq), k + 200000)):
+            if seq[n] == resume:
+                return n
+        return None
+
     while i < len(a) and j < len(b) and (maxn is None or i < maxn):
         if a[i] == b[j]:
             hist.append((a[i], b[j]))
@@ -79,6 +97,18 @@ def main(argv):
             j += 1
             dup += 1
             continue
+        if irq is not None and b[j] == irq and a[i] != irq:
+            n = skip(b, j, a[i])
+            if n is not None:
+                j = n
+                irqs[1] += 1
+                continue
+        if irq is not None and a[i] == irq and b[j] != irq:
+            n = skip(a, i, b[j])
+            if n is not None:
+                i = n
+                irqs[0] += 1
+                continue
         print('divergence at instruction %d: rtl %08x qemu %08x' % (i, a[i], b[j]))
         for k, (x, y) in enumerate(hist[-8:]):
             print('  %7d rtl %08x qemu %08x' % (i - len(hist[-8:]) + k, x, y))
@@ -86,7 +116,8 @@ def main(argv):
             if i + k < len(a) and j + k < len(b):
                 print('  %7d rtl %08x qemu %08x%s' % (i + k, a[i + k], b[j + k], ' <--' if k == 0 else ''))
         return 1
-    print('%d instructions match (rtl %d, qemu %d, %d repeated qemu entries skipped)' % (i, len(a), len(b), dup))
+    print('%d instructions match (rtl %d, qemu %d, %d repeated qemu entries skipped, '
+          'interrupts skipped: rtl %d, qemu %d)' % (i, len(a), len(b), dup, irqs[0], irqs[1]))
     return 0
 
 

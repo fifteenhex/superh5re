@@ -34,6 +34,11 @@ package sh5_uop_pkg;
     COP_PREFI, COP_ALLOCO, COP_ICBI, COP_OCBP, COP_OCBI, COP_OCBWB
   } cop_t;
 
+  // operand cache request kinds
+  typedef enum logic [2:0] {
+    DK_LOAD, DK_STORE, DK_SWAP, DK_OCBI, DK_OCBP, DK_OCBWB, DK_ALLOCO
+  } dkind_t;
+
   typedef enum logic [4:0] {
     A_ADD, A_ADDL, A_ADDZL, A_SUB, A_SUBL,
     A_CMPEQ, A_CMPGT, A_CMPGTU,
@@ -121,6 +126,8 @@ package sh5_uop_pkg;
     logic        fetch_fault; // exc raised by the instruction fetch: TEA = PC
     cop_t        cop;
     logic [3:0]  irq_level;
+    logic        pred;        // branch predicted taken in D from a target buffer
+    logic [31:0] pred_pc;     // predicted next PC
     logic        serialize;   // block decode until this instruction leaves W
     logic        long_lat;    // result available only after E3 (load, MM, swap)
   } uop_t;

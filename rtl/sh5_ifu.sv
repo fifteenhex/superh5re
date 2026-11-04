@@ -9,6 +9,8 @@ module sh5_ifu (
 
   input  logic        redirect_i,       // flush and restart at redirect_pc_i
   input  logic [31:0] redirect_pc_i,
+  input  logic        inject_i,         // with redirect_i: the block at redirect_pc_i is supplied
+  input  logic [63:0] inject_data_i,
   input  logic        fetch_en_i,       // 0: do not issue new fetches
 
   output logic        insn_valid_o,
@@ -56,9 +58,19 @@ module sh5_ifu (
       half_q <= 1'b0; fetch_pc_q <= 29'd0;
       inflight_q <= 3'd0; stale_q <= 3'd0;
     end else if (redirect_i) begin
-      q_rd_q <= 2'd0; q_wr_q <= 2'd0; q_cnt_q <= 3'd0;
-      fetch_pc_q <= redirect_pc_i[31:3];
+      q_rd_q <= 2'd0;
       half_q <= redirect_pc_i[2];
+      if (inject_i) begin
+        // target block from a target register buffer: fetch continues after it
+        q_data[0] <= inject_data_i;
+        q_addr[0] <= redirect_pc_i[31:3];
+        q_fault[0] <= 12'h0;
+        q_wr_q <= 2'd1; q_cnt_q <= 3'd1;
+        fetch_pc_q <= redirect_pc_i[31:3] + 29'd1;
+      end else begin
+        q_wr_q <= 2'd0; q_cnt_q <= 3'd0;
+        fetch_pc_q <= redirect_pc_i[31:3];
+      end
       // every outstanding request becomes stale; a response this cycle retires one
       stale_q <= stale_q + inflight_q - (rsp_valid_i ? 3'd1 : 3'd0);
       inflight_q <= 3'd0;

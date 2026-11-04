@@ -15,6 +15,10 @@ module sh5_ctrl
   output logic        isa_o,          // ISA bit of the next instruction stream after launch/RTE
   output logic [31:0] iccr0_o,
   output logic [31:0] occr0_o,
+  output logic [31:0] iccr1_o,
+  output logic [31:0] occr1_o,
+  output logic        ici_o,          // ICCR0.ICI written with 1 (one cycle)
+  output logic        oci_o,          // OCCR0.OCI written with 1 (one cycle)
 
   // control register read (E1) and write (W)
   input  logic [5:0]  getcon_idx_i,
@@ -83,6 +87,10 @@ module sh5_ctrl
 
   assign iccr0_o = iccr0_q;
   assign occr0_o = occr0_q;
+  assign iccr1_o = iccr1_q;
+  assign occr1_o = occr1_q;
+  assign ici_o = putcfg_en_i && (putcfg_idx_i == CFG_ICCR) && putcfg_val_i[CCR0_INVALIDATE];
+  assign oci_o = putcfg_en_i && (putcfg_idx_i == CFG_OCCR) && putcfg_val_i[CCR0_INVALIDATE];
 
   always_comb begin
     getcfg_val_o = 64'h0;

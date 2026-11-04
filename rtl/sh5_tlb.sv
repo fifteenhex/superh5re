@@ -28,6 +28,7 @@ module sh5_tlb
   output logic        pr_w_o,
   output logic        pr_x_o,
   output logic        pr_u_o,
+  output logic        sh_o,
   output logic [1:0]  cb_o
 );
 
@@ -59,6 +60,7 @@ module sh5_tlb
     hit_o  = 1'b0;
     pa_o   = ea_i;
     pr_r_o = 1'b0; pr_w_o = 1'b0; pr_x_o = 1'b0; pr_u_o = 1'b0;
+    sh_o   = 1'b0;
     cb_o   = 2'd0;
     for (int i = ENTRIES - 1; i >= 0; i--) begin
       logic [31:12] m;
@@ -72,6 +74,7 @@ module sh5_tlb
         pr_w_o = ptel_q[i][PTEL_PRW];
         pr_x_o = ptel_q[i][PTEL_PRX];
         pr_u_o = ptel_q[i][PTEL_PRU];
+        sh_o   = pteh_q[i][PTEH_SH];
         cb_o   = ptel_q[i][PTEL_CB +: 2];
       end
     end

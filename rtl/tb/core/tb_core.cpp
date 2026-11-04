@@ -170,6 +170,7 @@ struct Tb {
     FILE *conlog = nullptr;
     std::deque<Rsp> rsps;
     uint64_t cycle = 0;
+    uint64_t n_pred = 0, n_mispred = 0, n_commit = 0;
     unsigned latency = 1;
     std::string out;
     FILE *trace = nullptr;
@@ -351,6 +352,9 @@ struct Tb {
 
     void trace_commit() {
         Vsh5_core &t = *top;
+        n_pred += t.trace_pred_o;
+        n_mispred += t.trace_mispred_o;
+        n_commit += t.trace_valid_o;
         if (!trace || !trace_on) return;
         if (t.trace_valid_o) {
             if (++traced > trace_max) { fclose(trace); trace = nullptr; return; }
@@ -490,7 +494,9 @@ int main(int argc, char **argv) {
         size_t e = tb.out.find_first_of("\r\n", p);
         summary = tb.out.substr(p, e == std::string::npos ? std::string::npos : e - p);
     }
-    fprintf(stderr, "[tb] %llu cycles, %s%s%s\n", (unsigned long long)tb.cycle, tb.done ? "done" : "timeout",
+    fprintf(stderr, "[tb] %llu cycles, %llu instructions, %llu predicted taken, %llu redirects, %s%s%s\n",
+            (unsigned long long)tb.cycle, (unsigned long long)tb.n_commit, (unsigned long long)tb.n_pred,
+            (unsigned long long)tb.n_mispred, tb.done ? "done" : "timeout",
             summary.empty() ? "" : ", ", summary.c_str());
     top.final();
     return (tb.done && tb.failures <= 0) ? 0 : 1;

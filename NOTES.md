@@ -243,3 +243,31 @@ reproduce it. Confirmed facts move to `docs/`.
   tests/exc results on QEMU: 43 deviations from the manual (listed in
   `tests/exc/README.md`), all fixed on the QEMU branch (two commits);
   QEMU still passes the ISA kit and boots NetBSD and Linux.
+- 2026-11-03: caches and target-register preload added to the core
+  (`rtl/sh5_icache.sv`, `rtl/sh5_dcache.sv`, buffers and prediction in
+  `rtl/sh5_core.sv`; §8 and §4.4 of `docs/core-design.md`). Preload shares
+  the I-cache port with fetch, is issued from E2 of a PT with the l-bit for
+  cachable ITLB hits only, and the response is tagged with the TR number.
+  A branch predicted taken in D writes the buffered block into the fetch
+  queue; E1 compares the actual next PC with the followed one and
+  redirects on a mismatch. The bare tests run with SR.MMU = 0, where
+  preload is disabled by design, so only the Linux boot exercises it; the
+  testbench summary line now counts predicted-taken branches and
+  redirects. `tools/tracecmp.py --irq VEC` skips interrupt handlers that
+  the two models enter at different instructions (TMU timing differs);
+  with it the Linux 6.15 stream matches QEMU for 5.3 M instructions, up
+  to a timer interrupt landing inside a context switch, after which the
+  scheduler decisions differ.
+  The first cache version served uncached fetches and words one at a
+  time through its state machines, which made the MMU-off ISA kit 1.7x
+  slower than the cacheless core (fetch had two words in flight before).
+  Fixed by passing uncached fetches through the I-cache with two
+  outstanding and by fast paths in the operand cache (uncached store
+  queued, uncached load issued, in the accept cycle); the arith group
+  went from 1.18 M to 0.77 M cycles, the full kit takes 310 M cycles
+  (277 M without caches) and the Linux boot 207 M (191 M without caches,
+  345 M with the first cache version). `tests/exc` has a new `mmu` test
+  (430 checks in total) that maps 512 MB pages, turns the MMU and the
+  caches on and checks prediction, preload, TR rewrite, a preload to an
+  unmapped page, and code modification with the sequence of Vol. 1 6.7.1;
+  QEMU passes it too.

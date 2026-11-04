@@ -172,12 +172,20 @@ Implementation:
   block at the new TR value through the normal I-cache path in a free F1
   slot (E2 of the PT at the earliest). PT with l = 0 only invalidates the
   buffer.
-- Branch predicted taken (l = 1) in D: the next two instructions come from
-  the target buffer if valid, the sequential fetch is redirected to
-  target + 8. Predicted not taken (l = 0): nothing happens in D.
-- Resolution in E1 (64-bit compare). Misprediction: squash the one or two
-  younger instructions and restart at the correct path (penalty 2 cycles
-  with a valid target buffer, 3 + I-cache latency without, **C**).
+- Branch predicted taken in D (conditional branch with l = 1, or BLINK to
+  an SHmedia target) when the buffer of its TR is valid and holds the block
+  at the current TR value: the block is written into the fetch queue, the
+  sequential fetch is redirected to target + 8, and the target instruction
+  is in D in the next cycle. Predicted not taken (l = 0, or no valid
+  buffer): nothing happens in D.
+- Resolution in E1 (32-bit compare of the actual next PC with the one
+  fetch is following). Misprediction: squash the younger instructions and
+  restart fetch at the correct path (penalty 2 cycles + I-cache latency,
+  **C**).
+- Preload requests share the I-cache port with fetch (preload first) and
+  are only issued for cachable pages that hit the ITLB; faults and
+  responses superseded by a newer PT, a flush or an invalidation are
+  dropped.
 - With PT at least 3 instructions before the branch and a valid preload
   the taken branch costs 0 cycles (**D**, slide 10: PT E1 computes, E2
   transfers the fetch address, two fetch cycles, selected when the branch
@@ -568,16 +576,22 @@ the test commands).
 
 | Area | State |
 |---|---|
-| Pipeline | D E1 E2 E3 W in order, lockstep hold; loads wait for the bus response in E3; stores enter a 4-entry queue in E3; loads are ordered behind all older stores (no forwarding from the store queue). Branches resolve in E1 and redirect fetch; no prediction, no target preload yet. |
-| Fetch | 8-byte blocks through the bus, 4-entry queue; no I-cache. |
+| Pipeline | D E1 E2 E3 W in order, lockstep hold; loads wait for the bus response in E3; stores enter a 4-entry queue in E3; loads are ordered behind all older stores (no forwarding from the store queue). Branches resolve in E1. Target buffers per TR filled by preload after PT with l = 1, static prediction in D from the l-bit (§4.4); a predicted taken branch with a valid buffer costs 0 cycles. |
+| Fetch | 8-byte words from the instruction cache (4 x 256 x 32 B, VIVT, PRU in the tag; misses fill by Load32, uncachable pages and MMU-off fetches by Load8 with two words outstanding), 4-entry queue. |
 | ALU, SIMD, FPU | complete; FPU latencies 2 to 63 cycles, one operation in flight. |
-| MMU | ITLB and DTLB lookup and exceptions, configuration registers; all accesses are uncached regardless of PTEL.CB (no caches); ICCR/OCCR stored. Cache instructions perform their address, translation and protection checks only. |
+| MMU and caches | ITLB and DTLB lookup and exceptions, configuration registers. Operand cache as in §8 (EA and PA tags, WB/WT from PTEL.CB and OCCR.OWT, LRU, locking, alias re-tagging, OCBI/OCBP/OCBWB/ALLOCO, SWAP purge, ICI/OCI, configuration views of tags and data). Requests are processed one at a time (hit: 2 cycles; uncached stores enter the bus queue and uncached loads reach the bus port in the cycle they are accepted). Not yet: PREFI and data prefetch fills, way-load override for prefetches, PUTCFG to tag/data arrays. |
 | Events | all non-debug exceptions, BREAK, PANIC, NMI/DEBUGINT/EXTINT acceptance and INTEVT/IMASK, RTE, SLEEP. Not implemented: single step (DEBUGSS), watchpoints, SHcompact (RESINST on entry). |
-| Bus | Load8/Store8/Swap8 only; VCR target port. |
+| Bus | Load8/Store8/Swap8 words, Load32/Store32 lines (word order, address bits 4:3 = 0); VCR target port. |
 
 Verification done: the 458064-check SHmedia ISA kit (`tests/isa`, bare
-mode) and the 398-check exception suite (`tests/exc`) pass on the model; the
-instruction stream of the first six million instructions of the Linux 6.15
-boot matches QEMU (`tools/tracecmp.py`), register writes match in the
-windows compared with `tools/regcmp.py`, and the kernel boots to the
-smolutils shell prompt on the model (191 M cycles, bus latency 1).
+mode) and the 430-check exception suite (`tests/exc`, whose `mmu` test
+runs with the MMU, the caches and target preload active) pass on the
+model; the instruction stream of the first 5.3 million instructions of the
+Linux 6.15 boot matches QEMU (`tools/tracecmp.py`, interrupt handlers
+skipped), register writes match in the windows compared with
+`tools/regcmp.py`, and the kernel boots to the smolutils shell prompt on
+the model (bus latency 1: 191 M cycles before the caches existed, 207 M
+cycles with the caches and target preload; the kernel's cache maintenance,
+whole-cache purges through ALLOCO, and the line refills on the
+one-word-per-cycle bus are the suspected costs of the difference, not yet
+measured).

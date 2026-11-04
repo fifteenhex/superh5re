@@ -62,6 +62,8 @@ module sh5_core
   output logic [11:0] trace_launch_code_o,
   output logic [31:0] trace_launch_tea_o,
   output logic [31:0] trace_launch_pc_o,
+  output logic        trace_pred_o,       // branch resolved in E1 that was predicted taken
+  output logic        trace_mispred_o,    // branch resolved in E1 that redirected fetch
 
   // Bus initiator
   output logic        ireq_valid,
@@ -154,7 +156,8 @@ module sh5_core
   // Control block
   logic [31:0] sr, fpscr;
   logic        ctrl_isa;
-  logic [31:0] iccr0, occr0;
+  logic [31:0] iccr0, occr0, iccr1, occr1;
+  logic        ici_pulse, oci_pulse;
   logic [5:0]  getcon_idx;
   logic [63:0] getcon_val;
   logic        putcon_en;
@@ -180,6 +183,7 @@ module sh5_core
   sh5_ctrl #(.FPU_PRESENT(FPU_PRESENT)) u_ctrl (
     .clk, .rst_n,
     .sr_o(sr), .fpscr_o(fpscr), .isa_o(ctrl_isa), .iccr0_o(iccr0), .occr0_o(occr0),
+    .iccr1_o(iccr1), .occr1_o(occr1), .ici_o(ici_pulse), .oci_o(oci_pulse),
     .getcon_idx_i(getcon_idx), .getcon_val_o(getcon_val),
     .putcon_en_i(putcon_en), .putcon_idx_i(putcon_idx), .putcon_val_i(putcon_val),
     .getcfg_idx_i(getcfg_idx), .getcfg_val_o(ctrl_getcfg_val),
@@ -204,7 +208,8 @@ module sh5_core
   logic [31:0] itlb_ea, dtlb_ea, itlb_pa, dtlb_pa;
   logic        itlb_hit, itlb_x, itlb_u, dtlb_hit, dtlb_r, dtlb_w, dtlb_u;
   logic        itlb_r_unused, itlb_w_unused, dtlb_x_unused;
-  logic [1:0]  itlb_cb_unused, dtlb_cb;
+  logic [1:0]  itlb_cb, dtlb_cb;
+  logic        itlb_sh, dtlb_sh;
   logic [7:0]  cur_asid;
 
   assign cur_asid = sr[SR_ASID +: 8];
@@ -212,8 +217,15 @@ module sh5_core
   assign cfg_is_dtlb_r = (getcfg_idx[31:21] == 11'h004) && (getcfg_idx[15:4] < 12'(DTLB_ENTRIES)) && (getcfg_idx[3:1] == 3'b000);
   assign cfg_is_itlb_w = (putcfg_idx[31:21] == 11'h000) && (putcfg_idx[15:4] < 12'(ITLB_ENTRIES)) && (putcfg_idx[3:1] == 3'b000);
   assign cfg_is_dtlb_w = (putcfg_idx[31:21] == 11'h004) && (putcfg_idx[15:4] < 12'(DTLB_ENTRIES)) && (putcfg_idx[3:1] == 3'b000);
+  logic [63:0] ic_cfg_rdata, dc_cfg_rdata;
+  logic        cfg_is_icache_r, cfg_is_dcache_r;
+  // region 1: bank 0 ICACHETAG, 1 ICACHEDATA, 3 ICCR, 4 OCACHETAG, 5 OCACHEDATA, 7 OCCR (Vol. 4 Table 28)
+  assign cfg_is_icache_r = (getcfg_idx[31:24] == 8'h01) && (getcfg_idx[23:22] == 2'b00);
+  assign cfg_is_dcache_r = (getcfg_idx[31:24] == 8'h01) && (getcfg_idx[23:22] == 2'b10);
   assign getcfg_val = cfg_is_itlb_r ? {32'h0, itlb_cfg_rdata} :
-                      cfg_is_dtlb_r ? {32'h0, dtlb_cfg_rdata} : ctrl_getcfg_val;
+                      cfg_is_dtlb_r ? {32'h0, dtlb_cfg_rdata} :
+                      cfg_is_icache_r ? ic_cfg_rdata :
+                      cfg_is_dcache_r ? dc_cfg_rdata : ctrl_getcfg_val;
 
   sh5_tlb #(.ENTRIES(ITLB_ENTRIES), .ITLB(1'b1)) u_itlb (
     .clk,
@@ -221,7 +233,7 @@ module sh5_core
     .cfg_wdata_i(putcfg_val[31:0]),
     .cfg_ridx_i(getcfg_idx[4 +: ITLB_IDX]), .cfg_rsel_i(getcfg_idx[0]), .cfg_rdata_o(itlb_cfg_rdata),
     .ea_i(itlb_ea), .asid_i(cur_asid), .hit_o(itlb_hit), .pa_o(itlb_pa),
-    .pr_r_o(itlb_r_unused), .pr_w_o(itlb_w_unused), .pr_x_o(itlb_x), .pr_u_o(itlb_u), .cb_o(itlb_cb_unused)
+    .pr_r_o(itlb_r_unused), .pr_w_o(itlb_w_unused), .pr_x_o(itlb_x), .pr_u_o(itlb_u), .sh_o(itlb_sh), .cb_o(itlb_cb)
   );
 
   sh5_tlb #(.ENTRIES(DTLB_ENTRIES), .ITLB(1'b0)) u_dtlb (
@@ -230,32 +242,36 @@ module sh5_core
     .cfg_wdata_i(putcfg_val[31:0]),
     .cfg_ridx_i(getcfg_idx[4 +: DTLB_IDX]), .cfg_rsel_i(getcfg_idx[0]), .cfg_rdata_o(dtlb_cfg_rdata),
     .ea_i(dtlb_ea), .asid_i(cur_asid), .hit_o(dtlb_hit), .pa_o(dtlb_pa),
-    .pr_r_o(dtlb_r), .pr_w_o(dtlb_w), .pr_x_o(dtlb_x_unused), .pr_u_o(dtlb_u), .cb_o(dtlb_cb)
+    .pr_r_o(dtlb_r), .pr_w_o(dtlb_w), .pr_x_o(dtlb_x_unused), .pr_u_o(dtlb_u), .sh_o(dtlb_sh), .cb_o(dtlb_cb)
   );
 
   // ===================================================================
-  // Bus interface unit
-  logic        if_req_valid, if_req_ready, if_rsp_valid, if_idle;
-  logic [31:3] if_req_addr;
-  logic [63:0] if_rsp_data;
-  logic        ld_req_valid, ld_req_ready, ld_req_swap, ld_rsp_valid;
-  logic [31:3] ld_req_addr;
-  logic [7:0]  ld_req_mask;
-  logic [63:0] ld_req_data, ld_rsp_data;
-  logic        st_req_valid, st_req_ready, st_pending;
-  logic [31:3] st_req_addr;
-  logic [7:0]  st_req_mask;
-  logic [63:0] st_req_data;
+  // Bus interface unit, behind the caches
+  logic         bif_req_valid, bif_req_ready, bif_req_line, bif_rsp_valid, bif_idle;
+  logic [31:3]  bif_req_addr;
+  logic [255:0] bif_rsp_data;
+  logic         bld_req_valid, bld_req_ready, bld_req_swap, bld_req_line, bld_rsp_valid;
+  logic [31:3]  bld_req_addr;
+  logic [7:0]   bld_req_mask;
+  logic [63:0]  bld_req_data;
+  logic [255:0] bld_rsp_data;
+  logic         bst_req_valid, bst_req_ready, bst_req_line, bst_pending;
+  logic [31:3]  bst_req_addr;
+  logic [7:0]   bst_req_mask;
+  logic [255:0] bst_req_data;
 
   sh5_biu #(.TID_BITS(TID_BITS), .BUS_SRC_ID(BUS_SRC_ID)) u_biu (
     .clk, .rst_n,
-    .if_req_valid_i(biu_if_req_valid), .if_req_ready_o(biu_if_req_ready), .if_req_addr_i(biu_if_req_addr),
-    .if_rsp_valid_o(if_rsp_valid), .if_rsp_data_o(if_rsp_data), .if_idle_o(if_idle),
-    .ld_req_valid_i(ld_req_valid), .ld_req_ready_o(ld_req_ready), .ld_req_swap_i(ld_req_swap),
-    .ld_req_addr_i(ld_req_addr), .ld_req_mask_i(ld_req_mask), .ld_req_data_i(ld_req_data),
-    .ld_rsp_valid_o(ld_rsp_valid), .ld_rsp_data_o(ld_rsp_data),
-    .st_req_valid_i(st_req_valid), .st_req_ready_o(st_req_ready), .st_req_addr_i(st_req_addr),
-    .st_req_mask_i(st_req_mask), .st_req_data_i(st_req_data), .st_pending_o(st_pending),
+    .if_req_valid_i(bif_req_valid), .if_req_ready_o(bif_req_ready), .if_req_line_i(bif_req_line),
+    .if_req_addr_i(bif_req_addr),
+    .if_rsp_valid_o(bif_rsp_valid), .if_rsp_data_o(bif_rsp_data), .if_idle_o(bif_idle),
+    .ld_req_valid_i(bld_req_valid), .ld_req_ready_o(bld_req_ready), .ld_req_swap_i(bld_req_swap),
+    .ld_req_line_i(bld_req_line), .ld_req_addr_i(bld_req_addr), .ld_req_mask_i(bld_req_mask),
+    .ld_req_data_i(bld_req_data),
+    .ld_rsp_valid_o(bld_rsp_valid), .ld_rsp_data_o(bld_rsp_data),
+    .st_req_valid_i(bst_req_valid), .st_req_ready_o(bst_req_ready), .st_req_line_i(bst_req_line),
+    .st_req_addr_i(bst_req_addr), .st_req_mask_i(bst_req_mask), .st_req_data_i(bst_req_data),
+    .st_pending_o(bst_pending),
     .bus_error_o,
     .ireq_valid, .ireq_ready, .ireq_opc, .ireq_addr, .ireq_src, .ireq_tid, .ireq_mask,
     .ireq_data, .ireq_last,
@@ -273,55 +289,85 @@ module sh5_core
   logic        reset_q;         // first cycle after reset: start fetching at reset_pc_i
 
   logic [11:0] if_insn_fault;
-  logic        biu_if_req_valid, biu_if_req_ready;
-  logic [31:3] biu_if_req_addr;
-  logic        if_fault, if_fault_q;
-  logic [11:0] if_fault_code, if_fault_code_q;
+  logic        if_req_valid, if_req_ready;
+  logic [31:3] if_req_addr;
+  logic [11:0] if_fault_code;
   logic        ifu_rsp_valid;
+  logic [63:0] ifu_rsp_data;
   logic [11:0] ifu_rsp_fault;
 
   sh5_ifu u_ifu (
     .clk, .rst_n,
     .redirect_i(redirect), .redirect_pc_i(redirect_pc), .fetch_en_i(fetch_en),
+    .inject_i(d_redirect && !e1_redirect && !flush && !reset_q), .inject_data_i(tb_data_q[d_uop.trb]),
     .insn_valid_o(if_insn_valid), .insn_o(if_insn), .insn_pc_o(if_insn_pc), .insn_fault_o(if_insn_fault),
     .consume_i(if_consume),
     .req_valid_o(if_req_valid), .req_ready_i(if_req_ready), .req_addr_o(if_req_addr),
-    .rsp_valid_i(ifu_rsp_valid), .rsp_data_i(if_rsp_data), .rsp_fault_i(ifu_rsp_fault)
+    .rsp_valid_i(ifu_rsp_valid), .rsp_data_i(ifu_rsp_data), .rsp_fault_i(ifu_rsp_fault)
   );
 
   assign fetch_en = !sleeping_q && !reset_q;
 
-  // Instruction address translation (Vol. 1 17.7.6, 16.11.1). With the MMU
-  // off the physical address is the effective address. A miss or a
-  // protection violation is delivered to the fetch queue as a fault code in
-  // place of the block, after earlier bus responses have arrived.
-  assign itlb_ea = {if_req_addr, 3'b000};
+  // Instruction address translation (Vol. 1 17.7.6, 16.11.1) and instruction
+  // cache. With the MMU off the physical address is the effective address and
+  // the cache is bypassed. The fault code applies when the cache misses; a
+  // cache hit never consults the PTE array (Vol. 4 9.1.1).
+  logic ic_inv_valid;
+
+  // Target register buffers (docs/core-design.md 4.4): one fetch block per
+  // TR, filled by a preload request after a PT with the likely bit, used by
+  // branches predicted taken in D. Invalidated by TR writes, SYNCI, every
+  // launch and RTE, ICBI, ICCR0.ICI, PUTCFG to the MMU or cache regions,
+  // and whenever the MMU is off (Vol. 1 18.11.2).
+  logic         tb_valid_q [8];
+  logic [31:3]  tb_addr_q  [8];
+  logic [63:0]  tb_data_q  [8];
+  logic         pl_pending_q, pl_sent_q, pl_drop_q;
+  logic [2:0]   pl_tr_q;
+  logic [31:3]  pl_ea_q, pl_ea_sent_q;
+  logic         ic_req_valid, ic_req_ready;
+  logic [31:3]  ic_req_ea;
+  logic [3:0]   ic_rsp_tag;
+  logic         ic_rsp_valid;
+  logic [63:0]  ic_rsp_data;
+  logic [11:0]  ic_rsp_fault;
+  logic         d_redirect;
+  logic [31:0]  d_redirect_pc;
+
+  // a preload is only issued for cachable pages (no speculative device reads)
+  logic pl_skip;
+  assign pl_skip = pl_pending_q && !(itlb_hit && itlb_cb[1]);
+  assign ic_req_valid = (pl_pending_q && !pl_skip) || if_req_valid;
+  assign ic_req_ea    = pl_pending_q ? pl_ea_q : if_req_addr;
+  assign if_req_ready = ic_req_ready && !pl_pending_q;
+  assign ifu_rsp_valid = ic_rsp_valid && !ic_rsp_tag[3];
+  assign ifu_rsp_data  = ic_rsp_data;
+  assign ifu_rsp_fault = ic_rsp_fault;
+  assign itlb_ea = {ic_req_ea, 3'b000};
   always_comb begin
-    if_fault = 1'b0;
     if_fault_code = 12'h0;
     if (sr[SR_MMU]) begin
-      if (!itlb_hit) begin
-        if_fault = 1'b1; if_fault_code = EVT_ITLBMISS;
-      end else if (!itlb_x || (!sr[SR_MD] && !itlb_u)) begin
-        if_fault = 1'b1; if_fault_code = EVT_EXECPROT;
-      end
+      if (!itlb_hit) if_fault_code = EVT_ITLBMISS;
+      else if (!itlb_x || (!sr[SR_MD] && !itlb_u)) if_fault_code = EVT_EXECPROT;
     end
   end
-  assign biu_if_req_valid = if_req_valid && !if_fault;
-  assign biu_if_req_addr  = sr[SR_MMU] ? itlb_pa[31:3] : if_req_addr;
-  assign if_req_ready     = if_fault ? (if_idle && !if_fault_q) : biu_if_req_ready;
-  assign ifu_rsp_valid    = if_rsp_valid || if_fault_q;
-  assign ifu_rsp_fault    = if_fault_q ? if_fault_code_q : 12'h0;
 
-  always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-      if_fault_q <= 1'b0;
-      if_fault_code_q <= 12'h0;
-    end else begin
-      if_fault_q <= if_req_valid && if_req_ready && if_fault;
-      if_fault_code_q <= if_fault_code;
-    end
-  end
+  sh5_icache #(.WAYS(ICACHE_WAYS), .SETS(ICACHE_SETS)) u_icache (
+    .clk, .rst_n,
+    .ice_i(iccr0[CCR0_ENABLE]), .inv_all_i(ici_pulse), .w_lock_i(iccr1[CCR1_W_LOCK +: 4]),
+    .req_valid_i(ic_req_valid), .req_ready_o(ic_req_ready),
+    .req_ea_i(ic_req_ea), .req_pa_i(sr[SR_MMU] ? itlb_pa[31:3] : ic_req_ea),
+    .req_mmu_i(sr[SR_MMU]), .req_cachable_i(itlb_hit && itlb_cb[1]),
+    .req_fault_i(if_fault_code), .req_priv_i(sr[SR_MD]), .req_asid_i(cur_asid),
+    .req_sh_i(itlb_sh), .req_pru_i(itlb_u),
+    .req_tag_i(pl_pending_q ? {1'b1, pl_tr_q} : 4'h0), .rsp_tag_o(ic_rsp_tag),
+    .rsp_valid_o(ic_rsp_valid), .rsp_data_o(ic_rsp_data), .rsp_fault_o(ic_rsp_fault),
+    .inv_valid_i(ic_inv_valid), .inv_ea_i(e3_q.ea[31:5]), .inv_asid_i(cur_asid),
+    .cfg_bank_i(getcfg_idx[21]), .cfg_way_i(getcfg_idx[17:16]), .cfg_idx_i(getcfg_idx[11:4]),
+    .cfg_reg_i(getcfg_idx[1:0]), .cfg_rdata_o(ic_cfg_rdata),
+    .if_req_valid_o(bif_req_valid), .if_req_ready_i(bif_req_ready), .if_req_line_o(bif_req_line),
+    .if_req_addr_o(bif_req_addr), .if_rsp_valid_i(bif_rsp_valid), .if_rsp_data_i(bif_rsp_data)
+  );
 
   // ===================================================================
   // Pipeline stage payload
@@ -333,6 +379,8 @@ module sh5_core
     logic [63:0] res;            // result or value carried to W
     logic [31:0] ea;             // effective address (TEA on a fault)
     logic [31:0] pa;             // physical address (translated in E2)
+    logic [1:0]  cb;             // resolved cache behaviour (E2)
+    logic        tsh, tprr, tprw, tpru;  // PTE bits copied into the operand cache tag
     logic [63:0] sdata;          // store data placed in bus lanes
     logic [7:0]  smask;
     logic        fpu_trap;       // FPUEXC: wait for the FPU to drain at W
@@ -454,6 +502,17 @@ module sh5_core
 
   assign d_issue   = d_valid && !d_stall && !hold;
   assign if_consume = d_issue;
+
+  // Prediction (Vol. 1 5.3.3): conditional branches with the likely bit and
+  // BLINK are predicted taken when the buffer of their target register
+  // holds the block at the current target register value.
+  logic [31:0] d_trv;
+  logic        d_pred_ok;
+  assign d_trv = tr_q[d_uop.trb];
+  assign d_pred_ok = sr[SR_MMU] && tb_valid_q[d_uop.trb] && (tb_addr_q[d_uop.trb] == d_trv[31:3]) &&
+                     ((d_uop.cls == UC_BRANCH && d_uop.likely) || (d_uop.cls == UC_BLINK && d_trv[0]));
+  assign d_redirect_pc = (d_uop.cls == UC_BLINK) ? {d_trv[31:1], 1'b0} : {d_trv[31:2], 2'b00};
+  assign d_redirect = d_issue && d_pred_ok && (d_uop.exc == 12'h0);
 
   // ===================================================================
   // Pipeline advance / hold
@@ -660,10 +719,17 @@ module sh5_core
     end
   end
 
-  // branch redirect (BLINK may switch to SHcompact, which is not implemented)
-  logic e1_redirect;
+  // branch resolution: redirect when the actual next PC differs from the one
+  // fetch is following (BLINK may switch to SHcompact, which is not implemented)
+  logic        e1_redirect, e1_br_taken;
+  logic [31:0] e1_actual_pc, e1_followed_pc;
+  assign e1_br_taken = (e1_q.u.cls == UC_BRANCH && e1_taken) || (e1_q.u.cls == UC_BLINK);
+  assign e1_actual_pc = (e1_q.u.cls == UC_BLINK) ? {e1_trv[31:1], 1'b0} :
+                        e1_br_taken ? {e1_trv[31:2], 2'b00} : e1_q.u.pc + 32'd4;
+  assign e1_followed_pc = e1_q.u.pred ? e1_q.u.pred_pc : e1_q.u.pc + 32'd4;
   assign e1_redirect = e1_q.u.valid && (e1_q.u.exc == 12'h0) && !e1_redir_done_q && !hold &&
-                       ((e1_q.u.cls == UC_BRANCH && e1_taken) || (e1_q.u.cls == UC_BLINK));
+                       (e1_q.u.cls == UC_BRANCH || e1_q.u.cls == UC_BLINK) &&
+                       (e1_actual_pc != e1_followed_pc);
 
   // ===================================================================
   // E2: data address translation (Vol. 1 17.7.6, 16.11.3) and memory request
@@ -696,23 +762,42 @@ module sh5_core
     end
   end
 
+  logic [1:0] e2_cb;
+  always_comb begin
+    if (!sr[SR_MMU])                 e2_cb = CB_DEVICE;
+    else if (!occr0[CCR0_ENABLE])    e2_cb = (dtlb_cb == CB_DEVICE) ? CB_DEVICE : CB_UNCACHED;
+    else if (occr0[OCCR0_OWT] && dtlb_cb == CB_WRITEBACK) e2_cb = CB_WRITETHROUGH;
+    else                             e2_cb = dtlb_cb;
+  end
+
   logic e2_is_read, e2_ok, e3_issue, e3_issued_q;
-  logic e3_is_read, e3_is_store, e3_acted_q;
+  logic e3_is_read, e3_is_store, e3_is_cop, e3_acted_q;
+  // operand cache request
+  logic        dc_req_valid, dc_req_ready, dc_rsp_valid, dc_idle;
+  dkind_t      dc_req_kind;
+  logic [31:0] dc_req_ea, dc_req_pa;
+  logic [7:0]  dc_req_mask;
+  logic [63:0] dc_req_data, dc_rsp_data;
+  logic [1:0]  dc_req_cb;
+  logic        dc_req_sh, dc_req_prr, dc_req_prw, dc_req_pru;
+  logic        ld_req_valid, ld_req_ready, ld_rsp_valid;
+  logic [63:0] ld_rsp_data;
+  logic        st_pending;
+  logic        ld_out_q, ld_have_q, ld_discard_q;
+  logic [63:0] ld_data_q;
   assign e2_is_read = e2_mem && (e2_mmu_exc == 12'h0) &&
                       ((e2_q.u.cls == UC_LOAD) || (e2_q.u.cls == UC_SWAP) || (e2_q.u.cls == UC_FLOAD));
   // older instructions must be unable to launch: no pending exception in E3/W
   // loads are ordered behind stores: none may be in E3 (not yet pushed), in W
   // unpushed, or in the store queue
+  // The operand cache serialises requests, so a load issued after an older
+  // store is ordered behind it; a load must not pass a store or cache
+  // operation still waiting in E3.
   assign e2_ok = !(e3_q.u.valid && e3_q.u.exc != 12'h0) && !(w_q.u.valid && w_q.u.exc != 12'h0) &&
-                 !st_pending && !(e3_is_store && !e3_acted_q);
-  // A read that could not issue in E2 (older store or exception pending)
-  // issues from E3 once the store queue is empty and W is not launching.
-  assign e3_issue = e3_is_read && !e3_issued_q && !st_pending && !(w_q.u.valid && w_q.u.exc != 12'h0);
+                 !((e3_is_store || e3_is_cop) && !e3_acted_q) && !ld_out_q && !ld_have_q;
+  // A read that could not issue in E2 issues from E3 when W is not launching.
+  assign e3_issue = e3_is_read && !e3_issued_q && !(w_q.u.valid && w_q.u.exc != 12'h0) && !ld_out_q && !ld_have_q;
   assign ld_req_valid = e3_issue || (e2_is_read && !e2_issued_q && e2_ok && !(e3_is_read && !e3_issued_q));
-  assign ld_req_swap  = e3_issue ? (e3_q.u.cls == UC_SWAP) : (e2_q.u.cls == UC_SWAP);
-  assign ld_req_addr  = e3_issue ? e3_q.pa[31:3] : e2_pa[31:3];
-  assign ld_req_mask  = e3_issue ? e3_q.smask : e2_q.smask;
-  assign ld_req_data  = e3_issue ? e3_q.sdata : e2_q.sdata;
   assign hold_e2 = 1'b0;
 
   // ===================================================================
@@ -722,16 +807,72 @@ module sh5_core
                       ((e3_q.u.cls == UC_LOAD) || (e3_q.u.cls == UC_SWAP) || (e3_q.u.cls == UC_FLOAD));
   assign e3_is_store = e3_q.u.valid && (e3_q.u.exc == 12'h0) &&
                        ((e3_q.u.cls == UC_STORE) || (e3_q.u.cls == UC_FSTORE));
-  assign st_req_valid = e3_is_store && !e3_acted_q && !(w_q.u.valid && w_q.u.exc != 12'h0);
-  assign st_req_addr  = e3_q.pa[31:3];
-  assign st_req_mask  = e3_q.smask;
-  assign st_req_data  = e3_q.sdata;
-  assign hold_e3 = (e3_is_read && (!e3_issued_q || (!e3_have_q && !ld_rsp_valid))) ||
-                   (e3_is_store && !e3_acted_q && !(st_req_valid && st_req_ready));
+  assign e3_is_cop = e3_q.u.valid && (e3_q.u.exc == 12'h0) && (e3_q.u.cls == UC_CACHEOP) &&
+                     (e3_q.u.cop != COP_PREFI);
+  logic st_req_valid, st_req_ready;
+  assign st_req_valid = (e3_is_store || e3_is_cop) && !e3_acted_q && !(w_q.u.valid && w_q.u.exc != 12'h0);
+  // ICBI invalidates the instruction cache directly; every other request goes to the operand cache
+  assign ic_inv_valid = st_req_valid && e3_is_cop && (e3_q.u.cop == COP_ICBI) && sr[SR_MMU];
+  assign st_req_ready = (e3_is_cop && e3_q.u.cop == COP_ICBI) ? 1'b1 : dc_req_ready;
+
+  // request multiplexer: E3 store/cache operation, E3 read, E2 read
+  always_comb begin
+    dc_req_valid = 1'b0;
+    dc_req_kind  = DK_LOAD;
+    dc_req_ea = e2_q.ea; dc_req_pa = e2_pa; dc_req_mask = e2_q.smask; dc_req_data = e2_q.sdata;
+    dc_req_cb = e2_cb; dc_req_sh = dtlb_sh; dc_req_prr = dtlb_r; dc_req_prw = dtlb_w; dc_req_pru = dtlb_u;
+    ld_req_ready = 1'b0;
+    if (st_req_valid && !(e3_is_cop && e3_q.u.cop == COP_ICBI)) begin
+      dc_req_valid = 1'b1;
+      dc_req_ea = e3_q.ea; dc_req_pa = e3_q.pa; dc_req_mask = e3_q.smask; dc_req_data = e3_q.sdata;
+      dc_req_cb = e3_q.cb; dc_req_sh = e3_q.tsh; dc_req_prr = e3_q.tprr; dc_req_prw = e3_q.tprw; dc_req_pru = e3_q.tpru;
+      if (e3_is_store) dc_req_kind = DK_STORE;
+      else case (e3_q.u.cop)
+        COP_OCBI:  dc_req_kind = DK_OCBI;
+        COP_OCBP:  dc_req_kind = DK_OCBP;
+        COP_OCBWB: dc_req_kind = DK_OCBWB;
+        default:   dc_req_kind = DK_ALLOCO;
+      endcase
+    end else if (ld_req_valid) begin
+      dc_req_valid = 1'b1;
+      ld_req_ready = dc_req_ready;
+      if (e3_issue) begin
+        dc_req_ea = e3_q.ea; dc_req_pa = e3_q.pa; dc_req_mask = e3_q.smask; dc_req_data = e3_q.sdata;
+        dc_req_cb = e3_q.cb; dc_req_sh = e3_q.tsh; dc_req_prr = e3_q.tprr; dc_req_prw = e3_q.tprw; dc_req_pru = e3_q.tpru;
+        dc_req_kind = (e3_q.u.cls == UC_SWAP) ? DK_SWAP : DK_LOAD;
+      end else begin
+        dc_req_kind = (e2_q.u.cls == UC_SWAP) ? DK_SWAP : DK_LOAD;
+      end
+    end
+  end
+
+  sh5_dcache #(.WAYS(DCACHE_WAYS), .SETS(DCACHE_SETS)) u_dcache (
+    .clk, .rst_n,
+    .inv_all_i(oci_pulse), .w_lock_i(occr1[CCR1_W_LOCK +: 4]),
+    .req_valid_i(dc_req_valid), .req_ready_o(dc_req_ready), .req_kind_i(dc_req_kind),
+    .req_ea_i(dc_req_ea), .req_pa_i(dc_req_pa), .req_mask_i(dc_req_mask), .req_data_i(dc_req_data),
+    .req_cb_i(dc_req_cb), .req_mmu_i(sr[SR_MMU]), .req_asid_i(cur_asid), .req_sh_i(dc_req_sh),
+    .req_prr_i(dc_req_prr), .req_prw_i(dc_req_prw), .req_pru_i(dc_req_pru),
+    .rsp_valid_o(dc_rsp_valid), .rsp_data_o(dc_rsp_data), .idle_o(dc_idle),
+    .cfg_bank_i(getcfg_idx[21]), .cfg_way_i(getcfg_idx[17:16]), .cfg_idx_i(getcfg_idx[11:4]),
+    .cfg_reg_i(getcfg_idx[1:0]), .cfg_rdata_o(dc_cfg_rdata),
+    .ld_req_valid_o(bld_req_valid), .ld_req_ready_i(bld_req_ready), .ld_req_swap_o(bld_req_swap),
+    .ld_req_line_o(bld_req_line), .ld_req_addr_o(bld_req_addr), .ld_req_mask_o(bld_req_mask),
+    .ld_req_data_o(bld_req_data), .ld_rsp_valid_i(bld_rsp_valid), .ld_rsp_data_i(bld_rsp_data),
+    .st_req_valid_o(bst_req_valid), .st_req_ready_i(bst_req_ready), .st_req_line_o(bst_req_line),
+    .st_req_addr_o(bst_req_addr), .st_req_mask_o(bst_req_mask), .st_req_data_o(bst_req_data)
+  );
+
+  // read responses: only for an outstanding read (stores and cache operations also complete)
+  assign ld_rsp_valid = dc_rsp_valid && ld_out_q && !ld_discard_q;
+  assign ld_rsp_data  = dc_rsp_data;
+  assign st_pending   = !dc_idle || bst_pending || ld_out_q;
+  assign hold_e3 = (e3_is_read && (!e3_issued_q || !(ld_have_q || ld_rsp_valid))) ||
+                   ((e3_is_store || e3_is_cop) && !e3_acted_q && !(st_req_valid && st_req_ready));
 
   // load data extraction
   logic [63:0] e3_ldata, e3_lres;
-  assign e3_ldata = e3_have_q ? e3_data_q : ld_rsp_data;
+  assign e3_ldata = ld_have_q ? ld_data_q : ld_rsp_data;
   always_comb begin
     logic [2:0]  o, off, blk;
     logic [3:0]  w;
@@ -874,7 +1015,10 @@ module sh5_core
       redirect = 1'b1; redirect_pc = w_q.u.pc + ((w_q.u.cls == UC_SYNCI) ? 32'd4 : 32'd0);
     end else if (e1_redirect) begin
       redirect = 1'b1;
-      redirect_pc = (e1_q.u.cls == UC_BLINK) ? {e1_trv[31:1], 1'b0} : {e1_trv[31:2], 2'b00};
+      redirect_pc = e1_actual_pc;
+    end else if (d_redirect) begin
+      redirect = 1'b1;
+      redirect_pc = d_redirect_pc;
     end
   end
 
@@ -942,11 +1086,14 @@ module sh5_core
       e1_va_q <= '0; e1_vb_q <= '0; e1_mtrx_q <= '0;
       e1_fpu_issued_q <= 1'b0; e1_redir_done_q <= 1'b0; e2_issued_q <= 1'b0;
       e3_have_q <= 1'b0; e3_data_q <= 64'h0; w_acted_q <= 1'b0; e3_acted_q <= 1'b0; e3_issued_q <= 1'b0;
+      ld_out_q <= 1'b0; ld_have_q <= 1'b0; ld_discard_q <= 1'b0; ld_data_q <= 64'h0;
       wb_valid_q <= 1'b0; wb_idx_q <= 6'd0; wb_val_q <= 64'h0;
       wbt_valid_q <= 1'b0; wbt_idx_q <= 3'd0; wbt_val_q <= 32'h0;
       serial_block_q <= 1'b0; sleeping_q <= 1'b0; reset_q <= 1'b1;
       blink_compact_q <= 1'b0;
       fr_busy_q <= '0; gr_busy_q <= '0;
+      pl_pending_q <= 1'b0; pl_sent_q <= 1'b0; pl_drop_q <= 1'b0; pl_tr_q <= 3'd0; pl_ea_q <= '0; pl_ea_sent_q <= '0;
+      for (int t = 0; t < 8; t++) begin tb_valid_q[t] <= 1'b0; tb_addr_q[t] <= '0; tb_data_q[t] <= '0; end
       fpu_wr_q <= 3'd0; fpu_rd_q <= 3'd0; fpu_cnt_q <= 4'd0;
     end else begin
       reset_q <= 1'b0;
@@ -985,11 +1132,16 @@ module sh5_core
       if (ld_req_valid && ld_req_ready) begin
         if (e3_issue) e3_issued_q <= 1'b1;
         else e2_issued_q <= 1'b1;
+        ld_out_q <= 1'b1;
       end
       if (st_req_valid && st_req_ready) e3_acted_q <= 1'b1;
-      if (ld_rsp_valid && e3_is_read && !e3_have_q) begin
-        e3_have_q <= 1'b1;
-        e3_data_q <= ld_rsp_data;
+      if (dc_rsp_valid && ld_out_q) begin
+        ld_out_q <= 1'b0;
+        ld_discard_q <= 1'b0;
+        if (!ld_discard_q) begin
+          ld_have_q <= 1'b1;
+          ld_data_q <= dc_rsp_data;
+        end
       end
       if (w_do) w_acted_q <= 1'b1;
 
@@ -1002,8 +1154,41 @@ module sh5_core
       if (w_do && !w_exc && w_q.u.cls == UC_SLEEP) sleeping_q <= 1'b1;
       if (sleeping_q && (cpu_reset_i || nmi_i || debugint_i || extint_valid_i)) sleeping_q <= 1'b0;
 
+      // target register buffers and preload
+      if (flush || !sr[SR_MMU] || ici_pulse || ic_inv_valid ||
+          (putcfg_en && (cfg_is_itlb_w || putcfg_idx[31:24] == 8'h01))) begin
+        for (int t = 0; t < 8; t++) tb_valid_q[t] <= 1'b0;
+        if (pl_pending_q || pl_sent_q) pl_drop_q <= 1'b1;
+        pl_pending_q <= 1'b0;
+      end else if (advance && e2_q.u.valid && e2_q.u.cls == UC_PT && e2_q.u.exc == 12'h0) begin
+        // a new target: drop the old block, preload the new one when likely
+        tb_valid_q[e2_q.u.tra] <= 1'b0;
+        if (e2_q.u.likely) begin
+          pl_pending_q <= 1'b1;
+          pl_tr_q <= e2_q.u.tra;
+          pl_ea_q <= e2_q.res[31:3];
+          if (pl_sent_q) pl_drop_q <= 1'b1;   // a preload still in flight is superseded
+        end
+      end
+      if (pl_skip) pl_pending_q <= 1'b0;
+      if (pl_pending_q && !pl_skip && ic_req_ready) begin
+        pl_pending_q <= 1'b0;
+        pl_sent_q <= 1'b1;
+        pl_ea_sent_q <= pl_ea_q;
+      end
+      if (ic_rsp_valid && ic_rsp_tag[3]) begin
+        pl_sent_q <= 1'b0;
+        pl_drop_q <= 1'b0;
+        if (!pl_drop_q && ic_rsp_fault == 12'h0 && sr[SR_MMU]) begin
+          tb_valid_q[ic_rsp_tag[2:0]] <= 1'b1;
+          tb_addr_q[ic_rsp_tag[2:0]]  <= pl_ea_sent_q;
+          tb_data_q[ic_rsp_tag[2:0]]  <= ic_rsp_data;
+        end
+      end
+
       // ISA tracking
-      if (e1_redirect && e1_q.u.cls == UC_BLINK && !e1_trv[0]) blink_compact_q <= 1'b1;
+      if (e1_q.u.valid && e1_q.u.exc == 12'h0 && !e1_redir_done_q && !hold && e1_q.u.cls == UC_BLINK && !e1_trv[0])
+        blink_compact_q <= 1'b1;
       if (w_launch || w_rte) blink_compact_q <= 1'b0;
 
       if (advance) begin
@@ -1012,6 +1197,7 @@ module sh5_core
         e2_issued_q <= 1'b0;
         e3_issued_q <= e2_issued_q || (ld_req_valid && ld_req_ready && !e3_issue);
         e3_have_q <= 1'b0;
+        if (e3_is_read) ld_have_q <= 1'b0;
         e3_acted_q <= 1'b0;
         w_acted_q <= 1'b0;
 
@@ -1023,6 +1209,8 @@ module sh5_core
         // E3 <- E2
         e3_q <= e2_q;
         e3_q.pa <= e2_pa;
+        e3_q.cb <= e2_cb;
+        e3_q.tsh <= dtlb_sh; e3_q.tprr <= dtlb_r; e3_q.tprw <= dtlb_w; e3_q.tpru <= dtlb_u;
         if (e2_mmu_exc != 12'h0) begin
           e3_q.u.exc <= e2_mmu_exc;
           e3_q.u.tea_valid <= 1'b1;
@@ -1049,6 +1237,8 @@ module sh5_core
         e1_q <= '0;
         if (d_issue) begin
           e1_q.u   <= d_uop;
+          e1_q.u.pred    <= d_redirect;
+          e1_q.u.pred_pc <= d_redirect_pc;
           // register file reads, bypassing a write that completes this cycle
           e1_q.a   <= (gw_en && gw_idx == d_uop.ra) ? gw_val :
                       (fgw_en && fpu_head.rd == d_uop.ra) ? {63'h0, fpu_result[0]} : gr_rd(d_uop.ra);
@@ -1088,6 +1278,11 @@ module sh5_core
         end
         if (w_do && !w_exc && w_q.u.wr_tr && w_q.u.tra == e1_q.u.trb) e1_q.trv <= w_q.res[31:0];
       end
+      if (flush) begin
+        // a read in flight for a discarded instruction: drop its response
+        if (ld_out_q && !(dc_rsp_valid && ld_out_q)) ld_discard_q <= 1'b1;
+        ld_have_q <= 1'b0;
+      end
       if (!advance && flush) begin
         // launch while held: the younger stages are discarded (W keeps its
         // acted flag until the pipeline moves)
@@ -1124,11 +1319,14 @@ module sh5_core
   assign trace_launch_code_o = w_q.u.exc;
   assign trace_launch_tea_o  = w_q.u.exc_is_irq ? w_q.u.imm[31:0] : w_q.ea;   // INTEVT for interrupts
   assign trace_launch_pc_o   = ctrl_new_pc;
+  assign trace_pred_o    = e1_q.u.valid && (e1_q.u.exc == 12'h0) && !e1_redir_done_q && !hold &&
+                           (e1_q.u.cls == UC_BRANCH || e1_q.u.cls == UC_BLINK) && e1_q.u.pred;
+  assign trace_mispred_o = e1_redirect;
 
   assign dbg_fetch_addr_o = if_insn_pc;
   assign dbg_insn_o       = if_insn;
   assign dbg_op_addr_o    = e2_q.ea;
-  assign dbg_op_valid_o   = ld_req_valid || st_req_valid;
+  assign dbg_op_valid_o   = dc_req_valid;
   logic w_is_store_unused;
   assign w_is_store_unused = w_is_store;
 
@@ -1168,7 +1366,8 @@ module sh5_core
   logic unused_ok;
   assign unused_ok = &{1'b0, dbg_ia_hit_i, dbg_iv_hit_i, dbg_oa_hit_i, treq_mask, treq_data,
                        treq_addr[31:24], treq_addr[2:0], iccr0, occr0, e1_q.u.likely, fpu_tag_unused,
-                       itlb_r_unused, itlb_w_unused, dtlb_x_unused, itlb_cb_unused, dtlb_cb, e2_cache_ignore, w_is_store_unused,
+                       itlb_r_unused, itlb_w_unused, dtlb_x_unused, itlb_cb[0], e2_cache_ignore, w_is_store_unused, bif_idle,
+                       e3_have_q, e3_data_q,
                        ICACHE_WAYS[0], ICACHE_SETS[0], DCACHE_WAYS[0], DCACHE_SETS[0], ITLB_ENTRIES[0], 1'b0};
 
 endmodule

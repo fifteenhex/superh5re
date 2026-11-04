@@ -2,8 +2,9 @@
 
 Bare-metal program for the event handling of the SH-5 core (Vol. 1 ch. 15-16,
 Vol. 4 ch. 6-9).  It runs with the MMU off from physical 0x80000000, like
-`tests/isa` with `MODE=bare`, on `qemu-system-sh5 -M cayman` and on the
-Verilator model of `rtl/`.  Expected values come from the manuals, never
+`tests/isa` with `MODE=bare` (the `mmu` test turns the MMU and the caches
+on for its duration), on `qemu-system-sh5 -M cayman` and on the Verilator
+model of `rtl/`.  Expected values come from the manuals, never
 from an implementation.
 
 ```
@@ -58,6 +59,7 @@ registers after return.
 | `cfg` | MMUDR[5] and MMUIR[7] PTEH/PTEL written with V = 0 and read back: reserved bits (PTEH [10,11], [32,63]; PTEL 2, 5, [10,11], [32,63]; CB0/PRR/PRW in the ITLB, PRX in the DTLB) read 0; ICCR0/OCCR0 bit 1 reads 0; ICCR1/OCCR1 fields [0,1], 7, [8,11] | Vol. 4 Tables 36-40, 47, 48, 51, 52 |
 | `fpuexc` | ENABLE.V with a signalling NaN source: 0x120, CAUSE.V and FLAG.V, destination unchanged; disabled: qNaN 0x7fbfffff and FLAG.V; ENABLE.Z with FDIV.S 1/0; ENABLE.I with an exact FADD.S raises early with CAUSE = 0; denormalized source with DN = 0 raises with CAUSE.E only; with DN = 1 it is flushed | 8.3.6-8.3.8, 8.4.1, 8.5 |
 | `sync` | SYNCI, SYNCO, NOP execute without a launch | 6.5 |
+| `mmu` | 512 MB ITLB/DTLB entries for code/data (cachable) and devices, SR.MMU set by RTE, caches enabled (operand cache write-through); PT/l at distances 0-6 before BLINK; BEQ/BNE with l = 1 taken and not taken, BEQ/u; TR rewritten after a PT/l; counted loops on a likely branch; PT/l to an unmapped page and to device space raises nothing; TRAPA reached through a predicted branch records the target as SPC; code modified with the sequence of 6.7.1 (store, OCBP, SYNCO, ICBI, SYNCI) after a PT/l to it executes the new instruction; caches invalidated and disabled, MMU off | 5.3, 6.7.1, 18.11.2, Vol. 4 Tables 36-40 |
 
 SH-5 NaN encodings (Vol. 1 2.5.4): a signalling NaN has the fraction MSB set
 (0x7fc00000-0x7fffffff); 0x7f800001 is a quiet NaN.  The test uses
@@ -65,13 +67,14 @@ SH-5 NaN encodings (Vol. 1 2.5.4): a signalling NaN has the fraction MSB set
 
 Not tested: SLEEP and interrupts (no interrupt source on the bare core),
 SR.STEP and single step (not implemented by the RTL core), DBRMODE = 1,
-TLB misses and protection (MMU off), the SHcompact ISA.
+TLB misses and protection, the SHcompact ISA.
 
 ## Results
 
-RTL core (`rtl/`): 398 checks, 0 failures, 63197 cycles. QEMU `sh5`
-target: 398 checks, 0 failures after the emulator fixes on its branch
-(before them 43 failures; the deviations are listed below for the record).
+RTL core (`rtl/`): 430 checks, 0 failures, 75647 cycles (caches and
+target preload enabled by the `mmu` test). QEMU `sh5` target: 430 checks,
+0 failures after the emulator fixes on its branch (before them 43
+failures; the deviations are listed below for the record).
 Three RTL bugs were found by the suite and fixed: PUTCON could not write
 SR.BL, GETCON USR read the dirty bits before older instructions had set
 them, and an instruction raising an exception followed within two
