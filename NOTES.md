@@ -307,3 +307,11 @@ reproduce it. Confirmed facts move to `docs/`.
   step array: 10 case items lint in 0.1 s, 40 in 9 s, 204 never finished);
   the two-level form (kind decode, then a case on the kind and step)
   lints in a second.
+  Final results on commit f1099f5: `tests/compact` 172323 checks, 0
+  failures on the model (207 M cycles); ISA kit 458064/0; `tests/exc`
+  430/0; Linux 6.15 boots to the shell (207 M cycles). NetBSD command:
+  `./obj/Vsh5_core --elf netbsd-qemu --done "login:" --max-cycles
+  8000000000` (kernel from `netbsd/`, md root image embedded); the login
+  prompt appeared after 2.34 G cycles, about three hours of simulation;
+  the testbench stops at the done string, so the `--expect/--send` login
+  script after it has not been exercised on NetBSD.
