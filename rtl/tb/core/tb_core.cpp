@@ -1,8 +1,10 @@
-// Verilator testbench for sh5_core: sparse memory and a Cayman-style SCIF on
-// the bus port, ELF loader, commit trace.
+// Verilator testbench for sh5_core: sparse memory and Cayman devices (SCIF,
+// INTC, TMU, CPRC, RTC, system FPGA registers, module VCRs) on the bus port,
+// ELF loader for bare tests, Linux (zero page) and NetBSD (boot parameters),
+// commit trace, scripted console input.
 //
 //   tb_core --elf image.elf [--max-cycles N] [--trace file] [--latency N]
-//           [--quiet] [--done "string"]
+//           [--quiet] [--done "string"] [--expect "string" --send "text\n"]...
 //
 // Exit status: 0 when the program printed the done string and no "failures"
 // other than 0 appeared in an "isa: SUMMARY" line; 1 otherwise.
@@ -59,6 +61,9 @@ const uint32_t SCIF_BASE = 0x0a030000;
 const uint32_t RTC_BASE  = 0x0a040000;
 const uint32_t RAM_BASE  = 0x80000000;
 const uint32_t RAM_SIZE  = 128u << 20;
+const uint32_t SYSFPGA_BASE = 0x04000000;    // Cayman system FPGA: SuperIO +0, LAN +0x1000, registers +0x2000
+const uint32_t KSEG0_VBASE = 0xc0000000;     // NetBSD kernel virtual base, maps RAM_BASE
+const uint64_t CPU_HZ = 256000000;           // assumed core clock for the RTC counter
 
 // INTEVT codes of the Cayman interrupt sources (NetBSD sh5 intc driver)
 static uint16_t intc_intevt_table[64];
@@ -167,6 +172,17 @@ struct Tb {
     uint32_t cprc_regs[8] = {0};
     uint8_t rcr1 = 0, rcr2 = 0;
     uint16_t scif_scr = 0;      // SCR: TIE bit 7 raises TXI while set (transmit FIFO is always empty)
+    uint16_t scif_fcr = 0;
+    unsigned scif_rtrg = 1;     // receive FIFO trigger from FCR.RTRG
+    bool scif_rdf = false;      // FSR.RDF
+    unsigned scif_rx_idle = 0;  // cycles with data below the trigger (FIFO timeout -> RDF)
+    std::deque<uint8_t> scif_rx;    // receive FIFO, 16 bytes
+    std::string input_pending;      // console input waiting for FIFO space
+    struct Step { std::string expect, send; };
+    std::vector<Step> script;       // --expect/--send pairs, in order
+    size_t script_pos = 0;
+    uint32_t sysfpga_intmr[4] = {0, 0, 0, 0};
+    uint32_t sysfpga_ledcr = 0;
     FILE *conlog = nullptr;
     std::deque<Rsp> rsps;
     uint64_t cycle = 0;
@@ -194,14 +210,44 @@ struct Tb {
     // 32-bit register read placed in its lane of the 8-byte word
     static uint64_t lane32(uint32_t v, uint32_t a) { return (uint64_t)v << ((a & 4) ? 32 : 0); }
 
-    uint64_t dev_read(uint32_t a) {
+    // SCIF receive side (SH-4 layout, semantics as the SH7750 manual): FSR.RDF
+    // when the FIFO holds at least RTRG bytes or has held data for a while,
+    // FRDR pops a byte, FDR reports the count, RXI while RDF and SCR.RIE.
+    uint64_t scif_read(uint32_t off, uint8_t mask) {
+        switch (off) {
+        case 0x08: return scif_scr;
+        case 0x10: {
+            uint64_t v = 0x0060 | (scif_rdf ? 0x02 : 0) | (scif_rx.empty() ? 0 : 0x01);
+            if ((mask & 0x10) && !scif_rx.empty()) {
+                v |= (uint64_t)scif_rx.front() << 32;
+                scif_rx.pop_front();
+                if (scif_rx.size() < scif_rtrg) scif_rdf = false;
+                scif_rx_idle = 0;
+            }
+            return v;
+        }
+        case 0x18: return (uint64_t)scif_fcr | (uint64_t)(scif_rx.size() & 0x1f) << 32;
+        default: return 0;
+        }
+    }
+
+    uint32_t sysfpga_read(uint32_t r) {
+        // Cayman board registers (hw/sh5/cayman_sysfpga.c of the emulator)
+        if (r == 0x00) return 2 << 9;               // BDMR
+        if (r == 0x04) return 3;                    // CPUMR
+        if (r == 0x08) return sysfpga_ledcr;
+        if (r >= 0x20 && r < 0x30) return sysfpga_intmr[(r - 0x20) / 4];
+        if (r == 0x60) return 0x02052405;           // DATE
+        return 0;                                   // INTSR: no source pending
+    }
+
+    uint64_t dev_read(uint32_t a, uint8_t mask = 0xff) {
         uint32_t base = a & 0xffff0000u, off = a & 0xfff8;
         if (is_ram(a)) return mem.rd64(a);
-        if (base == SCIF_BASE) {
-            // FSR (+0x10): TDFE | TEND; SCR (+0x08) as written; FRDR/others 0
-            if (off == 0x10) return 0x0060;
-            if (off == 0x08) return scif_scr;
-            return 0;
+        if (base == SCIF_BASE) return scif_read(off, mask);
+        if (base == SYSFPGA_BASE) {
+            if ((a & 0xff00) == 0x2000) return lane32(sysfpga_read(a & 0xf8), off) | lane32(sysfpga_read((a & 0xf8) + 4), off + 4);
+            return 0;    // SuperIO, LAN (no device: probes fail), LED
         }
         if (base == INTC_BASE) return lane32(intc.read(off), off) | lane32(intc.read(off + 4), off + 4) * ((off & 7) ? 0 : 1);
         if (base == TMU_BASE)  return lane32(tmu.read(off), off) | lane32(tmu.read(off + 4), off + 4);
@@ -215,6 +261,7 @@ struct Tb {
         }
         if (base == RTC_BASE) {
             if (off == 0x38) return (uint64_t)rcr1 | (uint64_t)rcr2 << 32;
+            if (off == 0x00) return (cycle / (CPU_HZ / 128)) & 0x7f;    // R64CNT: 7 bits at 128 Hz
             return 0;
         }
         // SuperHyway module VCRs: module id in [47:32], version in [31:16]
@@ -231,6 +278,26 @@ struct Tb {
             // FTDR (+0x0c) is byte lane 4 of the word at +0x08; SCR is lanes 0..1
             if (off == 0x08 && (mask & 0x10)) putc_out((char)(v >> 32));
             if (off == 0x08 && (mask & 0x03)) scif_scr = (uint16_t)v;
+            if (off == 0x10 && (mask & 0x03)) {           // FSR: flags written 0 are cleared
+                if (!(v & 0x02)) scif_rdf = false;
+            }
+            if (off == 0x18 && (mask & 0x03)) {           // FCR: RTRG, RFRST
+                static const unsigned trg[4] = {1, 4, 8, 14};
+                scif_fcr = (uint16_t)v;
+                scif_rtrg = trg[(v >> 6) & 3];
+                if (v & 0x02) { scif_rx.clear(); scif_rdf = false; }
+            }
+            return;
+        }
+        if (base == SYSFPGA_BASE) {
+            if ((a & 0xff00) == 0x2000) {
+                for (int half = 0; half < 2; half++) {
+                    if (!(mask & (0x0f << (4 * half)))) continue;
+                    uint32_t r = (a & 0xf8) + 4 * half, w = (uint32_t)(v >> (32 * half));
+                    if (r == 0x08) sysfpga_ledcr = w;
+                    else if (r >= 0x20 && r < 0x30) sysfpga_intmr[(r - 0x20) / 4] = w & 0xff;
+                }
+            }
             return;
         }
         if (base == INTC_BASE || base == TMU_BASE || base == CPRC_BASE) {
@@ -257,6 +324,17 @@ struct Tb {
         intc.set(33, tmu.irq(1));
         intc.set(34, tmu.irq(2));
         intc.set(42, (scif_scr & 0x80) != 0);    // SCIF TXI
+        // console input: one byte per 2000 cycles into the receive FIFO
+        if (!input_pending.empty() && scif_rx.size() < 16 && cycle % 2000 == 0) {
+            scif_rx.push_back((uint8_t)input_pending[0]);
+            input_pending.erase(0, 1);
+            scif_rx_idle = 0;
+        }
+        if (!scif_rx.empty()) {
+            if (scif_rx.size() >= scif_rtrg) scif_rdf = true;
+            else if (++scif_rx_idle > 50000) scif_rdf = true;    // FIFO timeout
+        }
+        intc.set(40, scif_rdf && (scif_scr & 0x40) != 0);    // SCIF RXI
         int level; uint32_t code;
         intc.best(level, code);
         top->extint_valid_i = level > 0;
@@ -270,6 +348,14 @@ struct Tb {
         if (!trace_on && trace_start && out.find(trace_start) != std::string::npos) trace_on = true;
         out.push_back(c);
         if (out.size() > 4096) out.erase(0, out.size() - 4096);
+        if (script_pos < script.size()) {
+            size_t p = out.find(script[script_pos].expect);
+            if (p != std::string::npos) {
+                input_pending += script[script_pos].send;
+                out.erase(0, p + script[script_pos].expect.size());
+                script_pos++;
+            }
+        }
     }
 
     void handle_request() {
@@ -310,7 +396,7 @@ struct Tb {
         if (req_cur.opc == OPC_LOAD8 || req_cur.opc == OPC_LOAD16 || req_cur.opc == OPC_LOAD32) {
             for (unsigned k = 0; k < nw; k++) {
                 unsigned w = (first + k) % nw;
-                r.data.push_back(dev_read(blk + 8 * w));
+                r.data.push_back(dev_read(blk + 8 * w, nw == 1 ? req_mask[0] : 0xff));
             }
         } else if (req_cur.opc == OPC_SWAP8) {
             uint64_t old = dev_read(base);
@@ -373,6 +459,43 @@ struct Tb {
     }
 };
 
+// NetBSD links the kernel at KSEG0 (0xc0000000) which maps RAM_BASE; Linux and
+// the bare tests use physical addresses.
+static uint32_t xlat(uint32_t a) { return a >= KSEG0_VBASE ? a - KSEG0_VBASE + RAM_BASE : a; }
+
+// NetBSD wants its symbol table in memory as an ELF image whose section
+// headers point at .symtab and .strtab (the kernel enters DDB at boot without
+// one). Writes the image at pa, returns its size or 0.
+uint32_t load_symbols(Memory &mem, const char *path, uint32_t pa) {
+    std::ifstream f(path, std::ios::binary);
+    std::vector<uint8_t> img((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    auto r32 = [&](size_t o) { return (uint32_t)img[o] | (uint32_t)img[o+1] << 8 | (uint32_t)img[o+2] << 16 | (uint32_t)img[o+3] << 24; };
+    auto r16 = [&](size_t o) { return (uint16_t)(img[o] | img[o+1] << 8); };
+    uint32_t shoff = r32(32);
+    uint16_t shentsize = r16(46), shnum = r16(48);
+    size_t sym = 0, str = 0;
+    for (unsigned i = 1; i < shnum; i++) {
+        size_t sh = shoff + (size_t)i * shentsize;
+        if (r32(sh + 4) == 2) { sym = sh; str = shoff + (size_t)r32(sh + 24) * shentsize; break; }   // SHT_SYMTAB, sh_link
+    }
+    if (!sym) return 0;
+    uint32_t symsz = r32(sym + 20), strsz = r32(str + 20);
+    uint32_t hdr = 52 + 3 * 40;
+    std::vector<uint8_t> out(hdr + symsz + strsz, 0);
+    memcpy(out.data(), img.data(), 52);                 // ELF header, no program headers
+    auto w32 = [&](size_t o, uint32_t v) { for (int k = 0; k < 4; k++) out[o + k] = (uint8_t)(v >> (8 * k)); };
+    auto w16 = [&](size_t o, uint16_t v) { out[o] = (uint8_t)v; out[o + 1] = (uint8_t)(v >> 8); };
+    w32(28, 0); w16(44, 0); w32(32, 52); w16(48, 3); w16(50, 0);
+    memcpy(out.data() + 52 + 40, img.data() + sym, 40);
+    memcpy(out.data() + 52 + 80, img.data() + str, 40);
+    w32(52 + 40 + 16, hdr); w32(52 + 40 + 24, 2);       // .symtab offset, link to .strtab
+    w32(52 + 80 + 16, hdr + symsz);                     // .strtab offset
+    memcpy(out.data() + hdr, img.data() + r32(sym + 16), symsz);
+    memcpy(out.data() + hdr + symsz, img.data() + r32(str + 16), strsz);
+    for (size_t k = 0; k < out.size(); k++) mem.wr8(pa + (uint32_t)k, out[k]);
+    return (uint32_t)out.size();
+}
+
 bool load_elf(Memory &mem, const char *path, uint32_t &entry, uint32_t &highaddr) {
     std::ifstream f(path, std::ios::binary);
     if (!f) { fprintf(stderr, "cannot open %s\n", path); return false; }
@@ -388,7 +511,7 @@ bool load_elf(Memory &mem, const char *path, uint32_t &entry, uint32_t &highaddr
     uint16_t phentsize = r16(42), phnum = r16(44);
     for (unsigned i = 0; i < phnum; i++) {
         size_t p = phoff + (size_t)i * phentsize;
-        uint32_t type = r32(p), offset = r32(p + 4), paddr = r32(p + 12);
+        uint32_t type = r32(p), offset = r32(p + 4), paddr = xlat(r32(p + 12));
         uint32_t filesz = r32(p + 16), memsz = r32(p + 20);
         if (type != 1) continue;
         for (uint32_t k = 0; k < memsz; k++)
@@ -420,6 +543,15 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--cmdline") && i + 1 < argc) cmdline = argv[++i];
         else if (!strcmp(argv[i], "--initrd") && i + 1 < argc) initrd = argv[++i];
         else if (!strcmp(argv[i], "--console-log") && i + 1 < argc) conlog = argv[++i];
+        else if (!strcmp(argv[i], "--expect") && i + 3 < argc && !strcmp(argv[i + 2], "--send")) {
+            std::string send = argv[i + 3], e;
+            for (size_t k = 0; k < send.size(); k++) {
+                if (send[k] == '\\' && k + 1 < send.size()) { k++; e += send[k] == 'n' ? '\n' : send[k] == 'r' ? '\r' : send[k]; }
+                else e += send[k];
+            }
+            tb.script.push_back({argv[i + 1], e});
+            i += 3;
+        }
     }
     if (!elf) { fprintf(stderr, "usage: tb_core --elf image.elf [options]\n"); return 2; }
     uint32_t entry = 0, highaddr = 0;
@@ -443,10 +575,54 @@ int main(int argc, char **argv) {
         }
     }
 
+    // NetBSD/evbsh5 (virtual entry point): struct boot_params after the kernel
+    // (sys/arch/evbsh5/include/bootparams.h, 600 bytes), then a stub that sets
+    // r2 = physical load address, r3 = symbol table image, r4 = virtual end
+    // of the kernel, which is where evbsh5_init expects the parameters, and
+    // jumps to the entry, as the emulator's Cayman board does.
+    uint32_t reset_pc = entry & ~1u;
+    if (entry >= KSEG0_VBASE) {
+        uint32_t symtab = (highaddr + 7) & ~7u;
+        uint32_t symlen = load_symbols(tb.mem, elf, symtab);
+        uint32_t bp = (symtab + symlen + 7) & ~7u;
+        auto w32 = [&](uint32_t a, uint32_t v) { for (int k = 0; k < 4; k++) tb.mem.wr8(a + k, (uint8_t)(v >> (8 * k))); };
+        auto w64 = [&](uint32_t a, uint64_t v) { w32(a, (uint32_t)v); w32(a + 4, (uint32_t)(v >> 32)); };
+        auto wstr = [&](uint32_t a, const char *str) { for (size_t k = 0; k <= strlen(str); k++) tb.mem.wr8(a + k, str[k]); };
+        for (uint32_t k = 0; k < 600; k++) tb.mem.wr8(bp + k, 0);
+        w32(bp + 0, 0xcafebabe);                   // magic
+        w32(bp + 4, 1);                            // version
+        w32(bp + 8, 0);                            // flags
+        w64(bp + 16, RAM_BASE);                    // kseg0_phys
+        wstr(bp + 24, "Cayman (RTL model)");
+        w32(bp + 88, 0x51e2); w32(bp + 92, 0); w32(bp + 96, 0x0d); w64(bp + 104, CPU_HZ);   // cpu[0]
+        w32(bp + 112, 1); w32(bp + 116, 0xff); w64(bp + 120, RAM_BASE); w64(bp + 128, RAM_SIZE);  // mem[0]
+        wstr(bp + 208, "/mainbus0/superhyway0,0x8/femi0,0x4000000/sysfpga0,0x1000/sm0");
+        wstr(bp + 336, "netbsd"); w32(bp + 464, 0);
+        wstr(bp + 468, "/mainbus0/superhyway0,0x9/pbridge0,0x1030000/scif0"); w32(bp + 596, 38400);
+        uint32_t kend = (bp + 600 + 7) & ~7u;
+        uint32_t stub = (kend + 15) & ~15u;
+        uint32_t pc = stub;
+        // MOVI imm16, Rd = 0xcc000000 | imm << 10 | d << 4; SHORI = 0xc8000000 | ...;
+        // both sign-extend the 32-bit result, ADDZ.L Rd, R63, Rd zero-extends it
+        auto emit = [&](uint32_t insn) { w32(pc, insn); pc += 4; };
+        auto movi32 = [&](unsigned rd, uint32_t v) {
+            emit(0xcc000000u | ((v >> 16) & 0xffff) << 10 | rd << 4);
+            emit(0xc8000000u | (v & 0xffff) << 10 | rd << 4);
+        };
+        movi32(2, RAM_BASE); emit(0x002cfc20);     // r2 = 0x0000000080000000
+        if (symlen) movi32(3, symtab - RAM_BASE + KSEG0_VBASE); else emit(0xcc000030);   // r3 = symbol table or 0
+        movi32(4, bp - RAM_BASE + KSEG0_VBASE);    // r4 = kernel end = the boot parameters, sign-extended
+        movi32(5, xlat(entry) | 1);                // r5 = entry, SHmedia
+        emit(0x6bf11600);                          // ptabs r5, tr0
+        emit(0x4401fff0);                          // blink tr0, r63
+        reset_pc = stub;
+        fprintf(stderr, "[tb] NetBSD boot: params at 0x%08x, kernel end 0x%08x, stub at 0x%08x\n", bp, kend, stub);
+    }
+
     Vsh5_core top;
     tb.top = &top;
     top.clk = 0; top.rst_n = 0;
-    top.reset_pc_i = entry & ~1u;
+    top.reset_pc_i = reset_pc;
     top.big_endian_i = 0;
     top.cpu_reset_i = 0; top.nmi_i = 0; top.debugint_i = 0;
     top.extint_valid_i = 0; top.extint_level_i = 0; top.extint_code_i = 0;

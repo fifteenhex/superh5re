@@ -271,3 +271,39 @@ reproduce it. Confirmed facts move to `docs/`.
   caches on and checks prediction, preload, TR rewrite, a preload to an
   unmapped page, and code modification with the sequence of Vol. 1 6.7.1;
   QEMU passes it too.
+- 2026-11-04: NetBSD 3.1 on the RTL model. Testbench additions
+  (`rtl/tb/core/tb_core.cpp`): KSEG0 address translation in the ELF
+  loader, the evbsh5 boot-parameter block (600 bytes, layout from
+  `sys/arch/evbsh5/include/bootparams.h`) and a symbol-table image after
+  the kernel, a stub that sets r2 = load address, r3 = symbol table, r4 =
+  end of kernel and jumps to the entry (`evbsh5_init` expects the
+  parameters at r4; with r4 elsewhere the kernel uses its defaults, whose
+  RB_KDB flag drops into DDB at boot: "Kernel symbol table missing"),
+  SCIF receive FIFO with `--expect/--send` console scripting, system FPGA
+  registers (BDMR, CPUMR, DATE, INTMR), RTC R64CNT at 128 Hz of an
+  assumed 256 MHz clock (the kernel calibrates its delay loop against it,
+  `compute_ctc_tick_per_us`). The kernel reaches multi-user (`/etc/rc`
+  complete, "Updating motd", date) in a few hours of simulation.
+- 2026-11-04: SHcompact test kit `tests/compact` (README there). The
+  SH-4 build runs on qemu-system-sh4 (`-M r2d`, built from the sh5 tree:
+  `ninja qemu-system-sh4`) and validates the references: 135282 integer
+  and memory checks and 29695 FPU checks pass. gcc's `-m5-compact` is the
+  SH-5 compact ABI, not SH-4: arguments in r2-r9, libgcc trampolines
+  (SHmedia code) for 64-bit arguments, SHmedia libgcc; the kit avoids all
+  three. Found in QEMU: SH-4 ROTL/ROTR cleared T (fixed on the qemu branch,
+  commit "target/sh4: ROTL and ROTR set T from the rotated bit"), DIV1
+  borrow wrong for Rm = 0, FSRRA/FSCA missing, pair FMOV word order, FPU
+  denormal and flag deviations (list in the kit README). Vol. 3 text
+  extracted with a page-aware script (text kept outside the repo like the
+  other volumes).
+- 2026-11-04: SHcompact implemented in the core (`rtl/sh5_cexpand.sv`,
+  design section 13). Bugs found by the kit on the first runs: DIV1 kept
+  bit 31 of the shifted dividend in the 33-bit step; FSUB/FDIV operand
+  order; FCNVDS/FCNVSD encodings swapped; conditional branch targets were
+  aligned to 4 bytes (SHmedia rule) so BT/BF with odd half-word targets
+  landed 2 bytes early; the packed-FPSCR marker used the `likely` field,
+  which is bit 9 of every SHmedia GETCON (Rd >= 32). Verilator could not
+  handle the first expander (one case per instruction writing a 16-entry
+  step array: 10 case items lint in 0.1 s, 40 in 9 s, 204 never finished);
+  the two-level form (kind decode, then a case on the kind and step)
+  lints in a second.

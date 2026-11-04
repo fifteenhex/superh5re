@@ -6,9 +6,43 @@ module sh5_alu
   input  aluop_t      op_i,
   input  logic [63:0] a_i,     // Rm
   input  logic [63:0] b_i,     // Rn or immediate
-  input  logic [63:0] c_i,     // old destination value (CMVEQ/CMVNE, SHORI)
+  input  logic [63:0] c_i,     // old destination value (CMVEQ/CMVNE, SHORI); T for A_DIV1
+  input  logic        m_i,     // SR.M
+  input  logic        q_i,     // SR.Q
   output logic [63:0] r_o
 );
+
+  // DIV1 (Vol. 3): 33-bit step on the zero-extended low words
+  logic        div_oldq, div_q, div_t;
+  logic [32:0] div_op2;
+  always_comb begin
+    div_oldq = q_i;
+    div_q    = b_i[31];
+    div_op2  = {1'b0, b_i[30:0], c_i[0]};                 // ZeroExtend32(op2 << 1) | t
+    div_op2  = (div_oldq == m_i) ? div_op2 - {1'b0, a_i[31:0]} : div_op2 + {1'b0, a_i[31:0]};
+    div_q    = (div_q ^ m_i) ^ div_op2[32];
+    div_t    = 1'b1 ^ (div_q ^ m_i);
+  end
+
+  // MAC.L saturation to [-2^47, 2^47) of the 65-bit sum
+  logic [64:0] sat_sum;
+  logic [63:0] sat48;
+  always_comb begin
+    sat_sum = {a_i[63], a_i} + {b_i[63], b_i};
+    if ($signed(sat_sum) > $signed(65'h0_0000_7fff_ffff_ffff))      sat48 = 64'h0000_7fff_ffff_ffff;
+    else if ($signed(sat_sum) < $signed({1'b1, 64'hffff_8000_0000_0000})) sat48 = 64'hffff_8000_0000_0000;
+    else sat48 = sat_sum[63:0];
+  end
+
+  // MAC.W with S = 1: MACL = saturate32(MACL + product), MACH = 1 on overflow
+  logic [32:0] macw_sum;
+  logic [63:0] macw;
+  always_comb begin
+    macw_sum = {a_i[31], a_i[31:0]} + {b_i[31], b_i[31:0]};
+    if ($signed(macw_sum) > $signed(33'h0_7fff_ffff))      macw = {32'd1, 32'h7fff_ffff};
+    else if ($signed(macw_sum) < $signed(33'h1_8000_0000)) macw = {32'd1, 32'h8000_0000};
+    else macw = {a_i[63:32], macw_sum[31:0]};
+  end
 
   logic [63:0] sum, dif;
   logic [5:0]  cnt6;
@@ -68,6 +102,10 @@ module sh5_alu
       A_CMVNE:  r_o = (a_i != 64'd0) ? b_i : c_i;
       A_MOVI:   r_o = b_i;
       A_SHORI:  r_o = {c_i[47:0], 16'b0} | b_i;
+      A_DIV1:   r_o = {23'b0, div_q, 7'b0, div_t, div_op2[31:0]};
+      A_DIV0S:  r_o = {54'b0, a_i[31], b_i[31], 7'b0, a_i[31] ^ b_i[31]};
+      A_ADDSAT48: r_o = sat48;
+      A_MACWSAT:  r_o = macw;
       default:  r_o = b_i;   // A_PASS_B
     endcase
   end

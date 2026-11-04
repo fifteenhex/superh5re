@@ -163,6 +163,8 @@ module sh5_core
   logic        putcon_en;
   logic [5:0]  putcon_idx;
   logic [63:0] putcon_val;
+  logic        getcon_fpscr, srflag_en, launch_isa;
+  logic [31:0] srflag_mask, srflag_val;
   logic [31:0] getcfg_idx;
   logic [63:0] getcfg_val, ctrl_getcfg_val;
   logic        putcfg_en;
@@ -184,7 +186,8 @@ module sh5_core
     .clk, .rst_n,
     .sr_o(sr), .fpscr_o(fpscr), .isa_o(ctrl_isa), .iccr0_o(iccr0), .occr0_o(occr0),
     .iccr1_o(iccr1), .occr1_o(occr1), .ici_o(ici_pulse), .oci_o(oci_pulse),
-    .getcon_idx_i(getcon_idx), .getcon_val_o(getcon_val),
+    .getcon_idx_i(getcon_idx), .getcon_fpscr_i(getcon_fpscr), .getcon_val_o(getcon_val),
+    .srflag_en_i(srflag_en), .srflag_mask_i(srflag_mask), .srflag_val_i(srflag_val),
     .putcon_en_i(putcon_en), .putcon_idx_i(putcon_idx), .putcon_val_i(putcon_val),
     .getcfg_idx_i(getcfg_idx), .getcfg_val_o(ctrl_getcfg_val),
     .putcfg_en_i(putcfg_en), .putcfg_idx_i(putcfg_idx), .putcfg_val_i(putcfg_val),
@@ -193,7 +196,7 @@ module sh5_core
     .usr_set_gprs_i(usr_set_gprs), .usr_set_fprs_i(usr_set_fprs),
     .launch_en_i(launch_en), .launch_code_i(launch_code), .launch_is_irq_i(launch_is_irq),
     .launch_is_reset_i(launch_is_reset), .launch_irq_level_i(launch_irq_level),
-    .launch_irq_code_i(launch_irq_code), .launch_pc_i(launch_pc),
+    .launch_irq_code_i(launch_irq_code), .launch_pc_i(launch_pc), .launch_isa_i(launch_isa),
     .launch_tea_valid_i(launch_tea_valid), .launch_tea_i(launch_tea), .launch_tra_i(launch_tra),
     .rte_en_i(rte_en), .new_pc_o(ctrl_new_pc),
     .dbrvec_i, .dbrmode_i
@@ -411,14 +414,34 @@ module sh5_core
   uop_t d_uop_raw, d_uop;
   logic d_valid, d_stall, d_issue, serial_block_q;
   logic isa_compact;
-  logic blink_compact_q;
+  logic isa_q;             // 1: SHmedia, 0: SHcompact (Vol. 1 2.5.3)
+  logic launched_q;        // cycle after a launch or RTE: take the ISA from the control unit
 
-  assign isa_compact = !ctrl_isa || blink_compact_q;
+  assign isa_compact = !isa_q;
+
+  // SHcompact sequencing (docs/core-design.md 13): 16-bit instruction at
+  // cpos_q within the fetch word, expansion step useq_q, delay slot of the
+  // branch at slot_pc_q when slot_q.
+  logic        cpos_q, slot_q;
+  logic [3:0]  useq_q;
+  logic [31:0] slot_pc_q, d_cpc;
+  logic [15:0] d_cinsn;
+  logic [31:0] exp_insn, exp_imm;
+  logic        exp_last, exp_dbranch;
+  assign d_cinsn = cpos_q ? if_insn[31:16] : if_insn[15:0];
+  assign d_cpc   = {if_insn_pc[31:2], cpos_q, 1'b0};
+
+  sh5_cexpand u_cexp (
+    .insn_i(d_cinsn), .pc_i(d_cpc), .step_i(useq_q), .in_slot_i(slot_q),
+    .sr_fr_i(sr[SR_FR]), .sr_sz_i(sr[SR_SZ]), .sr_pr_i(sr[SR_PR]), .sr_fd_i(sr[SR_FD] || !FPU_PRESENT), .sr_s_i(sr[SR_S]),
+    .insn_o(exp_insn), .imm32_o(exp_imm), .last_o(exp_last), .dbranch_o(exp_dbranch)
+  );
 
   sh5_decode u_dec (
-    .insn_i(if_insn), .pc_i(if_insn_pc),
+    .insn_i(isa_compact ? exp_insn : if_insn),
+    .pc_i(isa_compact ? (slot_q ? slot_pc_q : d_cpc) : if_insn_pc),
     .priv_i(sr[SR_MD]), .fpu_dis_i(sr[SR_FD] || !FPU_PRESENT),
-    .isa_compact_i(isa_compact), .fetch_fault_i(if_insn_fault),
+    .expand_i(isa_compact), .imm32_i(exp_imm), .fetch_fault_i(if_insn_fault),
     .uop_o(d_uop_raw)
   );
 
@@ -428,10 +451,16 @@ module sh5_core
   assign irq_dbg = debugint_i && !sr[SR_BL];
   assign irq_ext = extint_valid_i && !sr[SR_BL] && (extint_level_i > sr[SR_IMASK +: 4]);
   assign irq_any = cpu_reset_i || irq_nmi || irq_dbg || irq_ext;
+  // an SHcompact instruction and a delayed branch with its slot are indivisible
+  logic irq_take;
+  assign irq_take = irq_any && !(isa_compact && (useq_q != 4'd0 || slot_q));
 
   always_comb begin
     d_uop = d_uop_raw;
-    if (irq_any) begin
+    d_uop.compact = isa_compact;
+    d_uop.cinsn   = d_cinsn;
+    d_uop.pc_next = isa_compact ? (slot_q ? slot_pc_q + 32'd4 : d_cpc + 32'd2) : if_insn_pc + 32'd4;
+    if (irq_take) begin
       d_uop.cls = UC_EXC;
       d_uop.wr_gpr = 1'b0; d_uop.wr_tr = 1'b0; d_uop.wr_fr = 1'b0;
       d_uop.rd_fa = 1'b0; d_uop.rd_fb = 1'b0; d_uop.rd_fc = 1'b0; d_uop.rd_tr = 1'b0;
@@ -454,7 +483,7 @@ module sh5_core
   logic uses_rc;
   assign uses_rc = (d_uop.cls == UC_STORE) || (d_uop.cls == UC_SWAP) || (d_uop.cls == UC_PUTCON) ||
                    (d_uop.cls == UC_PUTCFG) || (d_uop.cls == UC_MM) ||
-                   (d_uop.cls == UC_ALU && (d_uop.alu == A_CMVEQ || d_uop.alu == A_CMVNE || d_uop.alu == A_SHORI));
+                   (d_uop.cls == UC_ALU && (d_uop.alu == A_CMVEQ || d_uop.alu == A_CMVNE || d_uop.alu == A_SHORI || d_uop.alu == A_DIV1));
 
   // FCMP results arrive through the FPU: busy from issue (gr_busy) and, before
   // issue, while the instruction is in E1
@@ -492,7 +521,8 @@ module sh5_core
       if (d_uop.wr_gpr && d_uop.rd != 6'd63 && gr_busy_q[d_uop.rd]) d_stall = 1'b1;
       if (d_uop.fpu_wr_gpr && gr_busy_q[d_uop.rd]) d_stall = 1'b1;
       if (|((fr_rdmask | fr_wrmask) & fr_inflight)) d_stall = 1'b1;
-      if ((d_uop.cls == UC_FPUTSCR || (d_uop.cls == UC_FMOV && d_uop.fmov == FM_GETSCR)) &&
+      if ((d_uop.cls == UC_FPUTSCR || (d_uop.cls == UC_FMOV && d_uop.fmov == FM_GETSCR) ||
+           (d_uop.cls == UC_GETCON && d_uop.fmov == FM_GETSCR)) &&
           (!fpu_fifo_empty || (e1_q.u.valid && e1_q.u.cls == UC_FPU))) d_stall = 1'b1;
       // GETCON USR observes the dirty bits of every earlier instruction (Vol. 4 6.2.14)
       if (d_uop.cls == UC_GETCON && d_uop.ra == CR_USR &&
@@ -501,7 +531,9 @@ module sh5_core
   end
 
   assign d_issue   = d_valid && !d_stall && !hold;
-  assign if_consume = d_issue;
+  // an SHcompact instruction is consumed after its last step, and the fetch
+  // word only after its second half
+  assign if_consume = d_issue && (!isa_compact || (exp_last && cpos_q));
 
   // Prediction (Vol. 1 5.3.3): conditional branches with the likely bit and
   // BLINK are predicted taken when the buffer of their target register
@@ -509,7 +541,7 @@ module sh5_core
   logic [31:0] d_trv;
   logic        d_pred_ok;
   assign d_trv = tr_q[d_uop.trb];
-  assign d_pred_ok = sr[SR_MMU] && tb_valid_q[d_uop.trb] && (tb_addr_q[d_uop.trb] == d_trv[31:3]) &&
+  assign d_pred_ok = sr[SR_MMU] && !isa_compact && tb_valid_q[d_uop.trb] && (tb_addr_q[d_uop.trb] == d_trv[31:3]) &&
                      ((d_uop.cls == UC_BRANCH && d_uop.likely) || (d_uop.cls == UC_BLINK && d_trv[0]));
   assign d_redirect_pc = (d_uop.cls == UC_BLINK) ? {d_trv[31:1], 1'b0} : {d_trv[31:2], 2'b00};
   assign d_redirect = d_issue && d_pred_ok && (d_uop.exc == 12'h0);
@@ -551,7 +583,8 @@ module sh5_core
   assign e1_trv = fwd_tr(e1_q.u.trb, e1_q.trv);
 
   logic [63:0] alu_res;
-  sh5_alu u_alu (.op_i(e1_q.u.alu), .a_i(e1_a), .b_i(e1_bop), .c_i(e1_c), .r_o(alu_res));
+  sh5_alu u_alu (.op_i(e1_q.u.alu), .a_i(e1_a), .b_i(e1_bop), .c_i(e1_c), .m_i(sr[SR_M]), .q_i(sr[SR_Q]), .r_o(alu_res));
+  assign getcon_fpscr = (e1_q.u.cls == UC_GETCON) && (e1_q.u.fmov == FM_GETSCR);
 
   // effective address and access checks
   logic [63:0] e1_ea64;
@@ -692,6 +725,7 @@ module sh5_core
         end
       end
       UC_PUTCON, UC_PUTCFG: e1_res = e1_c;
+      UC_SRFLAG: e1_res = e1_a;
       UC_EXC:    e1_res = e1_a;      // TRAPA operand
       UC_FMOV: begin
         case (e1_q.u.fmov)
@@ -720,13 +754,15 @@ module sh5_core
   end
 
   // branch resolution: redirect when the actual next PC differs from the one
-  // fetch is following (BLINK may switch to SHcompact, which is not implemented)
+  // fetch is following (BLINK switches the ISA with bit 0 of the target)
   logic        e1_redirect, e1_br_taken;
   logic [31:0] e1_actual_pc, e1_followed_pc;
   assign e1_br_taken = (e1_q.u.cls == UC_BRANCH && e1_taken) || (e1_q.u.cls == UC_BLINK);
+  // SHmedia conditional branches ignore target bits 1:0; SHcompact BT/BF
+  // targets are 2-byte aligned
   assign e1_actual_pc = (e1_q.u.cls == UC_BLINK) ? {e1_trv[31:1], 1'b0} :
-                        e1_br_taken ? {e1_trv[31:2], 2'b00} : e1_q.u.pc + 32'd4;
-  assign e1_followed_pc = e1_q.u.pred ? e1_q.u.pred_pc : e1_q.u.pc + 32'd4;
+                        e1_br_taken ? (e1_q.u.compact ? {e1_trv[31:1], 1'b0} : {e1_trv[31:2], 2'b00}) : e1_q.u.pc_next;
+  assign e1_followed_pc = e1_q.u.pred ? e1_q.u.pred_pc : e1_q.u.pc_next;
   assign e1_redirect = e1_q.u.valid && (e1_q.u.exc == 12'h0) && !e1_redir_done_q && !hold &&
                        (e1_q.u.cls == UC_BRANCH || e1_q.u.cls == UC_BLINK) &&
                        (e1_actual_pc != e1_followed_pc);
@@ -987,6 +1023,7 @@ module sh5_core
   assign launch_irq_level = w_q.u.irq_level;
   assign launch_irq_code  = w_q.u.imm[31:0];
   assign launch_pc        = w_q.u.pc;
+  assign launch_isa       = !w_q.u.compact;
   assign launch_tea_valid = w_q.u.tea_valid;
   assign launch_tea       = w_q.ea;
   assign launch_tra       = w_q.res[31:0];
@@ -1000,6 +1037,9 @@ module sh5_core
   assign putcfg_val = w_q.res;
   assign fputscr_en  = w_do && !w_exc && (w_q.u.cls == UC_FPUTSCR);
   assign fputscr_val = w_q.fa[31:0];
+  assign srflag_en   = w_do && !w_exc && (w_q.u.cls == UC_SRFLAG);
+  assign srflag_mask = w_q.u.imm[31:0];
+  assign srflag_val  = w_q.res[31:0];
 
 
   // flush and redirect
@@ -1012,7 +1052,7 @@ module sh5_core
     end else if (w_launch || w_rte) begin
       redirect = 1'b1; redirect_pc = ctrl_new_pc;
     end else if (w_refetch || w_irq_cancel) begin
-      redirect = 1'b1; redirect_pc = w_q.u.pc + ((w_q.u.cls == UC_SYNCI) ? 32'd4 : 32'd0);
+      redirect = 1'b1; redirect_pc = w_refetch ? w_q.u.pc_next : w_q.u.pc;
     end else if (e1_redirect) begin
       redirect = 1'b1;
       redirect_pc = e1_actual_pc;
@@ -1090,7 +1130,8 @@ module sh5_core
       wb_valid_q <= 1'b0; wb_idx_q <= 6'd0; wb_val_q <= 64'h0;
       wbt_valid_q <= 1'b0; wbt_idx_q <= 3'd0; wbt_val_q <= 32'h0;
       serial_block_q <= 1'b0; sleeping_q <= 1'b0; reset_q <= 1'b1;
-      blink_compact_q <= 1'b0;
+      isa_q <= 1'b1; launched_q <= 1'b0;
+      cpos_q <= 1'b0; slot_q <= 1'b0; useq_q <= 4'd0; slot_pc_q <= 32'h0;
       fr_busy_q <= '0; gr_busy_q <= '0;
       pl_pending_q <= 1'b0; pl_sent_q <= 1'b0; pl_drop_q <= 1'b0; pl_tr_q <= 3'd0; pl_ea_q <= '0; pl_ea_sent_q <= '0;
       for (int t = 0; t < 8; t++) begin tb_valid_q[t] <= 1'b0; tb_addr_q[t] <= '0; tb_data_q[t] <= '0; end
@@ -1186,10 +1227,26 @@ module sh5_core
         end
       end
 
-      // ISA tracking
-      if (e1_q.u.valid && e1_q.u.exc == 12'h0 && !e1_redir_done_q && !hold && e1_q.u.cls == UC_BLINK && !e1_trv[0])
-        blink_compact_q <= 1'b1;
-      if (w_launch || w_rte) blink_compact_q <= 1'b0;
+      // ISA tracking: BLINK (and its SHcompact forms) switch with bit 0 of
+      // the target; launches and RTE take the ISA of the vector or SPC
+      launched_q <= w_launch || w_rte;
+      if (launched_q) isa_q <= ctrl_isa;
+      if (e1_q.u.valid && e1_q.u.exc == 12'h0 && !e1_redir_done_q && !hold && e1_q.u.cls == UC_BLINK)
+        isa_q <= e1_trv[0];
+
+      // SHcompact sequencing
+      if (redirect) begin
+        cpos_q <= redirect_pc[1]; useq_q <= 4'd0; slot_q <= 1'b0;
+      end else if (d_issue && isa_compact && !irq_take) begin
+        if (exp_last) begin
+          useq_q <= 4'd0;
+          cpos_q <= ~cpos_q;
+          slot_q <= exp_dbranch;
+          if (exp_dbranch) slot_pc_q <= d_cpc;
+        end else begin
+          useq_q <= useq_q + 4'd1;
+        end
+      end
 
       if (advance) begin
         e1_fpu_issued_q <= 1'b0;
@@ -1308,7 +1365,7 @@ module sh5_core
 
   assign trace_valid_o   = advance && w_q.u.valid;
   assign trace_pc_o      = w_q.u.pc;
-  assign trace_insn_o    = w_q.u.insn;
+  assign trace_insn_o    = w_q.u.compact ? {16'h0, w_q.u.cinsn} : w_q.u.insn;
   assign trace_gpr_we_o  = trace_valid_o && !w_exc && w_q.u.wr_gpr && (w_q.u.cls != UC_FPU) && (w_q.u.rd != 6'd63);
   assign trace_gpr_idx_o = w_q.u.rd;
   assign trace_gpr_val_o = w_result;

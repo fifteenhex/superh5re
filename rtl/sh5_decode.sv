@@ -1,4 +1,7 @@
-// SHmedia instruction decoder (Vol. 1 ch. 4, Vol. 2 App. A).
+// SHmedia instruction decoder (Vol. 1 ch. 4, Vol. 2 App. A). With expand_i
+// the instruction comes from the SHcompact expander (sh5_cexpand) and the
+// FPU-reserved opcode OP_FPURES4 carries the expander's pseudo-operations;
+// imm32_i is their immediate.
 
 module sh5_decode
   import sh5_pkg::*;
@@ -8,7 +11,8 @@ module sh5_decode
   input  logic [31:0] pc_i,
   input  logic        priv_i,       // SR.MD
   input  logic        fpu_dis_i,    // SR.FD or no FPU
-  input  logic        isa_compact_i,// ISA bit is 0: SHcompact not implemented
+  input  logic        expand_i,     // instruction is an SHcompact expansion step
+  input  logic [31:0] imm32_i,      // immediate of the pseudo-operations
   input  logic [11:0] fetch_fault_i,// ITLBMISS / EXECPROT from the fetch, 0 = none
   output uop_t        uop_o
 );
@@ -58,9 +62,26 @@ module sh5_decode
     u.fa_w = 2'd0; u.fb_w = 2'd0; u.fc_w = 2'd0;
     u.imm = '0;
     resinst = 1'b0;
-    fpu_insn = is_fpu_opcode(op);
+    fpu_insn = is_fpu_opcode(op) && !(expand_i && op == OP_FPURES4);
 
     case (op)
+      // ---------------- expander pseudo-operations ----------------
+      OP_FPURES4: begin
+        if (!expand_i) resinst = 1'b1;
+        else case (ext)
+          PS_MOVI32:  begin u.cls = UC_ALU; u.alu = A_MOVI; u.wr_gpr = 1'b1; u.use_imm = 1'b1; u.ra = 6'd63; u.imm = {{32{imm32_i[31]}}, imm32_i}; end
+          PS_PT32:    begin u.cls = UC_PT; u.wr_tr = 1'b1; u.ra = 6'd63; u.imm = {{32{imm32_i[31]}}, imm32_i}; end
+          PS_DIV1:    begin u.cls = UC_ALU; u.alu = A_DIV1; u.wr_gpr = 1'b1; u.rc = 6'd19; end
+          PS_SRFLAG:  begin u.cls = UC_SRFLAG; u.serialize = 1'b1; u.imm = {32'h0, imm32_i}; end
+          PS_GETFPSCR: begin u.cls = UC_GETCON; u.wr_gpr = 1'b1; u.alu = A_PASS_B; u.ra = 6'd62; u.fmov = FM_GETSCR; end
+          PS_ADDSAT48: begin u.cls = UC_ALU; u.alu = A_ADDSAT48; u.wr_gpr = 1'b1; end
+          PS_MACWSAT: begin u.cls = UC_ALU; u.alu = A_MACWSAT; u.wr_gpr = 1'b1; end
+          PS_EXC:     begin u.cls = UC_EXC; u.exc = imm32_i[11:0]; u.serialize = 1'b1; end
+          PS_DIV0S:   begin u.cls = UC_ALU; u.alu = A_DIV0S; u.wr_gpr = 1'b1; end
+          default: resinst = 1'b1;
+        endcase
+      end
+
       // ---------------- ALU ----------------
       OP_ALU0: begin
         u.cls = UC_ALU; u.wr_gpr = 1'b1;
@@ -373,8 +394,8 @@ module sh5_decode
       u = set_exc(u, fetch_fault_i);
       u.tea_valid = 1'b1;
       u.fetch_fault = 1'b1;
-    end else if (isa_compact_i) begin
-      u = set_exc(u, EVT_RESINST);
+    end else if (expand_i && op == OP_FPURES4 && ext == PS_EXC) begin
+      u = set_exc(u, imm32_i[11:0]);
     end else if (insn_r(insn_i) != 4'b0000) begin
       u = set_exc(u, EVT_RESINST);
     end else if (fpu_insn && fpu_dis_i) begin

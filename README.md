@@ -18,4 +18,6 @@ and never shipped in a product.
 | `refs/` | Source material (manuals) and pointers to external sources. |
 | `tools/` | Scripts. |
 | `tests/isa/` | SHmedia ISA test kit (nolibc and bare-metal builds). |
-| `rtl/` | FPGA design: constant packages, top-level port contract, lint target. |
+| `tests/exc/` | Exception, trap and privileged-state suite (bare metal). |
+| `tests/compact/` | SHcompact ISA test kit (SH-5 build for the core, SH-4 build for qemu-system-sh4). |
+| `rtl/` | FPGA design: the SH-5 core (SHmedia and SHcompact, caches, MMU, FPU), Verilator testbench with Cayman devices, unit tests. |

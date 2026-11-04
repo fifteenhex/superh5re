@@ -27,7 +27,8 @@ package sh5_uop_pkg;
     UC_FSTORE,    // memory write from FR
     UC_FPUTSCR,
     UC_CACHEOP,   // ALLOCO, ICBI, OCBI, OCBP, OCBWB, PREFI: address and translation checks only (no cache)
-    UC_EXC        // exception or interrupt launch when it reaches W
+    UC_EXC,       // exception or interrupt launch when it reaches W
+    UC_SRFLAG     // SHcompact: SR flag bits (S, Q, M, PR, SZ, FR) <- operand under a mask, at W
   } uclass_t;
 
   typedef enum logic [2:0] {
@@ -46,7 +47,12 @@ package sh5_uop_pkg;
     A_SHLLD, A_SHLLDL, A_SHLRD, A_SHLRDL, A_SHARD, A_SHARDL,
     A_NSB, A_BYTEREV, A_CMVEQ, A_CMVNE,
     A_MOVI, A_SHORI,
-    A_PASS_B      // result = operand b (GETCON, GETTR)
+    A_PASS_B,     // result = operand b (GETCON, GETTR)
+    // SHcompact expansion helpers (sh5_cexpand)
+    A_DIV1,       // {Q' at 40, T' at 32, Rn' [31:0]} of DIV1 Rm(a), Rn(b) with T = c[0], SR.M/Q
+    A_DIV0S,      // {M at 9, Q at 8, T at 0} of DIV0S Rm(a), Rn(b)
+    A_ADDSAT48,   // a + b saturated to the signed 48-bit range (MAC.L, S = 1)
+    A_MACWSAT     // MAC.W with S = 1: {MACH' , MACL'} from the accumulator a and the product b
   } aluop_t;
 
   typedef enum logic [2:0] {
@@ -85,7 +91,10 @@ package sh5_uop_pkg;
   typedef struct packed {
     logic        valid;
     logic [31:0] pc;
-    logic [31:0] insn;
+    logic [31:0] pc_next;     // address of the next instruction in sequence (SHmedia: pc + 4)
+    logic [31:0] insn;        // SHmedia encoding (for SHcompact: the expanded micro-op)
+    logic        compact;     // micro-op of an SHcompact instruction
+    logic [15:0] cinsn;       // the SHcompact instruction
     uclass_t     cls;
     aluop_t      alu;
     bcond_t      bcond;

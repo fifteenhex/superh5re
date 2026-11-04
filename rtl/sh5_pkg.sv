@@ -288,6 +288,18 @@ package sh5_pkg;
   localparam logic [5:0] OP_PTA     = 6'b111010;
   localparam logic [5:0] OP_PTB     = 6'b111011;
 
+  // Pseudo-operations of the SHcompact expander, in the FPU-reserved opcode
+  // (extension field); never present in an instruction stream.
+  localparam logic [3:0] PS_MOVI32   = 4'd0;   // Rd <- SignExtend32(imm32)
+  localparam logic [3:0] PS_PT32     = 4'd1;   // TRa <- imm32 (checked like PTABS)
+  localparam logic [3:0] PS_DIV1     = 4'd2;   // Rd <- packed DIV1 step of Rn by Rm with T = R19
+  localparam logic [3:0] PS_SRFLAG   = 4'd3;   // SR <- (SR & ~imm32) | (Rm & imm32), serializing
+  localparam logic [3:0] PS_GETFPSCR = 4'd4;   // Rd <- SHcompact view of FPSCR (with SR.PR/SZ/FR)
+  localparam logic [3:0] PS_ADDSAT48 = 4'd5;   // Rd <- saturate48(Rm + Rn)
+  localparam logic [3:0] PS_MACWSAT  = 4'd6;   // Rd <- MAC.W accumulate with saturation of Rm (acc) and Rn (product)
+  localparam logic [3:0] PS_EXC      = 4'd7;   // raise event imm32[11:0]
+  localparam logic [3:0] PS_DIV0S    = 4'd8;   // Rd <- {M, Q, T} of DIV0S Rm, Rn
+
   typedef enum logic [2:0] {
     FMT_RESERVED = 3'd0,
     FMT_MND0     = 3'd1,

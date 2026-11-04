@@ -2,3 +2,4 @@ obj/
 obj_dir/
 *.trace
 logs/
+obj2/

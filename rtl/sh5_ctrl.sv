@@ -22,7 +22,12 @@ module sh5_ctrl
 
   // control register read (E1) and write (W)
   input  logic [5:0]  getcon_idx_i,
+  input  logic        getcon_fpscr_i, // SHcompact view of FPSCR: FPSCR with SR.PR/SZ/FR at bits 19-21
   output logic [63:0] getcon_val_o,
+  // SHcompact flag writes: SR <- (SR & ~mask) | (val & mask), S/Q/M/PR/SZ/FR only
+  input  logic        srflag_en_i,
+  input  logic [31:0] srflag_mask_i,
+  input  logic [31:0] srflag_val_i,
   input  logic        putcon_en_i,
   input  logic [5:0]  putcon_idx_i,
   input  logic [63:0] putcon_val_i,
@@ -52,6 +57,7 @@ module sh5_ctrl
   input  logic [3:0]  launch_irq_level_i,
   input  logic [31:0] launch_irq_code_i, // INTEVT for EXTINT
   input  logic [31:0] launch_pc_i,    // PC saved in SPC
+  input  logic        launch_isa_i,   // ISA of the instruction (SPC bit 0)
   input  logic        launch_tea_valid_i,
   input  logic [31:0] launch_tea_i,
   input  logic [31:0] launch_tra_i,
@@ -117,7 +123,8 @@ module sh5_ctrl
   always_comb begin
     logic priv;
     priv = sr_q[SR_MD];
-    case (getcon_idx_i)
+    if (getcon_fpscr_i) getcon_val_o = {32'h0, 10'h0, sr_q[SR_FR], sr_q[SR_SZ], sr_q[SR_PR], fpscr_q[18:0]};
+    else case (getcon_idx_i)
       CR_SR:      getcon_val_o = {32'h0, sr_q};
       CR_SSR:     getcon_val_o = {32'h0, ssr_q};
       CR_PSSR:    getcon_val_o = {32'h0, pssr_q};
@@ -230,6 +237,9 @@ module sh5_ctrl
         fpscr_q <= fputscr_val_i & FPSCR_IMPL_MASK;
       end
 
+      if (srflag_en_i)
+        sr_q <= (sr_q & ~(srflag_mask_i & 32'h0000_7302)) | (srflag_val_i & srflag_mask_i & 32'h0000_7302);
+
       if (putcon_en_i) begin
         case (putcon_idx_i)
           CR_SR: begin
@@ -271,7 +281,7 @@ module sh5_ctrl
           pspc_q    <= spc_q;
           pexpevt_q <= expevt_q;
         end
-        spc_q <= {launch_pc_i[31:1], 1'b1};
+        spc_q <= {launch_pc_i[31:1], launch_isa_i};
         ssr_q <= sr_q;
         if (launch_is_reset_i) begin
           expevt_q <= {20'h0, EVT_CPURESET};

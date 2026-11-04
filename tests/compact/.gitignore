@@ -1,0 +1,7 @@
+*.o
+*.elf
+*.bin
+*.log
+cops.S
+cops.h
+__pycache__/

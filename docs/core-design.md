@@ -527,18 +527,45 @@ be rebuilt, so the default should be kept where the FPGA allows.
 Target clock is not fixed; the latency choices above assume a 50-100 MHz
 class device.
 
-## 13. SHcompact (later)
+## 13. SHcompact
 
 Vol. 4 Table 1 lists R20-R23, TR0-TR3 and FR33 as scratch state that
 becomes undefined when any SHcompact instruction executes, which shows the
 SH-5 implemented SHcompact by expanding each instruction into SHmedia
-operations using those registers. The same approach fits this pipeline: a
-predecoder in D consumes 16-bit instructions (fetch block = 4 of them),
-emits 1 to n SHmedia-format micro-ops, keeps the delayed-branch pair
-indivisible for events (Vol. 1 §16.6.3), maps T to R19 bit 0, PR to R18,
-GBR to R16, MACH/MACL to R17, and applies SR.S/Q/M and FPSCR.PR/SZ/FR
-qualification. Mode switches happen only through BLINK (TR bit 0 = 0) and
-RTE (SPC bit 0 = 0).
+operations using those registers. The core does the same (`rtl/sh5_cexpand.sv`):
+
+- State mapping (Vol. 1 Table 4): R0-R15, GBR = R16, MACL/MACH = R17 (low
+  and high word), PR = R18, T = R19 bit 0, FPUL = FR32; S, Q, M in SR;
+  FR0-FR15 and XF0-XF15 as FR0-15/FR16-31 selected by SR.FR; the
+  SHcompact view of FPSCR packs SR.PR/SZ/FR into bits 19-21.
+- The decode stage holds the 16-bit instruction (position within the 8-byte
+  fetch word in `cpos_q`) and issues one SHmedia-format micro-operation per
+  cycle (`useq_q` steps); the fetch word is consumed after the last step of
+  its second half. The expander emits SHmedia encodings that go through the
+  normal decoder, plus pseudo-operations in the FPU-reserved opcode space
+  (`PS_*` in `sh5_pkg.sv`): 32-bit immediate load, absolute target load
+  (checked like PTABS), packed DIV0S/DIV1 steps and MAC saturation in the
+  ALU, SR flag writes under a mask (UC_SRFLAG, serializing), the packed FPSCR
+  read, and raising an event (RESINST, ILLSLOT, SLOTFPUDIS).
+- Steps that can raise exceptions come before any write of architectural
+  state, so an exception leaves the instruction without effect; SPC = the
+  instruction address with ISA bit 0. 32-bit results are written sign-extended
+  (Vol. 3 Table 2), MOV/AND/OR/XOR/NOT operate on 64 bits (Table 3).
+- Delayed branches (Vol. 3 1.6): the branch's steps leave the target in TR0
+  (BT/S and BF/S select label or fall-through with CMVNE/CMVEQ on T) and
+  write PR; the slot instruction is expanded with its micro-operations
+  carrying the branch's PC, followed by a `BLINK TR0, R63` step. Slot-illegal
+  instructions and FPU instructions with SR.FD set raise ILLSLOT and
+  SLOTFPUDIS. Interrupts are taken only between instructions and never
+  between a delayed branch and its slot. BLINK switches the ISA with bit 0 of
+  the target (JMP, JSR, RTS, BRAF, BSRF); launches and RTE take the ISA of
+  the vector and SPC.
+- Prediction (4.4) is not used for SHcompact branches.
+- Not implemented: SLEEP, RTE, LDC/STC other than GBR and LDTLB raise RESINST
+  as required (privileged SH-4 instructions); PREF is a no-operation.
+
+Verification: `tests/compact` (README there), an SHcompact kit whose
+references were checked on QEMU's SH-4.
 
 ## 14. Verification
 
@@ -580,13 +607,15 @@ the test commands).
 | Fetch | 8-byte words from the instruction cache (4 x 256 x 32 B, VIVT, PRU in the tag; misses fill by Load32, uncachable pages and MMU-off fetches by Load8 with two words outstanding), 4-entry queue. |
 | ALU, SIMD, FPU | complete; FPU latencies 2 to 63 cycles, one operation in flight. |
 | MMU and caches | ITLB and DTLB lookup and exceptions, configuration registers. Operand cache as in §8 (EA and PA tags, WB/WT from PTEL.CB and OCCR.OWT, LRU, locking, alias re-tagging, OCBI/OCBP/OCBWB/ALLOCO, SWAP purge, ICI/OCI, configuration views of tags and data). Requests are processed one at a time (hit: 2 cycles; uncached stores enter the bus queue and uncached loads reach the bus port in the cycle they are accepted). Not yet: PREFI and data prefetch fills, way-load override for prefetches, PUTCFG to tag/data arrays. |
-| Events | all non-debug exceptions, BREAK, PANIC, NMI/DEBUGINT/EXTINT acceptance and INTEVT/IMASK, RTE, SLEEP. Not implemented: single step (DEBUGSS), watchpoints, SHcompact (RESINST on entry). |
+| Events | all non-debug exceptions, BREAK, PANIC, NMI/DEBUGINT/EXTINT acceptance and INTEVT/IMASK, RTE, SLEEP, ILLSLOT and SLOTFPUDIS. Not implemented: single step (DEBUGSS), watchpoints. |
+| SHcompact | expansion into SHmedia micro-operations in decode (§13), all Vol. 3 instructions. |
 | Bus | Load8/Store8/Swap8 words, Load32/Store32 lines (word order, address bits 4:3 = 0); VCR target port. |
 
 Verification done: the 458064-check SHmedia ISA kit (`tests/isa`, bare
-mode) and the 430-check exception suite (`tests/exc`, whose `mmu` test
-runs with the MMU, the caches and target preload active) pass on the
-model; the instruction stream of the first 5.3 million instructions of the
+mode), the 430-check exception suite (`tests/exc`, whose `mmu` test
+runs with the MMU, the caches and target preload active) and the
+172323-check SHcompact kit (`tests/compact`) pass on the model; NetBSD
+3.1 (CAYMAN_QEMU kernel) boots to the login prompt (2.34 G cycles); the instruction stream of the first 5.3 million instructions of the
 Linux 6.15 boot matches QEMU (`tools/tracecmp.py`, interrupt handlers
 skipped), register writes match in the windows compared with
 `tools/regcmp.py`, and the kernel boots to the smolutils shell prompt on
