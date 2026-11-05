@@ -14,10 +14,13 @@ and never shipped in a product.
 | Path | Contents |
 |---|---|
 | `NOTES.md` | Journal: findings, decisions, open questions, reproduction steps. |
-| `docs/` | Platform notes (`cayman-platform.md`), core microarchitecture (`core-design.md`), bus port (`bus-interface.md`). |
+| `docs/` | Platform notes (`cayman-platform.md`), core microarchitecture (`core-design.md`), bus port (`bus-interface.md`), the card system (`soc.md`). |
 | `refs/` | Source material (manuals) and pointers to external sources. |
 | `tools/` | Scripts. |
 | `tests/isa/` | SHmedia ISA test kit (nolibc and bare-metal builds). |
 | `tests/exc/` | Exception, trap and privileged-state suite (bare metal). |
 | `tests/compact/` | SHcompact ISA test kit (SH-5 build for the core, SH-4 build for qemu-system-sh4). |
-| `rtl/` | FPGA design: the SH-5 core (SHmedia and SHcompact, caches, MMU, FPU), Verilator testbench with Cayman devices, unit tests. |
+| `rtl/` | FPGA design: the SH-5 core (SHmedia and SHcompact, caches, MMU, FPU), the system around it (`rtl/soc`: bus bridge, Cayman peripherals, hub, host interface), Verilator testbenches (core with C++ devices; board with the host protocol), unit tests. |
+| `fpga/nitefury/` | Board top and Vivado build script for the NiteFury II, on fpgaslop's shell (`docs/soc.md`). |
+| `fpgaslop/` | Submodule: the shared board layer (PCIe/DDR3 path, card registers, tools). |
+| `host/` | `sh5ctl`: deposit and boot a kernel over the BAR; `sh5boot.c` is the protocol the board testbench runs too. |

@@ -317,3 +317,27 @@ reproduce it. Confirmed facts move to `docs/`.
   --expect "# " --send "uname -a; ps\n" --done "cayman 3.1"`): root logs
   in, csh starts and `uname -a` answers `NetBSD cayman 3.1`; 2.66 G
   cycles, 823 M instructions (`rtl/tb/core/logs/netbsd-console7.txt`).
+- 2026-11-05: the card system on fpgaslop (`docs/soc.md`). fpgaslop is a
+  submodule (relative URL `../fpgaslop.git`, pinned to its main 3c02d16;
+  `git -c protocol.file.allow=always submodule add` is needed for the
+  local bare repo). Read first: fpgaslop `docs/notes-for-another-cpu-core.md`,
+  `docs/timing-on-this-part.md`, smol68k's `fpga/nitefury/smol68k_board_top.sv`
+  and `rtl/soc/smol68k_hostif.sv` (the shape copied here), and the req/ack
+  contract (req held until ack, ack one cycle, the slave waits for req to
+  fall; `len` = beats - 1 for burst reads; writes single beat because
+  burst writes through `mem_cdc` need `wr_ready` pacing). New here:
+  `rtl/soc/*` (bridge, peripherals in RTL, hub, host interface, top),
+  `rtl/tb/board` (Verilator model of `sh5_top` driven through the host
+  protocol), `host/sh5boot.c` (one deposit implementation for the
+  testbench and `host/sh5ctl`), `fpga/nitefury/` (board top copied from
+  smol68k's with sh5_top inside, build.tcl modelled on theirs, SUBSYSTEM_ID
+  0x5a05). `make -C rtl lint-board` runs fpgaslop's lint-top.sh over the
+  build script's file list with the Xilinx primitives stubbed and the
+  three IP black-boxed: 34 files, 0 warnings. Pitfalls met: Verilator
+  compiles a `.c` source as C++ (the header needs `extern "C"` and the
+  file explicit casts); the host interface must go from the issue state
+  straight to "wait for req to fall" (an extra state missed the one cycle
+  the host drops req and hung the second DRAM write); the arbiter's
+  `rst` is active high. A 5.5 MB kernel deposit costs 18.5 M simulated
+  cycles (about 26 per 64-bit BAR write through hostif, memarb and the
+  memory model).

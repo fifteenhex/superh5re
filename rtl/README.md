@@ -20,13 +20,23 @@ Implementation status is in that document's last section.
 | `sh5_ifu.sv` | fetch queue, 8-byte blocks, redirect |
 | `sh5_biu.sv` | bus packets: Load8/Load32 fetch and data, Swap8, Store8/Store32 queue |
 | `sh5_core.sv` | pipeline D E1 E2 E3 W, register files, forwarding, hazards, memory ordering, target register buffers and branch prediction, SHcompact sequencing and ISA tracking, VCR target port |
-| `tb/core/` | Verilator testbench: ELF loader, memory, Cayman SCIF/INTC/TMU/CPRC/RTC/VCR models, commit and bus trace |
+| `soc/sh5_shwy_req.sv` | the core's packet port as a req/ack master (fpgaslop's bus): burst line reads, single-beat writes, Swap8 |
+| `soc/sh5_periph.sv` | Cayman peripherals in RTL: INTC, CPRC, TMU, SCIF, RTC, system FPGA registers, module VCRs |
+| `soc/sh5_hub.sv` | host-side control: reset hold, boot PC, console FIFOs, doorbell (`docs/soc.md`) |
+| `soc/sh5_hostif.sv` | BAR decode: fpgaslop's `slop_card` page, the hub, the DRAM window |
+| `soc/sh5_top.sv` | the system: core, bridge, peripherals, hub, host interface, `memarb`; `h_*` in, `mem_*` out |
+| `tb/core/` | Verilator testbench of the core alone: ELF loader, memory, Cayman SCIF/INTC/TMU/CPRC/RTC/VCR models in C++, commit and bus trace |
+| `tb/board/` | Verilator testbench of `sh5_top`: the host protocol (`host/sh5boot.c`) over the BAR, a memory model with burst reads, console through the hub |
 | `tb/unit/mm/`, `tb/unit/fpu/` | unit tests of the SIMD unit and the FPU against the test-kit references and vectors |
 | `tb/stubs/` | FPU placeholder for builds without the FPU |
 | `Makefile` | `make lint` runs Verilator in lint mode |
 
 ```
 make lint                      # Verilator lint of the core
+make lint-soc                  # ... of sh5_top with the fpgaslop blocks
+make lint-board                # the board top with fpgaslop's primitive stubs (fpga/nitefury)
+make -C tb/board build         # the board model
+cd tb/board && ./obj/Vsh5_top --elf ../../../tests/exc/exc.elf --quiet
 make -C tb/core build          # build the model
 cd tb/core && ./obj/Vsh5_core --elf ../../../tests/isa/isatest-bare.elf --quiet
 ./obj/Vsh5_core --elf ../../../tests/exc/exc.elf --quiet
