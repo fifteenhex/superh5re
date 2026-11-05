@@ -396,3 +396,11 @@ reproduce it. Confirmed facts move to `docs/`.
   Earlier the same day the board testbench booted that Linux to the
   getty in 3.13 G cycles (`rtl/tb/board/logs/board-linux-console2.txt`)
   and ran the full SHcompact kit in 1.05 G cycles.
+  Full build (commit 8a0aba28, `-build_id 8a0aba2800000000`): bitstream
+  in about 15 minutes, every constraint met (post-route 85774 LUTs,
+  47399 flops, 53 BRAM tiles, 44 DSPs; 2.5 ns slack on the 40 ns core
+  clock, the worst path is 84 % routing). `sh5.bit`, `sh5.bin`, the
+  reports and SHA256SUMS were handed over in
+  `/workspace/files/superh5re-fpga-8a0aba28/`. The card has not been
+  programmed yet (`docs/soc.md`, "Implementation"). superh5re is not on
+  the gitolite server, so the work is on origin only.

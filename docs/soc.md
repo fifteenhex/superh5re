@@ -142,12 +142,38 @@ flops, five times the part; the arrays went into block RAM
 | sh5_periph + sh5_hostif | 1122 | 2031 | 3 | | |
 | MIG | 6033 | 5194 | | | |
 
-Timing after synthesis: the core clock paths have 16 ns of slack at 40 ns
-(worst path 38 logic levels); the only tight paths are inside the MIG at
-200 MHz. Placement and routing have not been run. The build also showed
-two implicit nets (`d_redirect`, `e1_redirect` used before their
-declarations in `sh5_core.sv`, fixed); fpgaslop's `tools/checkdecl.py`
-finds those before Vivado does.
+The build also showed two implicit nets (`d_redirect`, `e1_redirect`
+used before their declarations in `sh5_core.sv`, fixed); fpgaslop's
+`tools/checkdecl.py` finds those before Vivado does.
+
+## Implementation
+
+The full flow (`build.tcl` without `-synth_only`, commit 8a0aba28, with
+the 33 x 33 lane multipliers) placed and routed in about 15 minutes and
+met every constraint:
+
+| | |
+|---|---|
+| LUTs | 85774 (64 %), 855 of them as memory |
+| flops | 47399 (18 %) |
+| block RAM tiles | 53 (15 %) |
+| DSPs | 44 |
+| setup slack | 0.725 ns (MIG, 200 MHz); 2.5 ns on the 40 ns core clock |
+| hold slack | 0.036 ns |
+
+The worst core-clock path runs from the IFU's queue read pointer to the
+fetch PC's clock enable: 37 ns, 84 % of it routing, one logic level.
+The design makes 25 MHz with little to spare; a faster core clock needs
+the high-fanout control nets (`hold`, the queue pointers) looked at
+first.
+
+`out/sh5.bit` (JTAG) and `out/sh5.bin` (SPI flash) are the products.
+Loading follows `fpgaslop/docs/flashing.md`: `flash.sh detect`, then
+`sram` with the `.bit` to see the LEDs (`led_fpga[0]`, a heartbeat from
+retired instructions, DDR3 calibration done, PCIe link up), then `app`
+with the `.bin` and a cold power cycle, since on this card a JTAG-loaded
+design does not enumerate on PCIe. Then `host/sh5ctl <bdf> probe`.
+Nothing has been loaded on a card yet.
 
 ## Not done
 
@@ -156,4 +182,4 @@ finds those before Vivado does.
   off (CAP_DMA clear).
 - Write bursts, a wider DRAM window, and the core's bus timing (one
   request at a time through the bridge) are the performance items.
-- `host/sh5ctl` has never seen hardware.
+- `host/sh5ctl` has never seen hardware; no bitstream has been loaded on a card.
