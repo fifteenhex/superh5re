@@ -341,3 +341,17 @@ reproduce it. Confirmed facts move to `docs/`.
   `rst` is active high. A 5.5 MB kernel deposit costs 18.5 M simulated
   cycles (about 26 per 64-bit BAR write through hostif, memarb and the
   memory model).
+  Board testbench results: tests/exc 430/0 (0.43 M cycles), ISA kit
+  arith 5312/0 and branch 16093/0, SHcompact kit branch+sys 822/0; the
+  Linux stream matches the core testbench for the first 1.5 M
+  instructions. Performance through the bridge is poor: about 14 cycles
+  per instruction over that window (every fetch miss and every
+  write-back is a serialised req/ack transaction; write-backs are four
+  single-beat writes), so the Linux boot that takes 207 M cycles on the
+  core testbench needs several times that here and the kernel's first
+  console output (which the core testbench does not reach within 60 M
+  cycles either) was not seen within the runs made. The full SHcompact
+  kit timed out at 400 M cycles with its groups still running. Next
+  steps for the memory path: burst write-backs (mem_cdc/req_to_axi4
+  support write bursts with wr_ready pacing), a second outstanding
+  transaction in the bridge, a fast deposit path for simulation only.
