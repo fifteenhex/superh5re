@@ -290,6 +290,11 @@ module sh5_core
   logic [31:0] if_insn, if_insn_pc;
   logic        sleeping_q;
   logic        reset_q;         // first cycle after reset: start fetching at reset_pc_i
+  // declared here because the IFU instance below names them: a name used
+  // before its declaration becomes an implicit one-bit wire in Vivado
+  logic        d_redirect;      // D-stage branch prediction (target buffer hit)
+  logic        e1_redirect;     // E1 branch resolution
+  logic [63:0] tb_data_q [8];   // target buffer data, injected into fetch
 
   logic [11:0] if_insn_fault;
   logic        if_req_valid, if_req_ready;
@@ -324,7 +329,6 @@ module sh5_core
   // and whenever the MMU is off (Vol. 1 18.11.2).
   logic         tb_valid_q [8];
   logic [31:3]  tb_addr_q  [8];
-  logic [63:0]  tb_data_q  [8];
   logic         pl_pending_q, pl_sent_q, pl_drop_q;
   logic [2:0]   pl_tr_q;
   logic [31:3]  pl_ea_q, pl_ea_sent_q;
@@ -334,7 +338,6 @@ module sh5_core
   logic         ic_rsp_valid;
   logic [63:0]  ic_rsp_data;
   logic [11:0]  ic_rsp_fault;
-  logic         d_redirect;
   logic [31:0]  d_redirect_pc;
 
   // a preload is only issued for cachable pages (no speculative device reads)
@@ -755,7 +758,7 @@ module sh5_core
 
   // branch resolution: redirect when the actual next PC differs from the one
   // fetch is following (BLINK switches the ISA with bit 0 of the target)
-  logic        e1_redirect, e1_br_taken;
+  logic        e1_br_taken;
   logic [31:0] e1_actual_pc, e1_followed_pc;
   assign e1_br_taken = (e1_q.u.cls == UC_BRANCH && e1_taken) || (e1_q.u.cls == UC_BLINK);
   // SHmedia conditional branches ignore target bits 1:0; SHcompact BT/BF

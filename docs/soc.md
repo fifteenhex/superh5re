@@ -106,8 +106,8 @@ every host access a 64-bit BAR transaction):
 |---|---|
 | tests/exc (MMU, caches, preload in its `mmu` test) | 430 checks, 0 failures, 0.43 M cycles |
 | ISA kit arith, branch groups | 5312 and 16093 checks, 0 failures |
-| SHcompact kit branch, sys groups | 822 checks, 0 failures |
-| Linux 6.15 | the first 1.5 M instructions after release match the core testbench's stream exactly |
+| SHcompact kit (all groups) | 172323 checks, 0 failures, 1.05 G cycles |
+| Linux 6.15 with the smolutils initrd | boots to the getty on ttySC0, 3.13 G cycles after release |
 
 The uncached boot path costs about 14 cycles per instruction through the
 bridge (one request at a time, memory latency 6), so a kernel boot that
