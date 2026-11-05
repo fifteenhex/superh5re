@@ -228,11 +228,16 @@ module sh5_mm import sh5_pkg::*; (
       p16_d[i] = $signed({{16{a_i[16*i+15]}}, a_i[16*i +: 16]}) *
                  $signed({{16{b_i[16*i+15]}}, b_i[16*i +: 16]});
     end
+    // 33 x 33 signed (the sign bit is the operand's own, or 0 for MULU.L):
+    // the low 64 bits equal those of the 64 x 64 product of the extended
+    // operands, at a quarter of the multiplier
     for (int i = 0; i < 2; i++) begin
-      logic [63:0] xa, xb;
-      xa = {{32{a_i[32*i+31] & ~mulu_d}}, a_i[32*i +: 32]};
-      xb = {{32{b_i[32*i+31] & ~mulu_d}}, b_i[32*i +: 32]};
-      p32_d[i] = xa * xb;
+      logic signed [32:0] xa, xb;
+      logic signed [65:0] p;
+      xa = $signed({a_i[32*i+31] & ~mulu_d, a_i[32*i +: 32]});
+      xb = $signed({b_i[32*i+31] & ~mulu_d, b_i[32*i +: 32]});
+      p = xa * xb;
+      p32_d[i] = p[63:0];
     end
     for (int i = 0; i < 8; i++) begin
       logic [8:0] d;

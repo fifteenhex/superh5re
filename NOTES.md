@@ -355,3 +355,44 @@ reproduce it. Confirmed facts move to `docs/`.
   steps for the memory path: burst write-backs (mem_cdc/req_to_axi4
   support write bursts with wr_ready pacing), a second outstanding
   transaction in the bridge, a fast deposit path for simulation only.
+- 2026-11-05: first Vivado runs of the board top, through fpgaslop's
+  remote worker (`python3 fpgaslop/vivado/vc.py build --project
+  superh5re-board --source <staging dir with fpga/ rtl/ fpgaslop/, no
+  rtl/tb> --out out/vivado-remote --tcl fpga/nitefury/build.tcl -v -- 
+  -synth_only -build_id <hash>00000000`; `--attach` rejoins; reports land
+  in `--out`). Synthesis only, xc7a200t, Vivado 2026.1.
+  Run 1 (commit 67af625): 715 k LUTs, 690 k flops, 17 RAMB36, five times
+  the part. Every cache array and the hub's 4 KB console FIFO had become
+  flops: the arrays were read combinationally in the same cycle as the
+  address (hit check from `tag_*[w][idx]` with idx from the request at
+  the port), which no block RAM can do. Also two implicit nets
+  (`d_redirect`, `e1_redirect` used in the IFU instance above their
+  declarations; Verilator accepts forward references, Vivado makes
+  1-bit wires; `fpgaslop/tools/checkdecl.py --assign rtl/*.sv` finds them,
+  its only other report, `e3_q.ea`, is a struct member).
+  Fix (commit f1fb748): `rtl/sh5_ram_sdp.sv`, caches restructured for a
+  synchronous read (`docs/core-design.md` §8.1), hub FIFO in its own
+  process, GETCFG of a cache array holds E1 (cfg_req/cfg_rvalid), ICBI
+  has a ready. Run 2: 88.5 k LUTs (66 %), 49 k flops (18 %), 54 RAMB36 +
+  6 RAMB18, 56 DSPs (`docs/soc.md`, "Synthesis"); core-clock paths have
+  16 ns slack at 40 ns before placement. sh5_mm then changed from two
+  64 x 64 multipliers (the lane operands were sign-extended to 64 bits
+  before the multiply) to 33 x 33; not yet synthesised.
+  Regression after the cache change: tests/exc 430/0 on both
+  testbenches, ISA kit 458064/0 by group (the whole kit needs more than
+  the default 200 M cycles: run the groups, or `--max-cycles 400000000`),
+  SHcompact kit 172323/0 in exactly the same cycle count (it runs with
+  the MMU off, caches unused), board testbench exc + arith.
+  A Linux boot on the core testbench then panicked ("Attempted to kill
+  init", exit code 0) right after the smolutils init banner; the same
+  happened on the previous commit, and the two traces from "Run /init"
+  on differ only in a TMU count read (one cycle apart). The cause was
+  the command line: init exits unless it is given `-- smolinit.getty=
+  /dev/ttySC0 smolinit.hostname=cayman` (`userspace/README.md`). The
+  complete core-testbench command is
+  `./obj/Vsh5_core --elf <linux-sh5>/vmlinux --initrd <smolutils-sh5>/
+  sh-sh5.cpio.gz --cmdline "console=ttySC0 -- smolinit.getty=/dev/ttySC0
+  smolinit.hostname=cayman" --done /bin/smolsh --max-cycles 300000000`.
+  Earlier the same day the board testbench booted that Linux to the
+  getty in 3.13 G cycles (`rtl/tb/board/logs/board-linux-console2.txt`)
+  and ran the full SHcompact kit in 1.05 G cycles.

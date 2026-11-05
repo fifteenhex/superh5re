@@ -116,10 +116,38 @@ the 5.5 MB deposit over the BAR costs 18.5 M cycles.
 
 `make -C rtl lint-soc` lints `sh5_top` with the fpgaslop blocks;
 `make -C rtl lint-board` elaborates the board top with fpgaslop's
-Xilinx-primitive stubs and the build script's own file list (34 files,
-0 warnings). What remains needs Vivado: `vivado -mode batch -source
-fpga/nitefury/build.tcl` (or `-tclargs -synth_only` for the first area
-and timing numbers), then fpgaslop's flashing procedure.
+Xilinx-primitive stubs and the build script's own file list (35 files,
+0 warnings).
+
+## Synthesis
+
+`vivado -mode batch -source fpga/nitefury/build.tcl -tclargs -synth_only`
+(Vivado 2026.1, xc7a200tfbg484-2, core clock 25 MHz). The first run, with
+the cache arrays and the hub FIFO as flops, needed 715 k LUTs and 690 k
+flops, five times the part; the arrays went into block RAM
+(`core-design.md` §8.1) and the second run fits:
+
+| block | LUTs | flops | RAMB36 | RAMB18 | DSP |
+|---|---|---|---|---|---|
+| whole design | 88499 | 48970 | 54 | 6 | 56 |
+| xc7a200t | 134600 | 269200 | 365 | 730 | 740 |
+| sh5_core | 67936 | 30509 | 36 | 4 | 56 |
+| of which sh5_mm | 17284 | 950 | | | 28 |
+| sh5_fpu | 11706 | 2427 | | | 28 |
+| sh5_ifu | 10626 | 431 | | | |
+| sh5_dcache | 9761 | 4148 | 20 | | |
+| sh5_icache | 6509 | 2879 | 16 | 4 | |
+| ITLB + DTLB | 7938 | 7168 | | | |
+| sh5_shwy_req | 1259 | 598 | | | |
+| sh5_periph + sh5_hostif | 1122 | 2031 | 3 | | |
+| MIG | 6033 | 5194 | | | |
+
+Timing after synthesis: the core clock paths have 16 ns of slack at 40 ns
+(worst path 38 logic levels); the only tight paths are inside the MIG at
+200 MHz. Placement and routing have not been run. The build also showed
+two implicit nets (`d_redirect`, `e1_redirect` used before their
+declarations in `sh5_core.sv`, fixed); fpgaslop's `tools/checkdecl.py`
+finds those before Vivado does.
 
 ## Not done
 

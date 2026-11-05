@@ -332,6 +332,21 @@ Index = EA[12:5] for both caches, always from the effective address
 (Vol. 4 §9.1.6). The EA tag is 19 bits, the PA tag 20 bits; PA bit 12 is
 in the tag, not the index (Table 54 note).
 
+Implementation (`sh5_ram_sdp`, one instance per way for the tags and one
+for the data, a 256-bit line per entry): the arrays are synchronous-read
+block RAM, the V, U and LRU bits flops (ICI/OCI clear every V in one
+cycle). The I-cache gives the read port the set of the request it
+accepts and resolves the lookup in the next cycle from the port output,
+so a hit answers one cycle after acceptance as a flop array did, a miss
+starts its fill one cycle later than before; a new lookup is accepted
+every cycle while the one in flight is hitting. ICBI (`inv_ready`) and
+GETCFG of ICACHETAG/ICACHEDATA (`cfg_req`/`cfg_rvalid`) take the read
+port for a cycle and answer in the next. The D-cache reads the set when
+it accepts a request and S_LOOKUP and the states after it use the held
+port output; writes use the other port and only happen outside S_IDLE,
+so a read and a write never meet at one edge. A GETCFG of a cache array
+holds E1 until the cache has read the word (the cache must be idle).
+
 ### 8.2 Lookup policy (Vol. 4 Tables 44, 45)
 
 | Access | Lookup |
@@ -509,14 +524,14 @@ buses they compare against. Phase 1 ties them off.
 
 | Structure | Implementation | Size |
 |---|---|---|
-| I-cache + D-cache data | block RAM, 64-bit wide with byte enables | 64 KB |
-| Tags + LRU | block RAM or distributed RAM | about 5 KB |
-| Valid bits | flops (bulk invalidate in one cycle) | 2 x 1024 |
+| I-cache + D-cache data | block RAM, one simple dual-port RAM of 256 x 256 bits per way (§8.1) | 64 KB |
+| Tags | block RAM, one 256 x 29 (I) or 256 x 52 (D) bit RAM per way | about 5 KB |
+| Valid, dirty bits and LRU | flops (bulk invalidate in one cycle, every way of a set read at once) | 3 x 1024 + 2 x 1536 |
 | ITLB + DTLB | flop arrays with 64 comparators each | 2 x 64 x 52 bits |
 | GR | distributed RAM, 3 copies for 3 read ports | 64 x 64 x 3 |
 | FR | 4 banks x 16 x 32, replicated for 3 read ports | |
 | Target buffers | flops | 8 x 100 bits |
-| Multiplier | 4 DSP blocks (16 x 16) + adders | |
+| Multiplier | DSP blocks: 4 x (16 x 16) lane products and 2 x (33 x 33) for the longword lanes and MULU.L/MULS.L | |
 | FPU | DSP blocks for mantissa multiply; iterative divide/sqrt | |
 
 Cache geometry is parameterised (`ICACHE_WAYS/SETS`, `DCACHE_WAYS/SETS`),
@@ -525,7 +540,8 @@ configuration-space view and software that walks the tags (NetBSD) must
 be rebuilt, so the default should be kept where the FPGA allows.
 
 Target clock is not fixed; the latency choices above assume a 50-100 MHz
-class device.
+class device. Synthesis results for the NiteFury II card are in
+`docs/soc.md`.
 
 ## 13. SHcompact
 
