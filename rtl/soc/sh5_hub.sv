@@ -67,15 +67,18 @@ module sh5_hub #(
   logic [31:0] bootpc_q;
   logic [63:0] cycles_q;
 
-  // ---- transmit FIFO: 4096 bytes ----
-  logic [7:0]  fifo [4096];
+  // ---- transmit FIFO: 4096 bytes, in block RAM (its own process, no reset) ----
+  (* ram_style = "block" *) logic [7:0] fifo [4096];
   logic [12:0] wr_q, rd_q;             // one extra bit: full/empty
   logic [12:0] count;
-  logic        pop, push, full;
+  logic        pop, push, full, push_q, can_pop;
   assign count = wr_q - rd_q;
   assign full  = count[12];
   assign push  = tx_valid && !full;
-  assign pop   = first && !s_we && (s_addr == 12'h108) && (count != 13'd0);
+  // the head byte is read a cycle behind the pointer: a byte pushed last
+  // cycle into an otherwise empty FIFO is not at rd_byte_q yet
+  assign can_pop = (count != 13'd0) && !(push_q && count == 13'd1);
+  assign pop   = first && !s_we && (s_addr == 12'h108) && can_pop;
   logic [7:0]  rd_byte_q;
 
   assign reset_hold = hold_q;
@@ -96,24 +99,29 @@ module sh5_hub #(
       12'h028: rdata_mux = {32'h0, bootpc_q};
       12'h030: rdata_mux = cycles_q;
       12'h100: rdata_mux = {32'h0, {3'b000, count}, 3'h0, 5'd16 - rx_count, 4'b0000, ovf_q, 3'b000};
-      12'h108: rdata_mux = {55'h0, (count != 13'd0), rd_byte_q};
+      12'h108: rdata_mux = {55'h0, can_pop, rd_byte_q};
       default: rdata_mux = 64'h0;
     endcase
+  end
+
+  always_ff @(posedge clk) begin
+    if (push) fifo[wr_q[11:0]] <= tx_byte;
+    rd_byte_q <= fifo[rd_q[11:0]];
+    push_q <= push;
   end
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
       ack_q <= 1'b0; hold_q <= !AUTOSTART; nmi_q <= 1'b0; irq_q <= 1'b0; berr_q <= 1'b0; ovf_q <= 1'b0;
       bootpc_q <= BOOT_PC; cycles_q <= 64'h0;
-      wr_q <= 13'd0; rd_q <= 13'd0; rd_byte_q <= 8'h0; s_rdata <= 64'h0;
+      wr_q <= 13'd0; rd_q <= 13'd0; s_rdata <= 64'h0;
     end else begin
       ack_q <= s_req && !ack_q;
       cycles_q <= cycles_q + 64'd1;
       nmi_q <= 1'b0;
       if (bus_error) berr_q <= 1'b1;
-      if (push) begin fifo[wr_q[11:0]] <= tx_byte; wr_q <= wr_q + 13'd1; end
+      if (push) wr_q <= wr_q + 13'd1;
       if (tx_valid && full) ovf_q <= 1'b1;
-      rd_byte_q <= fifo[rd_q[11:0]];
       if (pop) rd_q <= rd_q + 13'd1;
       if (first) s_rdata <= rdata_mux;
       if (first && s_we) begin

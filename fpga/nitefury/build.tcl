@@ -164,6 +164,7 @@ read_verilog -sv [list \
     $sh5dir/rtl/sh5_cexpand.sv \
     $sh5dir/rtl/sh5_ctrl.sv \
     $sh5dir/rtl/sh5_tlb.sv \
+    $sh5dir/rtl/sh5_ram_sdp.sv \
     $sh5dir/rtl/sh5_icache.sv \
     $sh5dir/rtl/sh5_dcache.sv \
     $sh5dir/rtl/sh5_biu.sv \

@@ -14,6 +14,7 @@ Implementation status is in that document's last section.
 | `sh5_mm.sv` | SIMD unit and MULS.L/MULU.L, 3 stages |
 | `sh5_fpu.sv` | floating-point unit, all 36 arithmetic operations, early trap decision |
 | `sh5_tlb.sv` | 64-entry PTE array with configuration access and lookup (one instance each for MMUIR and MMUDR) |
+| `sh5_ram_sdp.sv` | one-read-port, one-write-port memory in the shape Vivado infers block RAM from; the cache arrays |
 | `sh5_icache.sv` | instruction cache: 4 ways x 256 sets x 32 B, EA indexed and tagged (ASID/SH, PRU copy), LRU, locking, ICBI, configuration view |
 | `sh5_dcache.sv` | operand cache: EA and PA tags, write-back/write-through per block, alias resolution by re-tagging, OCBI/OCBP/OCBWB/ALLOCO, SWAP purge, LRU, locking, configuration view |
 | `sh5_ctrl.sv` | control registers, FPSCR, ICCR/OCCR, event launch and RTE |

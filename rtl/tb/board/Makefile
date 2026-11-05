@@ -4,7 +4,7 @@ SLOP = ../../../fpgaslop/rtl
 HOST = ../../../host
 FPU_SRC ?= $(if $(wildcard $(RTL)/sh5_fpu.sv),$(wildcard $(RTL)/sh5_fpu*.sv),$(RTL)/tb/stubs/sh5_fpu_stub.sv)
 CORE_SRCS = $(RTL)/shwy_pkg.sv $(RTL)/sh5_pkg.sv $(RTL)/sh5_uop_pkg.sv $(RTL)/sh5_decode.sv \
-       $(RTL)/sh5_alu.sv $(RTL)/sh5_cexpand.sv $(RTL)/sh5_ctrl.sv $(RTL)/sh5_tlb.sv $(RTL)/sh5_icache.sv \
+       $(RTL)/sh5_alu.sv $(RTL)/sh5_cexpand.sv $(RTL)/sh5_ctrl.sv $(RTL)/sh5_tlb.sv $(RTL)/sh5_ram_sdp.sv $(RTL)/sh5_icache.sv \
        $(RTL)/sh5_dcache.sv $(RTL)/sh5_biu.sv $(RTL)/sh5_ifu.sv $(RTL)/sh5_mm.sv $(FPU_SRC) $(RTL)/sh5_core.sv
 SOC_SRCS = $(RTL)/soc/sh5_shwy_req.sv $(RTL)/soc/sh5_periph.sv $(RTL)/soc/sh5_hub.sv \
        $(RTL)/soc/sh5_hostif.sv $(RTL)/soc/sh5_top.sv

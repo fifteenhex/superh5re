@@ -222,6 +222,7 @@ module sh5_core
   assign cfg_is_dtlb_w = (putcfg_idx[31:21] == 11'h004) && (putcfg_idx[15:4] < 12'(DTLB_ENTRIES)) && (putcfg_idx[3:1] == 3'b000);
   logic [63:0] ic_cfg_rdata, dc_cfg_rdata;
   logic        cfg_is_icache_r, cfg_is_dcache_r;
+  logic        ic_cfg_req, ic_cfg_rvalid, dc_cfg_req, dc_cfg_rvalid;
   // region 1: bank 0 ICACHETAG, 1 ICACHEDATA, 3 ICCR, 4 OCACHETAG, 5 OCACHEDATA, 7 OCCR (Vol. 4 Table 28)
   assign cfg_is_icache_r = (getcfg_idx[31:24] == 8'h01) && (getcfg_idx[23:22] == 2'b00);
   assign cfg_is_dcache_r = (getcfg_idx[31:24] == 8'h01) && (getcfg_idx[23:22] == 2'b10);
@@ -320,7 +321,7 @@ module sh5_core
   // cache. With the MMU off the physical address is the effective address and
   // the cache is bypassed. The fault code applies when the cache misses; a
   // cache hit never consults the PTE array (Vol. 4 9.1.1).
-  logic ic_inv_valid;
+  logic ic_inv_valid, ic_inv_ready;
 
   // Target register buffers (docs/core-design.md 4.4): one fetch block per
   // TR, filled by a preload request after a PT with the likely bit, used by
@@ -368,7 +369,8 @@ module sh5_core
     .req_sh_i(itlb_sh), .req_pru_i(itlb_u),
     .req_tag_i(pl_pending_q ? {1'b1, pl_tr_q} : 4'h0), .rsp_tag_o(ic_rsp_tag),
     .rsp_valid_o(ic_rsp_valid), .rsp_data_o(ic_rsp_data), .rsp_fault_o(ic_rsp_fault),
-    .inv_valid_i(ic_inv_valid), .inv_ea_i(e3_q.ea[31:5]), .inv_asid_i(cur_asid),
+    .inv_valid_i(ic_inv_valid), .inv_ready_o(ic_inv_ready), .inv_ea_i(e3_q.ea[31:5]), .inv_asid_i(cur_asid),
+    .cfg_req_i(ic_cfg_req), .cfg_rvalid_o(ic_cfg_rvalid),
     .cfg_bank_i(getcfg_idx[21]), .cfg_way_i(getcfg_idx[17:16]), .cfg_idx_i(getcfg_idx[11:4]),
     .cfg_reg_i(getcfg_idx[1:0]), .cfg_rdata_o(ic_cfg_rdata),
     .if_req_valid_o(bif_req_valid), .if_req_ready_i(bif_req_ready), .if_req_line_o(bif_req_line),
@@ -693,7 +695,15 @@ module sh5_core
   assign fpu_may_issue = e1_q.u.valid && (e1_q.u.cls == UC_FPU) && (e1_q.u.exc == 12'h0) &&
                          !e1_fpu_issued_q && !older_exc;
   assign fpu_issue = fpu_may_issue && fpu_ready;
-  assign hold_e1 = fpu_may_issue && !fpu_ready;
+  // the cache arrays are block RAM: a GETCFG of a tag or data word holds E1
+  // until the cache has read it (one cycle when the cache is idle)
+  logic e1_cfg_cache;
+  assign e1_cfg_cache = e1_q.u.valid && (e1_q.u.cls == UC_GETCFG) && (e1_q.u.exc == 12'h0) && !older_exc &&
+                        (cfg_is_icache_r || cfg_is_dcache_r);
+  assign ic_cfg_req = e1_cfg_cache && cfg_is_icache_r;
+  assign dc_cfg_req = e1_cfg_cache && cfg_is_dcache_r;
+  assign hold_e1 = (fpu_may_issue && !fpu_ready) ||
+                   (e1_cfg_cache && !(cfg_is_icache_r ? ic_cfg_rvalid : dc_cfg_rvalid));
 
   sh5_fpu u_fpu (
     .clk, .rst_n,
@@ -852,7 +862,7 @@ module sh5_core
   assign st_req_valid = (e3_is_store || e3_is_cop) && !e3_acted_q && !(w_q.u.valid && w_q.u.exc != 12'h0);
   // ICBI invalidates the instruction cache directly; every other request goes to the operand cache
   assign ic_inv_valid = st_req_valid && e3_is_cop && (e3_q.u.cop == COP_ICBI) && sr[SR_MMU];
-  assign st_req_ready = (e3_is_cop && e3_q.u.cop == COP_ICBI) ? 1'b1 : dc_req_ready;
+  assign st_req_ready = (e3_is_cop && e3_q.u.cop == COP_ICBI) ? (!sr[SR_MMU] || ic_inv_ready) : dc_req_ready;
 
   // request multiplexer: E3 store/cache operation, E3 read, E2 read
   always_comb begin
@@ -893,6 +903,7 @@ module sh5_core
     .req_cb_i(dc_req_cb), .req_mmu_i(sr[SR_MMU]), .req_asid_i(cur_asid), .req_sh_i(dc_req_sh),
     .req_prr_i(dc_req_prr), .req_prw_i(dc_req_prw), .req_pru_i(dc_req_pru),
     .rsp_valid_o(dc_rsp_valid), .rsp_data_o(dc_rsp_data), .idle_o(dc_idle),
+    .cfg_req_i(dc_cfg_req), .cfg_rvalid_o(dc_cfg_rvalid),
     .cfg_bank_i(getcfg_idx[21]), .cfg_way_i(getcfg_idx[17:16]), .cfg_idx_i(getcfg_idx[11:4]),
     .cfg_reg_i(getcfg_idx[1:0]), .cfg_rdata_o(dc_cfg_rdata),
     .ld_req_valid_o(bld_req_valid), .ld_req_ready_i(bld_req_ready), .ld_req_swap_o(bld_req_swap),
