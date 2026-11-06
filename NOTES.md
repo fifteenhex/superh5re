@@ -442,4 +442,7 @@ reproduce it. Confirmed facts move to `docs/`.
   `/workspace/files/superh5re-linux-wb/` with the boot command. The
   smolutils shell drops input typed before its first prompt, and its
   `uname` takes no options.
+  Board testbench with the write-back kernel: shell prompt 314 M cycles
+  after release, 9.58 M memory transactions (cache-off kernel: 3.13 G
+  cycles, 262 M transactions); 12.6 s at 25 MHz on the card.
 

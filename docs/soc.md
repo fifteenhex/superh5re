@@ -110,13 +110,15 @@ every host access a 64-bit BAR transaction):
 | tests/exc (MMU, caches, preload, write-back cache stress) | 438 checks, 0 failures, 1.08 M cycles |
 | ISA kit arith, branch groups | 5312 and 16093 checks, 0 failures |
 | SHcompact kit (all groups) | 172323 checks, 0 failures, 1.05 G cycles |
-| Linux 6.15 with the smolutils initrd, kernel built with CONFIG_CACHE_OFF | boots to the getty on ttySC0, 3.13 G cycles after release |
+| Linux 6.15 with the smolutils initrd, kernel built with CONFIG_CACHE_OFF | boots to the getty on ttySC0, 3.13 G cycles after release, 262 M memory transactions |
+| the same kernel built with CONFIG_CACHE_WRITEBACK | shell prompt after 314 M cycles, 9.6 M memory transactions (12.6 s at 25 MHz) |
 | NetBSD 3.1 (CAYMAN_QEMU, memory-disk root) | root login, `uname -a`, 1.77 G cycles |
 
-The uncached boot path costs about 14 cycles per instruction through the
-bridge (one request at a time, memory latency 6), so a kernel boot that
-takes 207 M cycles on the core testbench takes several times that here;
-the 5.5 MB deposit over the BAR costs 18.5 M cycles.
+With the caches off every instruction fetch and data access is a
+serialised bridge transaction, about 14 cycles per instruction (memory
+latency 6); with the caches on the same boot takes a tenth of the cycles
+and 4 % of the transactions. The 5.5 MB deposit over the BAR costs
+18.5 M cycles.
 
 `make -C rtl lint-soc` lints `sh5_top` with the fpgaslop blocks;
 `make -C rtl lint-board` elaborates the board top with fpgaslop's
