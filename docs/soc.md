@@ -137,7 +137,7 @@ flops, five times the part; the arrays went into block RAM
 | sh5_core | 67936 | 30509 | 36 | 4 | 56 |
 | of which sh5_mm | 17284 | 950 | | | 28 |
 | sh5_fpu | 11706 | 2427 | | | 28 |
-| sh5_ifu | 10626 | 431 | | | |
+| sh5_ifu (decode logic pulled in across the boundary by synthesis) | 10626 | 431 | | | |
 | sh5_dcache | 9761 | 4148 | 20 | | |
 | sh5_icache | 6509 | 2879 | 16 | 4 | |
 | ITLB + DTLB | 7938 | 7168 | | | |
