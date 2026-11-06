@@ -168,12 +168,58 @@ the high-fanout control nets (`hold`, the queue pointers) looked at
 first.
 
 `out/sh5.bit` (JTAG) and `out/sh5.bin` (SPI flash) are the products.
-Loading follows `fpgaslop/docs/flashing.md`: `flash.sh detect`, then
-`sram` with the `.bit` to see the LEDs (`led_fpga[0]`, a heartbeat from
-retired instructions, DDR3 calibration done, PCIe link up), then `app`
-with the `.bin` and a cold power cycle, since on this card a JTAG-loaded
-design does not enumerate on PCIe. Then `host/sh5ctl <bdf> probe`.
-Nothing has been loaded on a card yet.
+`timing_core.rpt` lists the core-clock paths on their own (the overall
+list is headed by the MIG's 200 MHz paths).
+
+## Bring-up
+
+Nothing below has been done on a card yet; this is the order and what
+each step proves. Loading follows `fpgaslop/docs/flashing.md`.
+
+1. `flash.sh detect`, then `flash.sh sram out/sh5.bit`. LEDs, from the
+   board top: 0 PCIe link up, 1 DDR3 calibrated, 2 heartbeat from
+   retired instructions (dark while the core is held in reset, which is
+   the state at power-up), 3 bit 0 of the system FPGA LEDCR register
+   (the kernels drive it). A JTAG-loaded design does not enumerate on
+   PCIe on this card, so after LEDs 0 and 1: `flash.sh app out/sh5.bin`
+   and a cold power cycle.
+2. `lspci -d 10ee:` (subsystem 0x5a05), `make -C host`, then
+   `sh5ctl <bdf> probe`. Expected: magic `FPGASLOP`, design `superh5 `,
+   caps DRAM CPU RESET, the build id's top 32 bits the git commit, core
+   1000/40 = 25 MHz, DDR3 3000 ps, dram calibrated, hub id `superh5 `,
+   status 1 (held). The card page is answered by `slop_card` in one cycle
+   independent of everything else, so a good card page with a bad hub
+   points at `sh5_hostif`/`sh5_hub`, and a bad card page at the PCIe
+   path or the clocking. Reads of an undecoded register-window address
+   return `baadf00d_baadf00d`; all-ones means the endpoint is not
+   answering at all.
+3. `sh5ctl <bdf> status`: the hub's cycle counter against the host's
+   clock gives the core clock in MHz (25.00 expected); a counter that
+   does not move means no MMCM output.
+4. `sh5ctl <bdf> memtest` (1 MB at the RAM base, two patterns and a byte
+   strobe; `memtest 0x10000000` for the whole 256 MB window): proves the
+   host-to-DDR3 path, `memarb` port B, `mem_cdc`, `req_to_axi4` and the
+   MIG, with the core held. Then `peek`/`poke` for anything by hand.
+5. `sh5ctl <bdf> run tests/exc/exc.elf --done SUMMARY`: the first code
+   on the core; `SUMMARY 430 tests, 0 failures` within a second (0.4 M
+   cycles in simulation). Then the ISA kit, `run
+   tests/isa/isatest-bare.elf --done DONE` (458064 checks, 309 M cycles
+   in simulation, about 12 s at 25 MHz), and the SHcompact kit
+   `tests/compact/compact-sh5.elf` (207 M cycles). A `run` stops on a
+   bus error (hub STATUS bit 2), on the done string, or on its timeout.
+6. `sh5ctl <bdf> boot vmlinux --initrd sh-sh5.cpio.gz --cmdline
+   "console=ttySC0 -- smolinit.getty=/dev/ttySC0 smolinit.hostname=cayman"`:
+   the board testbench needed 3.1 G cycles to the getty, about two
+   minutes at 25 MHz; the console is interactive (Ctrl-] detaches,
+   `console` reattaches). NetBSD: `boot netbsd-qemu` (the kernel with
+   the memory-disk root), `login:` after 2.3 G cycles in the core
+   testbench.
+
+What a failure at each step means is in `fpgaslop/docs/flashing.md`
+(PCIe, DDR3, the write-loss history of this board) and above
+(`sh5_hostif`: card page, hub, DRAM forwarding; `sh5_hub`: STATUS,
+console FIFOs). `sh5ctl reset` is fpgaslop's soft reset of the design
+without the host path.
 
 ## Not done
 
@@ -182,4 +228,4 @@ Nothing has been loaded on a card yet.
   off (CAP_DMA clear).
 - Write bursts, a wider DRAM window, and the core's bus timing (one
   request at a time through the bridge) are the performance items.
-- `host/sh5ctl` has never seen hardware; no bitstream has been loaded on a card.
+- Nothing has run on a card yet.

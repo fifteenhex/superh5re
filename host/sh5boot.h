@@ -46,8 +46,22 @@ struct sh5_bar {
 	void     (*write64)(void *ctx, uint64_t off, uint64_t val, uint8_t wstrb);
 };
 
+/* the card page (fpgaslop/host/slop_id.h) and the hub's identity registers */
+struct sh5_info {
+	uint64_t magic, design, abi, caps, build_id, build_cfg, dram_stat, wr_count;
+	uint64_t hub_id, hub_version, ram_size, status;
+};
+#define SH5_SLOP_MAGIC    0x46504741534C4F50ull   /* "FPGASLOP" */
+#define SH5_CFG_CORE_DIV(cfg)  (((cfg) >> 8) & 0xff)   /* 1000 MHz / div = core clock */
+#define SH5_CFG_DDR_TCK(cfg)   (((cfg) >> 16) & 0xffff) /* DDR3 clock period, ps */
+
+void sh5_identify(const struct sh5_bar *b, struct sh5_info *i);
+
 /* identity: 0 if the card page and the hub answer as expected */
 int sh5_probe(const struct sh5_bar *b, char *msg, size_t msglen);
+
+/* fpgaslop soft reset of the design (core and peripherals; not the host path) */
+void sh5_soft_reset(const struct sh5_bar *b);
 
 /* hold the core in reset / set its start address / release it */
 void sh5_hold(const struct sh5_bar *b);

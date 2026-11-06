@@ -26,24 +26,44 @@ static int say(char *msg, size_t len, const char *s)
 	return -1;
 }
 
+void sh5_identify(const struct sh5_bar *b, struct sh5_info *i)
+{
+	i->magic     = b->read64(b->ctx, SH5_BAR_REGS + 0x00);   /* slop_id, fpgaslop/host/slop_id.h */
+	i->design    = b->read64(b->ctx, SH5_BAR_REGS + 0x08);
+	i->abi       = b->read64(b->ctx, SH5_BAR_REGS + 0x10);
+	i->caps      = b->read64(b->ctx, SH5_BAR_REGS + 0x18);
+	i->build_id  = b->read64(b->ctx, SH5_BAR_REGS + 0x20);
+	i->build_cfg = b->read64(b->ctx, SH5_BAR_REGS + 0x28);
+	i->dram_stat = b->read64(b->ctx, SH5_BAR_REGS + 0x30);
+	i->wr_count  = b->read64(b->ctx, SH5_BAR_REGS + 0x38);
+	i->hub_id      = hub_rd(b, SH5_HUB_ID);
+	i->hub_version = hub_rd(b, SH5_HUB_VERSION);
+	i->ram_size    = hub_rd(b, SH5_HUB_RAM_SIZE);
+	i->status      = hub_rd(b, SH5_HUB_STATUS);
+}
+
 int sh5_probe(const struct sh5_bar *b, char *msg, size_t msglen)
 {
-	uint64_t magic = b->read64(b->ctx, SH5_BAR_REGS + 0x00);   /* slop_id MAGIC */
-	uint64_t design = b->read64(b->ctx, SH5_BAR_REGS + 0x08);
-	uint64_t id = hub_rd(b, SH5_HUB_ID);
+	struct sh5_info i;
 
-	if (magic != 0x46504741534C4F50ull)
+	sh5_identify(b, &i);
+	if (i.magic != SH5_SLOP_MAGIC)
 		return say(msg, msglen, "no fpgaslop identity block at the register window");
-	if (design != SH5_HUB_ID_VALUE)
+	if (i.design != SH5_HUB_ID_VALUE)
 		return say(msg, msglen, "the card page is another design");
-	if (id != SH5_HUB_ID_VALUE)
+	if (i.hub_id != SH5_HUB_ID_VALUE)
 		return say(msg, msglen, "no SH-5 hub at the hub window");
 	if (msg && msglen)
 		snprintf(msg, msglen, "superh5 hub version %llx, %llu MB RAM, status %llx",
-			 (unsigned long long)hub_rd(b, SH5_HUB_VERSION),
-			 (unsigned long long)(hub_rd(b, SH5_HUB_RAM_SIZE) >> 20),
-			 (unsigned long long)hub_rd(b, SH5_HUB_STATUS));
+			 (unsigned long long)i.hub_version,
+			 (unsigned long long)(i.ram_size >> 20),
+			 (unsigned long long)i.status);
 	return 0;
+}
+
+void sh5_soft_reset(const struct sh5_bar *b)
+{
+	b->write64(b->ctx, SH5_BAR_REGS + 0xC0, 0x5245534554504C53ull, 0xff);   /* SLOP_R_RESET, "RESETPLS" */
 }
 
 void sh5_hold(const struct sh5_bar *b)

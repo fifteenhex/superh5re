@@ -18,9 +18,9 @@
 #
 # Modelled on smol68k/fpga/nitefury/build.tcl, which has produced
 # bitstreams that run on the card; the IP configuration is theirs, with
-# the module names changed and SUBSYSTEM_ID 0x5a05. THIS SCRIPT HAS NOT
-# BEEN RUN: no Vivado is available where this repository is developed.
-# The file list below is what boards/nitefury/lint-top.sh elaborates.
+# the module names changed and SUBSYSTEM_ID 0x5a05. Builds in about 35
+# minutes on Vivado 2026.1 (docs/soc.md, "Implementation"). The file list
+# below is what boards/nitefury/lint-top.sh elaborates.
 
 set part      xc7a200tfbg484-2
 set outdir    ""
@@ -247,6 +247,9 @@ report_utilization -hierarchical -file $outdir/util_hier.rpt
 report_timing -max_paths 20 -nworst 1 -unique_pins -delay_type max \
     -sort_by slack -input_pins -file $outdir/timing_paths.rpt
 report_clock_networks -file $outdir/clocks.rpt
+# the core clock on its own: the MIG's 200 MHz paths head the overall list
+report_timing -max_paths 40 -nworst 1 -unique_pins -delay_type max -sort_by slack \
+    -group clk_core -file $outdir/timing_core.rpt
 
 # setup and hold separately (smol68k read a hold slack as a setup problem once)
 set wns [get_property SLACK [get_timing_paths -delay_type max]]
