@@ -91,11 +91,14 @@ deposited image.
 
 The core's packet port (`bus-interface.md`) becomes fpgaslop's req/ack:
 one packet at a time; Load32 as a 4-beat burst read (`mem_len` = 3)
-answered critical word first; Store32 as four single-beat writes (write
-bursts through `mem_cdc` need `wr_ready` pacing that smol68k also leaves
-for later); Swap8 as a read and a write. The core keeps several
-requests outstanding and accepts responses in any order, so the
-serialisation is legal.
+answered critical word first; Store32 to RAM as a 4-beat burst write,
+ascending words, each beat's data and mask held until its ack (fpgaslop
+`docs/porting-write-bursts.md`; the board top feeds `req_to_axi4`'s
+`wr_ready` from the crossing's ready, as ddrslop does, because tied high
+it deadlocks on the first write burst); Swap8 as a read and a write. The
+core keeps several requests outstanding and accepts responses in any
+order, so the serialisation is legal. Write bursts took 5 % off the
+cycles and 10 % off the transactions of tests/exc through the testbench.
 
 ## Results
 
@@ -104,7 +107,7 @@ every host access a 64-bit BAR transaction):
 
 | program | result |
 |---|---|
-| tests/exc (MMU, caches, preload in its `mmu` test) | 430 checks, 0 failures, 0.43 M cycles |
+| tests/exc (MMU, caches, preload, write-back cache stress) | 438 checks, 0 failures, 1.08 M cycles |
 | ISA kit arith, branch groups | 5312 and 16093 checks, 0 failures |
 | SHcompact kit (all groups) | 172323 checks, 0 failures, 1.05 G cycles |
 | Linux 6.15 with the smolutils initrd | boots to the getty on ttySC0, 3.13 G cycles after release |
@@ -201,7 +204,7 @@ each step proves. Loading follows `fpgaslop/docs/flashing.md`.
    host-to-DDR3 path, `memarb` port B, `mem_cdc`, `req_to_axi4` and the
    MIG, with the core held. Then `peek`/`poke` for anything by hand.
 5. `sh5ctl <bdf> run tests/exc/exc.elf --done SUMMARY`: the first code
-   on the core; `SUMMARY 430 tests, 0 failures` within a second (0.4 M
+   on the core; `SUMMARY 438 tests, 0 failures` within a second (1.1 M
    cycles in simulation). Then the ISA kit, `run
    tests/isa/isatest-bare.elf --done DONE` (458064 checks, 309 M cycles
    in simulation, about 12 s at 25 MHz), and the SHcompact kit
@@ -226,6 +229,6 @@ without the host path.
 - No interrupt to the host (CAP_MSI clear); the host polls, as smol68k's board does.
 - The DMA engine of `slop_card` is instantiated but its masters are tied
   off (CAP_DMA clear).
-- Write bursts, a wider DRAM window, and the core's bus timing (one
-  request at a time through the bridge) are the performance items.
+- A wider DRAM window and the core's bus timing (one request at a time
+  through the bridge) are the performance items.
 - Nothing has run on a card yet.

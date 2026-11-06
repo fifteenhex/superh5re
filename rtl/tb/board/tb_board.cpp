@@ -82,7 +82,6 @@ struct Tb {
             t.mem_ack = 0; t.mem_err = 0;
             if (t.mem_req) {
                 maddr = t.mem_addr; mwdata = t.mem_wdata; mstrb = t.mem_wstrb; mwe = t.mem_we;
-                if (mwe && t.mem_len) { fprintf(stderr, "[tb] write with a burst length\n"); exit(1); }
                 if (maddr >= SH5_RAM_BYTES) { fprintf(stderr, "[tb] memory access outside DRAM: %llx\n", (unsigned long long)maddr); exit(1); }
                 mbeats = t.mem_len;
                 mctr = latency;
@@ -94,6 +93,10 @@ struct Tb {
             break;
         case M_ACK: {
             uint32_t a = (uint32_t)maddr & ~7u;
+            // a write burst takes each beat's data as the master presents it
+            // with the ack (fpgaslop memarb: "write data follows the master
+            // beat by beat"); the first beat's data was captured with the request
+            if (mwe && mbeats != t.mem_len) { mwdata = t.mem_wdata; mstrb = t.mem_wstrb; }
             if (mwe) mem.wr64(a, mwdata, mstrb);
             else t.mem_rdata = mem.rd64(a);
             if (bustrace) fprintf(stderr, "[bus] %llu %s %08x %016llx strb=%02x\n", (unsigned long long)cycle,

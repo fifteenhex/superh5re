@@ -60,6 +60,7 @@ registers after return.
 | `fpuexc` | ENABLE.V with a signalling NaN source: 0x120, CAUSE.V and FLAG.V, destination unchanged; disabled: qNaN 0x7fbfffff and FLAG.V; ENABLE.Z with FDIV.S 1/0; ENABLE.I with an exact FADD.S raises early with CAUSE = 0; denormalized source with DN = 0 raises with CAUSE.E only; with DN = 1 it is flushed | 8.3.6-8.3.8, 8.4.1, 8.5 |
 | `sync` | SYNCI, SYNCO, NOP execute without a launch | 6.5 |
 | `mmu` | 512 MB ITLB/DTLB entries for code/data (cachable) and devices, SR.MMU set by RTE, caches enabled (operand cache write-through); PT/l at distances 0-6 before BLINK; BEQ/BNE with l = 1 taken and not taken, BEQ/u; TR rewritten after a PT/l; counted loops on a likely branch; PT/l to an unmapped page and to device space raises nothing; TRAPA reached through a predicted branch records the target as SPC; code modified with the sequence of 6.7.1 (store, OCBP, SYNCO, ICBI, SYNCI) after a PT/l to it executes the new instruction; caches invalidated and disabled, MMU off | 5.3, 6.7.1, 18.11.2, Vol. 4 Tables 36-40 |
+| `cache` | operand cache in write-back mode (the `mmu` mapping, OCCR0 = 1): a 64 KB buffer, twice the cache, written and read back (fills, dirty evictions and write-backs); byte, halfword and word stores into cached lines; the buffer purged with OCBP and read again from memory; every line below the stack top purged before OCI, since OCI invalidates without writing back | Vol. 4 9.1, 9.1.5, Vol. 1 6.5 |
 
 SH-5 NaN encodings (Vol. 1 2.5.4): a signalling NaN has the fraction MSB set
 (0x7fc00000-0x7fffffff); 0x7f800001 is a quiet NaN.  The test uses
@@ -71,10 +72,15 @@ TLB misses and protection, the SHcompact ISA.
 
 ## Results
 
-RTL core (`rtl/`): 430 checks, 0 failures, 75647 cycles (caches and
-target preload enabled by the `mmu` test). QEMU `sh5` target: 430 checks,
-0 failures after the emulator fixes on its branch (before them 43
-failures; the deviations are listed below for the record).
+RTL core (`rtl/`): 438 checks, 0 failures, 538623 cycles (caches and
+target preload enabled by the `mmu` and `cache` tests; 75647 cycles before
+the `cache` test). QEMU `sh5` target: 438 checks, 0 failures after the
+emulator fixes on its branch (before them 43 failures; the deviations are
+listed below for the record). The `cache` test found nothing in the core
+but two mistakes in its own first version worth recording: OCI loses
+dirty lines (the test's own counters) unless they are purged first, and
+an OCBP with a non-sign-extended EA (0x0000000080000000) is an address
+error on the core while QEMU accepts it.
 Three RTL bugs were found by the suite and fixed: PUTCON could not write
 SR.BL, GETCON USR read the dirty bits before older instructions had set
 them, and an instruction raising an exception followed within two

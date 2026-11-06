@@ -628,7 +628,7 @@ the test commands).
 | Bus | Load8/Store8/Swap8 words, Load32/Store32 lines (word order, address bits 4:3 = 0); VCR target port. |
 
 Verification done: the 458064-check SHmedia ISA kit (`tests/isa`, bare
-mode), the 430-check exception suite (`tests/exc`, whose `mmu` test
+mode), the 438-check exception suite (`tests/exc`, whose `mmu` and `cache` tests
 runs with the MMU, the caches and target preload active) and the
 172323-check SHcompact kit (`tests/compact`) pass on the model; NetBSD
 3.1 (CAYMAN_QEMU kernel) boots to multi-user, root logs in on the console

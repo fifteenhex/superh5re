@@ -11,10 +11,12 @@
 //                  Tables 79/80): the response starts at the word in
 //                  ADDR[4:3] and wraps
 //   Store8         one write beat, wstrb = MSK
-//   Store32        four single-beat writes, in the order the core sent them
-//                  (critical word first); no burst write, because the memory
-//                  path's write bursts need wr_ready pacing through the
-//                  clock crossing (fpgaslop docs/porting-write-bursts.md)
+//   Store16/32     to RAM: one burst write of 2/4 beats, ascending words of
+//                  the block, each beat's data and mask presented until its
+//                  ack (fpgaslop docs/porting-write-bursts.md: memarb,
+//                  mem_cdc and req_to_axi4 carry write bursts, req_to_axi4's
+//                  wr_ready must come from the crossing); elsewhere, single
+//                  beats in the order the core sent them
 //   Swap8          read then write of one word; the response carries the old
 //                  value. Atomic against the core (it is the only initiator
 //                  here); the host's DRAM window may interleave between the
@@ -103,28 +105,30 @@ module sh5_shwy_req
                      (addr_q[31:24] == 8'h0d) || (addr_q[31:24] == 8'h09) || (addr_q[31:24] == 8'h08) ||  // VCRs
                      (addr_q[31:20] == 12'h0c1);             // debug module (writes ignored)
 
-  // word written by write beat k of a Store32: the order the core sent them
-  assign wr_word = (nbeats == 3'd3) ? (first + beat_q[1:0]) : (nbeats == 3'd1) ? {1'b0, first[0] ^ beat_q[0]} : addr_q[4:3];
-
   // bus side
-  logic burst_rd;
+  logic burst_rd, burst_wr;
   assign burst_rd  = in_ram && is_load && (nbeats != 3'd0);
+  assign burst_wr  = in_ram && is_store && (nbeats != 3'd0);
+  // word written by write beat k: ascending in a burst, else the order the core sent them
+  assign wr_word = burst_wr ? beat_q[1:0] :
+                   (nbeats == 3'd3) ? (first + beat_q[1:0]) : (nbeats == 3'd1) ? {1'b0, first[0] ^ beat_q[0]} : addr_q[4:3];
+  // the collected beat holding that word: beat k of the packet is word first + k
+  logic [1:0] wr_idx;
+  assign wr_idx = (nbeats == 3'd3) ? (wr_word - first) : (nbeats == 3'd1) ? {1'b0, wr_word[0] ^ first[0]} : 2'd0;
   assign m_req     = (state_q == S_WAIT);      // S_ISSUE decodes; a failing address never reaches the bus
   assign m_we      = is_store || (is_swap && swap_wr_q);
   assign m_sel_ram = in_ram;
-  assign m_len     = burst_rd ? nbeats : 3'd0;
+  assign m_len     = (burst_rd || burst_wr) ? nbeats : 3'd0;
   always_comb begin
     logic [31:0] a;
     a = addr_q;
-    if (is_store && nbeats != 3'd0) a = {addr_q[31:5], wr_word, 3'b000};
-    else if (is_load && nbeats != 3'd0) begin
-      if (burst_rd) a = {addr_q[31:5], 5'b00000};                     // the whole block, ascending
-      else          a = {addr_q[31:5], first + beat_q[1:0], 3'b000};  // word by word, critical first
-    end
+    if (burst_rd || burst_wr) a = {addr_q[31:5], 5'b00000};           // the whole block, ascending
+    else if (is_store && nbeats != 3'd0) a = {addr_q[31:5], wr_word, 3'b000};
+    else if (is_load && nbeats != 3'd0) a = {addr_q[31:5], first + beat_q[1:0], 3'b000};  // word by word, critical first
     m_addr = in_ram ? {36'h0, a[RAM_BITS-1:0]} : {32'h0, a};
   end
-  assign m_wdata = is_swap ? data_q[0] : data_q[beat_q[1:0]];
-  assign m_wstrb = is_swap ? mask_q[0] : mask_q[beat_q[1:0]];
+  assign m_wdata = is_swap ? data_q[0] : data_q[wr_idx];
+  assign m_wstrb = is_swap ? mask_q[0] : mask_q[wr_idx];
 
   assign ireq_ready = (state_q == S_COLLECT);
   assign idle_o     = (state_q == S_COLLECT) && !ireq_valid;
@@ -179,7 +183,7 @@ module sh5_shwy_req
               else          rd_q[beat_q[1:0]] <= m_rdata;        // beat order = critical word first
             end
             if (is_swap && !swap_wr_q) rd_q[0] <= m_rdata;
-            if (burst_rd) begin
+            if (burst_rd || burst_wr) begin
               // one bus transaction, several acks
               beat_q <= beat_q + 3'd1;
               if (beat_q == nbeats) state_q <= S_RESPOND;

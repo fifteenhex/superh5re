@@ -324,8 +324,11 @@ module sh5_board_top #(
     wire [1:0]  ax_bresp, ax_rresp;
     wire        ax_bvalid, ax_bready, ax_rvalid, ax_rready, ax_rlast;
 
-    // Line reads burst (sh5_shwy_req sets mem_len for a Load32 block);
-    // every write is one beat, so wr_ready is tied high as smol68k does.
+    // Line reads and write-backs burst (sh5_shwy_req sets mem_len for a
+    // Load32/Store32 block). The requester behind this port is the clock
+    // crossing, so wr_ready takes the crossing's ready like rd_ready does
+    // (ddrslop does the same); tied high it deadlocks on the first write
+    // burst (req_to_axi4.sv, wr_ready).
     req_to_axi4 #(.ADDR_WIDTH(DDR_ADDR_WIDTH),
                   .DATA_WIDTH(DDR_DATA_WIDTH),
                   .ID_WIDTH(4)) adapt (
@@ -335,7 +338,7 @@ module sh5_board_top #(
         .ack(b_ack), .rdata(b_rdata),
         .err(dram_err), .wedged_o(dram_wedged), .wr_done(wr_done),
         .init_calib_complete(init_calib_complete),
-        .req_len(b_len), .rd_ready(b_rd_ready), .wr_ready(1'b1),
+        .req_len(b_len), .rd_ready(b_rd_ready), .wr_ready(b_rd_ready),
         .m_awid(ax_awid), .m_awaddr(ax_awaddr), .m_awlen(ax_awlen),
         .m_awsize(ax_awsize), .m_awburst(ax_awburst),
         .m_awlock(ax_awlock), .m_awcache(ax_awcache),

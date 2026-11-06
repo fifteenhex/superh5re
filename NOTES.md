@@ -404,3 +404,18 @@ reproduce it. Confirmed facts move to `docs/`.
   `/workspace/files/superh5re-fpga-8a0aba28/`. The card has not been
   programmed yet (`docs/soc.md`, "Implementation"). superh5re is not on
   the gitolite server, so the work is on origin only.
+- 2026-11-06: for the bench day. `host/sh5ctl` grew probe (card page
+  decoded), status (core clock measured from the hub's cycle counter),
+  peek/poke/memtest, `run ELF --done STR`; order and expected output in
+  `docs/soc.md` "Bring-up". The worst core-clock path (2.5 ns slack at
+  40 ns) is 39 logic levels from the IFU queue through the SHcompact
+  expander and decode to the fetch enable, 31 of its 37 ns routing:
+  a faster clock needs a fetch/decode pipeline register, not fanout
+  work; left at 25 MHz. Bridge: Store16/32 to RAM are burst writes now
+  (fpgaslop carries write bursts since `porting-write-bursts.md`; the
+  board top's `wr_ready` takes the crossing's ready, tied high it
+  deadlocks). tests/exc gained `cache` (write-back operand cache stress,
+  438 checks on QEMU, core and board; its first version taught that OCI
+  loses dirty lines and that a non-sign-extended EA in OCBP is an address
+  error on the core). Cross compiler: `sh5work/xprefix2/bin` (the one in
+  `xprefix` lacks cc1). `qemu-system-sh5` is `qemu-sh5/build/`.

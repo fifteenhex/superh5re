@@ -996,6 +996,88 @@ static void t_mmu(void)
 	PUTCFG(ir + 0, 0); PUTCFG(ir + 1, 0);
 }
 
+/* ---- the operand cache in write-back mode: fills, dirty evictions and
+ * write-backs against memory ---- */
+
+#define CACHE_WORDS	8192		/* 64 KB: twice the operand cache */
+static u64 cache_buf[CACHE_WORDS] __attribute__((aligned(32)));
+
+static u64 cache_pat(u64 i)
+{
+	return (i * 0x9E3779B97F4A7C15ULL) ^ (i << 32) ^ 0x5555AAAA;
+}
+
+static void t_cache(void)
+{
+	const u64 dr = 0x00800000, ir = 0x00000000;
+	const u64 iccr = 0x01600000, occr = 0x01e00000;
+	volatile u64 *p = cache_buf;
+	volatile u8 *pb = (volatile u8 *)cache_buf;
+	u64 sum, want, i, c0;
+
+	/* the mapping of t_mmu; operand cache enabled, write-back (CB = 2, OWT = 0) */
+	PUTCFG(dr + 0, 0x80000003);
+	PUTCFG(dr + 1, 0x80000000 | (1 << 9) | (1 << 8) | (1 << 6) | (3 << 3) | 2);
+	PUTCFG(dr + 16, 0x00000003);
+	PUTCFG(dr + 17, 0x00000000 | (1 << 9) | (1 << 8) | (1 << 6) | (3 << 3) | 1);
+	PUTCFG(ir + 0, 0x80000003);
+	PUTCFG(ir + 1, 0x80000000 | (1 << 9) | (1 << 7) | (3 << 3) | 2);
+	SET_MMU(1);
+	PUTCFG(iccr, 1);
+	PUTCFG(occr, 1);
+	CHECK("occr0 wb", GETCFG(occr), 1);
+	c0 = COUNT;
+
+	/* write twice the cache: every set is filled, then half the lines are
+	 * evicted dirty (write-backs) to make room; read it all back (fills) */
+	for (i = 0; i < CACHE_WORDS; i++)
+		p[i] = cache_pat(i);
+	sum = 0;
+	for (i = 0; i < CACHE_WORDS; i++)
+		sum += p[i];
+	want = 0;
+	for (i = 0; i < CACHE_WORDS; i++)
+		want += cache_pat(i);
+	CHECK("write, evict, read back", sum, want);
+
+	/* partial stores into cached lines keep their neighbours */
+	pb[8 * 100 + 1] = 0x11; pb[8 * 100 + 6] = 0x66;
+	*(volatile u16 *)&pb[8 * 200 + 2] = 0x2222;
+	*(volatile u32 *)&pb[8 * 300 + 4] = 0x33333333;
+	CHECK("bytes", p[100], (cache_pat(100) & ~0x00ff00000000ff00ULL) | 0x0066000000001100ULL);
+	CHECK("half", p[200], (cache_pat(200) & ~0x00000000ffff0000ULL) | 0x0000000022220000ULL);
+	CHECK("word", p[300], (cache_pat(300) & 0x00000000ffffffffULL) | 0x3333333300000000ULL);
+
+	/* purge the buffer (dirty lines written back and invalidated) and read
+	 * it again: the lines refill from what the write-backs left in memory */
+	for (i = 0; i < CACHE_WORDS; i += 4)
+		__asm__ volatile("ocbp %0, 0" : : "r"(&p[i]) : "memory");
+	__asm__ volatile("synco" : : : "memory");
+	sum = 0;
+	for (i = 0; i < CACHE_WORDS; i++)
+		sum += p[i];
+	want = want - cache_pat(100) - cache_pat(200) - cache_pat(300)
+	     + ((cache_pat(100) & ~0x00ff00000000ff00ULL) | 0x0066000000001100ULL)
+	     + ((cache_pat(200) & ~0x00000000ffff0000ULL) | 0x0000000022220000ULL)
+	     + ((cache_pat(300) & 0x00000000ffffffffULL) | 0x3333333300000000ULL);
+	CHECK("memory after purge", sum, want);
+	CHECK("count", COUNT, c0);
+
+	/* back to the reset state. OCI invalidates without writing back, so
+	 * every line this test can have dirtied (image, data, bss and the
+	 * stack below 0x80100000: start.S) is purged first; a model without
+	 * cache contents is not affected either way */
+	for (i = ADDR(0x80000000); i < ADDR(0x80100000); i += 32)	/* sign-extended EAs (neff = 32) */
+		__asm__ volatile("ocbp %0, 0" : : "r"(i) : "memory");
+	__asm__ volatile("synco" : : : "memory");
+	PUTCFG(occr, 2);
+	CHECK("occr0 off", GETCFG(occr), 0);
+	PUTCFG(iccr, 2);
+	SET_MMU(0);
+	PUTCFG(dr + 0, 0); PUTCFG(dr + 1, 0); PUTCFG(dr + 16, 0); PUTCFG(dr + 17, 0);
+	PUTCFG(ir + 0, 0); PUTCFG(ir + 1, 0);
+}
+
 int main(void)
 {
 	exc_area.ctl.exit_tra = 1ULL << 32;	/* no exit trap */
@@ -1014,6 +1096,7 @@ int main(void)
 	run("fpuexc", t_fpuexc);
 	run("sync", t_sync);
 	run("mmu", t_mmu);
+	run("cache", t_cache);
 	exc_puts("exc: sleep not tested (needs an interrupt source)\n");
 	exc_puts("isa: SUMMARY ");
 	exc_putdec(exc_tests);
