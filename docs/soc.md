@@ -164,11 +164,15 @@ met every constraint:
 | setup slack | 0.725 ns (MIG, 200 MHz); 2.5 ns on the 40 ns core clock |
 | hold slack | 0.036 ns |
 
-The worst core-clock path runs from the IFU's queue read pointer to the
-fetch PC's clock enable: 37 ns, 84 % of it routing, one logic level.
-The design makes 25 MHz with little to spare; a faster core clock needs
-the high-fanout control nets (`hold`, the queue pointers) looked at
-first.
+The worst core-clock path (`timing.rpt`, 2.5 ns slack) runs from the
+IFU's queue read pointer through the instruction mux, the SHcompact
+expander (`d_cinsn`), decode and the issue decision back to the fetch
+PC's clock enable: 39 logic levels, 37 ns, 31 of them routing between
+slices spread across the die. The design makes 25 MHz with little to
+spare, and the path is a decode depth, not a fanout: a faster core clock
+needs a register between the fetch queue and decode (one more cycle on a
+redirect, hidden by the target buffers for predicted branches) and, for
+SHcompact, between the expander and decode.
 
 `out/sh5.bit` (JTAG) and `out/sh5.bin` (SPI flash) are the products.
 `timing_core.rpt` lists the core-clock paths on their own (the overall
