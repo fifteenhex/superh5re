@@ -178,6 +178,8 @@ list is headed by the MIG's 200 MHz paths).
 
 Nothing below has been done on a card yet; this is the order and what
 each step proves. Loading follows `fpgaslop/docs/flashing.md`.
+`host/bringup.sh <bdf>` runs steps 2 to 5 in order, stopping at the
+first failure, with each step's output kept in a log directory.
 
 1. `flash.sh detect`, then `flash.sh sram out/sh5.bit`. LEDs, from the
    board top: 0 PCIe link up, 1 DDR3 calibrated, 2 heartbeat from

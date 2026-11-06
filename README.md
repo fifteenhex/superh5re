@@ -23,4 +23,4 @@ and never shipped in a product.
 | `rtl/` | FPGA design: the SH-5 core (SHmedia and SHcompact, caches, MMU, FPU), the system around it (`rtl/soc`: bus bridge, Cayman peripherals, hub, host interface), Verilator testbenches (core with C++ devices; board with the host protocol), unit tests. |
 | `fpga/nitefury/` | Board top and Vivado build script for the NiteFury II, on fpgaslop's shell (`docs/soc.md`). |
 | `fpgaslop/` | Submodule: the shared board layer (PCIe/DDR3 path, card registers, tools). |
-| `host/` | `sh5ctl`: probe, memory test, run a test image or boot a kernel over the BAR (`docs/soc.md`, "Bring-up"); `sh5boot.c` is the protocol the board testbench runs too. |
+| `host/` | `sh5ctl`: probe, memory test, run a test image or boot a kernel over the BAR; `bringup.sh` runs the first-day sequence (`docs/soc.md`, "Bring-up"); `sh5boot.c` is the protocol the board testbench runs too. |

@@ -419,3 +419,14 @@ reproduce it. Confirmed facts move to `docs/`.
   loses dirty lines and that a non-sign-extended EA in OCBP is an address
   error on the core). Cross compiler: `sh5work/xprefix2/bin` (the one in
   `xprefix` lacks cc1). `qemu-system-sh5` is `qemu-sh5/build/`.
+  The Vivado worker went offline on 2026-11-05 15:45 UTC, after the full
+  build of 8a0aba28; the build of 9b5a6db6 (write bursts) could not be
+  started. The handed-over bitstream is 8a0aba28 and is self-consistent
+  (single-beat writes, wr_ready tied high); `host/sh5ctl` from master
+  works with it. Rebuild when the worker is back:
+  `python3 fpgaslop/vivado/vc.py build --project superh5re-board --source
+  /tmp/sh5build --out out/vivado-full2 --tcl fpga/nitefury/build.tcl -v
+  -- -build_id <hash>00000000` (staging: `rsync -a --exclude .git
+  --exclude tb --exclude obj --exclude logs fpga rtl fpgaslop
+  /tmp/sh5build/`). `host/bringup.sh <bdf>` runs the first-day sequence.
+
