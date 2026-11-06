@@ -429,4 +429,17 @@ reproduce it. Confirmed facts move to `docs/`.
   -- -build_id <hash>00000000` (staging: `rsync -a --exclude .git
   --exclude tb --exclude obj --exclude logs fpga rtl fpgaslop
   /tmp/sh5build/`). `host/bringup.sh <bdf>` runs the first-day sequence.
+  Board testbench, single-beat writes: NetBSD to root login and `uname -a`
+  in 1.77 G cycles (`rtl/tb/board/logs/board-netbsd-console.txt`). Two
+  Linux boots (with and without write bursts) were cycle-identical, which
+  led to the kernel config: `CONFIG_CACHE_OFF=y`. Every Linux run so far
+  (207 M cycles on the core testbench, 3.13 G through the board) ran with
+  both caches off; only tests/exc and NetBSD have exercised them. Rebuilt
+  with `CONFIG_CACHE_WRITEBACK=y` (`linux-sh5/vmlinux-wb`; the old image
+  kept as `vmlinux-cacheoff`, `config-cacheoff`): boots on QEMU, and on
+  the core testbench to the shell in 195.6 M cycles (bus latency 1 there,
+  so little gain); the board run is the one that matters. Handed over as
+  `/workspace/files/superh5re-linux-wb/` with the boot command. The
+  smolutils shell drops input typed before its first prompt, and its
+  `uname` takes no options.
 

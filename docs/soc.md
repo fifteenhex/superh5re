@@ -110,7 +110,8 @@ every host access a 64-bit BAR transaction):
 | tests/exc (MMU, caches, preload, write-back cache stress) | 438 checks, 0 failures, 1.08 M cycles |
 | ISA kit arith, branch groups | 5312 and 16093 checks, 0 failures |
 | SHcompact kit (all groups) | 172323 checks, 0 failures, 1.05 G cycles |
-| Linux 6.15 with the smolutils initrd | boots to the getty on ttySC0, 3.13 G cycles after release |
+| Linux 6.15 with the smolutils initrd, kernel built with CONFIG_CACHE_OFF | boots to the getty on ttySC0, 3.13 G cycles after release |
+| NetBSD 3.1 (CAYMAN_QEMU, memory-disk root) | root login, `uname -a`, 1.77 G cycles |
 
 The uncached boot path costs about 14 cycles per instruction through the
 bridge (one request at a time, memory latency 6), so a kernel boot that
@@ -218,11 +219,14 @@ first failure, with each step's output kept in a log directory.
    bus error (hub STATUS bit 2), on the done string, or on its timeout.
 6. `sh5ctl <bdf> boot vmlinux --initrd sh-sh5.cpio.gz --cmdline
    "console=ttySC0 -- smolinit.getty=/dev/ttySC0 smolinit.hostname=cayman"`:
-   the board testbench needed 3.1 G cycles to the getty, about two
-   minutes at 25 MHz; the console is interactive (Ctrl-] detaches,
-   `console` reattaches). NetBSD: `boot netbsd-qemu` (the kernel with
-   the memory-disk root), `login:` after 2.3 G cycles in the core
-   testbench.
+   the console is interactive (Ctrl-] detaches, `console` reattaches);
+   the prompt is `smolsh / >`. Use a kernel built with
+   `CONFIG_CACHE_WRITEBACK=y`: the image booted on the testbenches until
+   2026-11-06 had `CONFIG_CACHE_OFF=y`, never touched the caches, and
+   needed 3.1 G cycles to the getty through the board testbench (two
+   minutes at 25 MHz). NetBSD: `boot netbsd-qemu` (the kernel with the
+   memory-disk root); root login and `uname -a` after 1.77 G cycles
+   through the board testbench.
 
 What a failure at each step means is in `fpgaslop/docs/flashing.md`
 (PCIe, DDR3, the write-loss history of this board) and above
