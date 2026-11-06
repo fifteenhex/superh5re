@@ -98,7 +98,9 @@ ascending words, each beat's data and mask held until its ack (fpgaslop
 it deadlocks on the first write burst); Swap8 as a read and a write. The
 core keeps several requests outstanding and accepts responses in any
 order, so the serialisation is legal. Write bursts took 5 % off the
-cycles and 10 % off the transactions of tests/exc through the testbench.
+cycles and 10 % off the transactions of tests/exc through the testbench,
+and 5.5 % and 15 % off a Linux boot with the caches on (332.6 M cycles
+and 11.3 M transactions without them, 314.3 M and 9.6 M with).
 
 ## Results
 

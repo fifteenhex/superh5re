@@ -445,4 +445,7 @@ reproduce it. Confirmed facts move to `docs/`.
   Board testbench with the write-back kernel: shell prompt 314 M cycles
   after release, 9.58 M memory transactions (cache-off kernel: 3.13 G
   cycles, 262 M transactions); 12.6 s at 25 MHz on the card.
+  The same boot through the pre-burst bridge (commit 75448e8): 332.6 M
+  cycles, 11.26 M transactions; the write bursts are worth 5.5 % of the
+  cycles and 15 % of the transactions.
 
