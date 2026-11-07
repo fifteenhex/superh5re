@@ -1109,26 +1109,63 @@ module sh5_core
   end
 
   // ===================================================================
-  // Register file writes
-  function automatic void fr_write(input logic [5:0] f, input fwmode_t fw, input logic [127:0] v);
-    case (fw)
-      FW_32:   fr_q[f] <= v[31:0];
-      FW_64:   begin fr_q[{f[5:1], 1'b0}] <= v[63:32]; fr_q[{f[5:1], 1'b1}] <= v[31:0]; end
-      FW_PAIR: begin fr_q[{f[5:1], 1'b0}] <= v[31:0];  fr_q[{f[5:1], 1'b1}] <= v[63:32]; end
-      default: begin
-        fr_q[{f[5:2], 2'b00}] <= v[31:0];
-        fr_q[{f[5:2], 2'b01}] <= v[63:32];
-        fr_q[{f[5:2], 2'b10}] <= v[95:64];
-        fr_q[{f[5:2], 2'b11}] <= v[127:96];
+  // Register file writes. Each file has two write ports (the W stage and
+  // the FPU's completion), resolved into one enable and one value per
+  // register first; the FPU's write wins a same-cycle collision, as the
+  // statement order of the first version had it. Vivado could not make a
+  // memory of an array written twice in one process and left an undriven
+  // net in the register file, so the first bitstream executed with every
+  // general register reading as zero (NOTES, 2026-11-07).
+  logic [63:0] gr_we;
+  logic [63:0] gr_wd [64];
+  logic [63:0] fr_we;
+  logic [31:0] fr_wd [64];
+
+  always_comb begin
+    for (int i = 0; i < 64; i++) begin gr_we[i] = 1'b0; gr_wd[i] = 64'h0; end
+    if (gw_en)  begin gr_we[gw_idx] = 1'b1;       gr_wd[gw_idx] = gw_val; end
+    if (fgw_en) begin gr_we[fpu_head.rd] = 1'b1;  gr_wd[fpu_head.rd] = {63'h0, fpu_result[0]}; end
+  end
+
+  always_comb begin
+    for (int i = 0; i < 64; i++) begin fr_we[i] = 1'b0; fr_wd[i] = 32'h0; end
+    for (int p = 0; p < 2; p++) begin
+      logic         en;
+      logic [5:0]   f;
+      fwmode_t      m;
+      logic [127:0] v;
+      if (p == 0) begin en = fw_en;  f = fw_idx;      m = fw_mode;     v = fw_val; end
+      else        begin en = ffw_en; f = fpu_head.fd; m = fpu_head.fw; v = fpu_result; end
+      if (en) begin
+        case (m)
+          FW_32:   begin fr_we[f] = 1'b1; fr_wd[f] = v[31:0]; end
+          FW_64:   begin
+            fr_we[{f[5:1], 1'b0}] = 1'b1; fr_wd[{f[5:1], 1'b0}] = v[63:32];
+            fr_we[{f[5:1], 1'b1}] = 1'b1; fr_wd[{f[5:1], 1'b1}] = v[31:0];
+          end
+          FW_PAIR: begin
+            fr_we[{f[5:1], 1'b0}] = 1'b1; fr_wd[{f[5:1], 1'b0}] = v[31:0];
+            fr_we[{f[5:1], 1'b1}] = 1'b1; fr_wd[{f[5:1], 1'b1}] = v[63:32];
+          end
+          default: begin
+            fr_we[{f[5:2], 2'b00}] = 1'b1; fr_wd[{f[5:2], 2'b00}] = v[31:0];
+            fr_we[{f[5:2], 2'b01}] = 1'b1; fr_wd[{f[5:2], 2'b01}] = v[63:32];
+            fr_we[{f[5:2], 2'b10}] = 1'b1; fr_wd[{f[5:2], 2'b10}] = v[95:64];
+            fr_we[{f[5:2], 2'b11}] = 1'b1; fr_wd[{f[5:2], 2'b11}] = v[127:96];
+          end
+        endcase
       end
-    endcase
-  endfunction
+    end
+  end
 
   always_ff @(posedge clk) begin
-    if (gw_en)  gr_q[gw_idx] <= gw_val;
-    if (fgw_en) gr_q[fpu_head.rd] <= {63'h0, fpu_result[0]};
-    if (fw_en)  fr_write(fw_idx, fw_mode, fw_val);
-    if (ffw_en) fr_write(fpu_head.fd, fpu_head.fw, fpu_result);
+    for (int i = 0; i < 64; i++) begin
+      if (gr_we[i]) gr_q[i] <= gr_wd[i];
+      if (fr_we[i]) fr_q[i] <= fr_wd[i];
+    end
+  end
+
+  always_ff @(posedge clk) begin
     if (w_do && !w_exc && w_q.u.wr_tr) tr_q[w_q.u.tra] <= w_q.res[31:0];
   end
 
