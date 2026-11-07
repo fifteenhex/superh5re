@@ -22,3 +22,23 @@ The debug manual is volume 3 of a separate "SH-5 System Architecture" suite
 content streams using only the Python standard library. They work on the four
 CPU Core volumes (text comes out without spaces) but not on the debug manual,
 which uses custom font encodings.
+
+## From larsbrinkhoff/awesome-cpus
+
+`awesome-cpus/` holds the SH-5 documents from
+<https://github.com/larsbrinkhoff/awesome-cpus/tree/master/SuperH> that are not
+in the set above, under their names there. Their text streams use custom font
+encodings, so `tools/pdfstrings.py` cannot read them; the dates are the PDF
+CreationDate fields.
+
+| File | PDF Title field | Created | SHA-256 |
+|---|---|---|---|
+| `sh5_abi.pdf` | Language Independent Application Binary Interface (SH-5 ABI) | 2002-02-28 | `f30e502d3001579d9c83e6668f5cf179317f98847b9607174bac61683dd6fafb` |
+| `sysv1.pdf` | (Preface) -- SH-5 System Architecture, volume 1 by name and date | 2002-03-18 | `0755866440a207c1ceeaa01e67025b47765b186bba9578578d6d819bdc6e5b6c` |
+| `sysv2.pdf` | (Preface) -- SH-5 System Architecture, volume 2 by name and date | 2002-03-18 | `54b991f688eaff52eb7c66cc93808a5e9004e654b1d6211d7f84c7c029e92357` |
+| `sysv3.pdf` | (Preface) -- SH-5 System Architecture, volume 3; another copy of the debug manual by date | 2002-03-19 | `84c25a9cf0aae4b2a03fb3580e307410ef8e4c628ee258df7f36c88092c36a04` |
+
+The same directory also has `cpush5v1..4.pdf` (the four CPU Core volumes) and
+`sh5_asm.pdf` (05-ASM-10001, another copy of the file above, SHA-256
+`5ef282768f198fdc029b00ae648682a98bf918ffeb7c29ce898951518b579ccc`), plus
+SH-1/SH-4 manuals.
