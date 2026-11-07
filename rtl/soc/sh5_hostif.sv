@@ -85,7 +85,8 @@ module sh5_hostif #(
   input  logic [31:0] dbg_trace_pc,
   input  logic [31:0] dbg_trace_insn,
   input  logic        quiet,
-  output logic        msi,
+  input  logic        kick,          // a virtio QueueNotify: slop_card's C2H doorbell
+  output logic        msi,           // one-cycle pulse when the host enabled it (mailbox IRQEN, +0xB8)
 
   // ---- console, to and from the SCIF ----
   input  logic        tx_valid,
@@ -111,10 +112,12 @@ module sh5_hostif #(
   wire dead_sel = win && !card_sel && !hub_sel && !vio_sel;
 
   // ---- the shared card page ----
-  // CAPS: DRAM aperture, CPU, RESET. No mailbox to the CPU side, no MSI,
-  // no DMA (slop_id.h): the bits stay clear until each is wired and proven.
+  // CAPS: DRAM aperture, MSI, CPU, RESET. The MSI is the virtio kick
+  // through slop_card's mailbox path (masked until the host writes IRQEN at
+  // +0xB8, slop_id.h SLOP_R_MB_IRQEN); the mailbox data path itself is not
+  // wired to the CPU side (no CAP_MAILBOX) and there is no DMA.
   localparam logic [63:0] DESIGN = 64'h7375_7065_7268_3520;   // "superh5 "
-  localparam logic [63:0] CAPS   = 64'h0000_0000_0000_0031;
+  localparam logic [63:0] CAPS   = 64'h0000_0000_0000_0035;
 
   logic        card_ack;
   logic [63:0] card_q;
@@ -126,7 +129,7 @@ module sh5_hostif #(
     .c_req(1'b0), .c_we(1'b0), .c_addr(12'd0), .c_wdata(64'd0),
     .c_ack(), .c_rdata(), .c_irq(),
     .quiet(quiet), .soft_rst(soft_rst),
-    .kick(1'b0),
+    .kick(kick),
     .calib_complete(calib_complete), .dram_err(dram_err), .dram_wedged(dram_wedged),
     .wr_in(wr_in), .wr_out(wr_out),
     .fsck(), .fmosi(), .fmiso(1'b1), .fcs_n(),

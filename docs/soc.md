@@ -154,6 +154,21 @@ invalidated around the request by `arch_sync_dma_for_device`. The
 testbench's `+viotrace` plusarg prints every guest access to the
 transport and every host write, with the cycle number.
 
+### The host interrupt
+
+The virtio kick (any slot's QueueNotify) is `slop_card`'s C2H doorbell:
+`sh5_top` wires `slop_virtio_slots.kick` to `sh5_hostif`, where
+`slop_card`'s mailbox raises `h_msi` for one core cycle if the host has
+set the mailbox IRQ enable (`SLOP_R_MB_IRQEN`, register window +0xB8;
+clear at reset, so a polling host is never interrupted). The board top
+puts fpgaslop's `msi_req` between that pulse and the endpoint's
+`INTX_MSI_Request`/`INTX_MSI_Grant` (the toggle crossing into the PCIe
+clock and the hold until the grant). CAPS has `SLOP_CAP_MSI`. The kick
+latch at the slot's host page +0x0f8 stays the truth; the interrupt
+only says when to look, which is fpgaslop's contract for its kernel
+module's `poll()`. The board testbench sets IRQEN when it serves a disk
+and counts the pulses on `sh5_top.msi`.
+
 ## Results
 
 Through the board testbench (`rtl/tb/board`, memory latency 6 cycles,
@@ -357,9 +372,9 @@ without the host path.
 
 ## Not done
 
-- No interrupt to the host (CAP_MSI clear); the host polls, as smol68k's
-  board does, and the virtio kick is polled too (the kick latch at host
-  offset 0x0f8 is what an MSI would carry).
+- The host MSI (below) has run in the board testbench only; on the card
+  it needs fpgaslop's kernel module (`insmod fpgaslop.ko msi=1`), which
+  the bench machine does not have. sh5ctl polls.
 - virtio-blk has run in the board testbench only; the bitstream with the
   transport is not built yet (the 50 MHz bitstream in flash, 0183b335,
   predates it).

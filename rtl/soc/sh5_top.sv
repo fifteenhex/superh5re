@@ -105,7 +105,7 @@ module sh5_top #(
     .dbg_rsp_valid(irsp_valid && irsp_ready), .dbg_rsp_opc(irsp_opc), .dbg_rsp_tid(irsp_tid),
     .dbg_trace_valid(trace_valid), .dbg_trace_pc(trace_pc), .dbg_trace_insn(trace_insn),
     // nothing of the core's in flight on the memory path
-    .quiet(bridge_idle && !mem_req), .msi(msi),
+    .quiet(bridge_idle && !mem_req), .msi(msi), .kick(vio_kick),
     .tx_valid(con_valid), .tx_byte(con_char), .rx_valid(rx_valid), .rx_byte(rx_byte), .rx_count(rx_count),
     .calib_complete(calib_complete), .dram_err(dram_err), .dram_wedged(dram_wedged),
     .wr_in(wr_in), .wr_out(wr_out)
@@ -175,9 +175,11 @@ module sh5_top #(
   // page at 0x0b00_0000 (slot n at +n*0x200), the host pages at register
   // window +0x2_0000; the rings are in DRAM, which both sides reach. The
   // interrupt joins the hub doorbell as INTC source 63 (INTEVT 0x560, Linux
-  // irq 63); virtio-mmio drivers share a line by design. The host polls the
-  // kick latches, so `kick` is not wired anywhere.
-  logic        b_sel_vio, vio_ack_q, vio_irq;
+  // irq 63); virtio-mmio drivers share a line by design. `kick` (any slot's
+  // QueueNotify) goes to the host interface, where slop_card turns it into
+  // the host MSI when the host has set the mailbox IRQ enable; the host
+  // polls the kick latches otherwise.
+  logic        b_sel_vio, vio_ack_q, vio_irq, vio_kick;
   logic [63:0] vio_rdata;
   assign b_sel_vio = !b_sel_ram && (b_addr[31:20] == 12'h0b0);
   always_ff @(posedge clk or negedge rst_n) begin
@@ -194,15 +196,15 @@ module sh5_top #(
     .rdata(vio_rdata),
     .h_req(vio_h_req), .h_we(vio_h_we), .h_addr(vio_h_addr), .h_wdata(vio_h_wdata), .h_wstrb(vio_h_wstrb),
     .h_rdata(vio_h_rdata),
-    .kick(), .irq(vio_irq)
+    .kick(vio_kick), .irq(vio_irq)
   );
 
 `ifdef VERILATOR
   // +viotrace: every guest access to the virtio page (writes when
   // accepted, reads with the data the core samples)
   logic vio_trace;
-  longint vio_cycle = 0;
-  initial vio_trace = $test$plusargs("viotrace");
+  longint vio_cycle;
+  initial begin vio_trace = $test$plusargs("viotrace"); vio_cycle = 0; end
   always_ff @(posedge clk) if (vio_trace) begin
     vio_cycle <= vio_cycle + 1;
     if (b_req && b_sel_vio && !vio_ack_q && b_we)

@@ -138,7 +138,17 @@ module sh5_board_top #(
     wire        c_bvalid, c_bready, c_rlast, c_rvalid, c_rready;
 
     // Tie-offs copied from the designs that built; each cost a build
-    // (fpgaslop boards/nitefury/pcie.md). No interrupt: the host polls.
+    // (fpgaslop boards/nitefury/pcie.md). The interrupt is the virtio kick:
+    // slop_card raises soc_msi for one core cycle when the host has set the
+    // mailbox IRQ enable (masked at reset, so a host that polls sees
+    // nothing); msi_req carries it into the endpoint's clock and holds the
+    // request until the grant, as dmaslop and smol86 do.
+    wire soc_msi, msi_request, msi_grant;
+    msi_req msi (
+        .core_clk(clk), .core_rst(rst), .doorbell(soc_msi),
+        .pcie_clk(pcie_clk), .pcie_rst(~axi_rstn),
+        .msi_request(msi_request), .msi_grant(msi_grant));
+
     sh5_pcie_ep ep (
         .REFCLK(pcie_refclk),
         .pci_exp_txp(pci_exp_txp), .pci_exp_txn(pci_exp_txn),
@@ -148,7 +158,7 @@ module sh5_board_top #(
         .axi_aresetn(axi_rstn),
         .user_link_up(pcie_lnk_up), .mmcm_lock(pcie_mmcm_lock),
 
-        .INTX_MSI_Request(1'b0), .INTX_MSI_Grant(),
+        .INTX_MSI_Request(msi_request), .INTX_MSI_Grant(msi_grant),
         .MSI_Vector_Num(5'd0),
 
         .m_axi_awaddr(p_awaddr), .m_axi_awlen(p_awlen),
@@ -272,8 +282,7 @@ module sh5_board_top #(
         .h_req(h_req), .h_we(h_we), .h_addr(h_addr),
         .h_wdata(h_wdata), .h_wstrb(h_wstrb),
         .h_ack(h_ack), .h_rdata(h_rdata), .h_err(h_err),
-        // the board takes no interrupt (see the endpoint above)
-        .msi(),
+        .msi(soc_msi),
         .calib_complete(init_calib_complete),
         .dram_err(dram_err), .dram_wedged(dram_wedged),
         .wr_in(rd_done), .wr_out(wr_done),

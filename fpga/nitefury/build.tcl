@@ -155,6 +155,7 @@ read_verilog -sv [list \
     $root/rtl/axi4_to_req.sv \
     $root/rtl/req_to_axi4.sv \
     $root/rtl/memarb.sv \
+    $root/rtl/msi_req.sv \
     $root/rtl/slop_virtio.sv \
     $root/rtl/slop_virtio_slots.sv \
     $sh5dir/rtl/shwy_pkg.sv \

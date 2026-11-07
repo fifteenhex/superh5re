@@ -54,7 +54,7 @@ struct Memory {
 struct Tb {
     Vsh5_top *top = nullptr;
     Memory mem;
-    uint64_t cycle = 0;
+    uint64_t cycle = 0, msi_count = 0;   // msi_count: one-cycle pulses on the SoC's msi output
     unsigned latency = 6;
     bool quiet = false, bustrace = false;
     FILE *conlog = nullptr, *trace = nullptr;
@@ -125,6 +125,7 @@ struct Tb {
         mem_step();
         t.eval();
         t.clk = 1; t.eval();
+        if (t.msi) msi_count++;
         if (trace && t.trace_valid) {
             if (++traced <= trace_max) fprintf(trace, "%08x %08x\n", t.trace_pc, t.trace_insn);
         }
@@ -234,6 +235,10 @@ int main(int argc, char **argv) {
         disk = sh5blk_open(&bar, 0, diskimg, 0, msg, sizeof msg);
         fprintf(stderr, "[tb] %s\n", msg);
         if (!disk) return 1;
+        // the kick as a host interrupt: slop_card's mailbox IRQ enable
+        // (SLOP_R_MB_IRQEN); the host still reads the kick latch, the
+        // interrupt only says when
+        cb_write64(&tb, SH5_BAR_REGS + 0xb8, 1, 0xff);
     }
     sh5_release(&bar, pc);
     fprintf(stderr, "[tb] released at %08x\n", pc);
@@ -279,7 +284,8 @@ int main(int argc, char **argv) {
     if (disk) {
         unsigned long r, w, bytes;
         sh5blk_stats(disk, &r, &w, &bytes);
-        fprintf(stderr, "[tb] virtio-blk: %lu reads, %lu writes, %lu bytes\n", r, w, bytes);
+        fprintf(stderr, "[tb] virtio-blk: %lu reads, %lu writes, %lu bytes, %llu host interrupts (kicks)\n", r, w, bytes,
+                (unsigned long long)tb.msi_count);
         sh5blk_close(disk);
     }
     if (tb.conlog) fclose(tb.conlog);

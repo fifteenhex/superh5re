@@ -633,3 +633,12 @@ reproduce it. Confirmed facts move to `docs/`.
   Manuals: the SH-5 Common Assembly Language Syntax (05-ASM-10001) from
   the user, the ABI and System Architecture volumes from
   larsbrinkhoff/awesome-cpus, all under `refs/manuals/`.
+  Host MSI: the virtio kick goes to sh5_hostif and slop_card's mailbox
+  path (IRQEN at window +0xB8, clear at reset), the board top has
+  fpgaslop's msi_req into the endpoint's INTX_MSI_Request/Grant, CAPS has
+  CAP_MSI. Board testbench with the disk: 9 requests, 9 interrupt pulses
+  on sh5_top.msi, mount/cat/ls unchanged. On the card it needs the
+  fpgaslop kernel module with msi=1 (not on the bench machine); sh5ctl
+  polls. The PCIe IP keeps MSI_DECODE_ENABLED false (dmaslop sets it with
+  the bus-mastering settings; untested here whether the endpoint needs it
+  for INTX_MSI_Request).
