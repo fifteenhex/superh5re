@@ -64,6 +64,18 @@ module sh5_hostif #(
   output logic        host_irq,
   input  logic        core_sleep,
   input  logic        bus_error,
+  // ---- debug view of the core's bus and retirement (read-only registers 0x040..0x070) ----
+  input  logic        dbg_req_valid,
+  input  logic [7:0]  dbg_req_opc,
+  input  logic [7:0]  dbg_req_tid,
+  input  logic [7:0]  dbg_req_mask,
+  input  logic [31:0] dbg_req_addr,
+  input  logic        dbg_rsp_valid,
+  input  logic [7:0]  dbg_rsp_opc,
+  input  logic [7:0]  dbg_rsp_tid,
+  input  logic        dbg_trace_valid,
+  input  logic [31:0] dbg_trace_pc,
+  input  logic [31:0] dbg_trace_insn,
   input  logic        quiet,
   output logic        msi,
 
@@ -126,6 +138,10 @@ module sh5_hostif #(
     .s_ack(hub_ack), .s_rdata(hub_q),
     .reset_hold(reset_hold), .boot_pc(boot_pc), .nmi(nmi), .host_irq(host_irq),
     .core_sleep(core_sleep), .bus_error(bus_error),
+    .dbg_req_valid(dbg_req_valid), .dbg_req_opc(dbg_req_opc), .dbg_req_tid(dbg_req_tid),
+    .dbg_req_mask(dbg_req_mask), .dbg_req_addr(dbg_req_addr),
+    .dbg_rsp_valid(dbg_rsp_valid), .dbg_rsp_opc(dbg_rsp_opc), .dbg_rsp_tid(dbg_rsp_tid),
+    .dbg_trace_valid(dbg_trace_valid), .dbg_trace_pc(dbg_trace_pc), .dbg_trace_insn(dbg_trace_insn),
     .tx_valid(tx_valid), .tx_byte(tx_byte), .rx_valid(rx_valid), .rx_byte(rx_byte), .rx_count(rx_count)
   );
 

@@ -74,6 +74,15 @@ module sh5_top #(
   logic [4:0]  rx_count;
   logic        bridge_idle;
 
+  // the core's bus, declared here because the host interface's debug view names it
+  logic        ireq_valid, ireq_ready, ireq_last;
+  logic [7:0]  ireq_opc, ireq_src, ireq_tid, ireq_mask;
+  logic [31:0] ireq_addr;
+  logic [63:0] ireq_data;
+  logic        irsp_valid, irsp_ready, irsp_last;
+  logic [7:0]  irsp_opc, irsp_src, irsp_tid;
+  logic [63:0] irsp_data;
+
   sh5_hostif #(.BUILD_ID(BUILD_ID), .BUILD_CFG(BUILD_CFG), .RAM_SIZE(64'd1 << RAM_BITS),
                .AUTOSTART(AUTOSTART), .BOOT_PC(BOOT_PC)) u_hostif (
     .clk(clk), .rst_n(rst_n),
@@ -83,6 +92,10 @@ module sh5_top #(
     .d_ack(d_ack), .d_rdata(d_rdata), .d_err(mem_err),
     .soft_rst(soft_rst), .reset_hold(reset_hold), .boot_pc(boot_pc), .nmi(nmi), .host_irq(host_irq),
     .core_sleep(core_sleep), .bus_error(bus_error),
+    .dbg_req_valid(ireq_valid && ireq_ready), .dbg_req_opc(ireq_opc), .dbg_req_tid(ireq_tid),
+    .dbg_req_mask(ireq_mask), .dbg_req_addr(ireq_addr),
+    .dbg_rsp_valid(irsp_valid && irsp_ready), .dbg_rsp_opc(irsp_opc), .dbg_rsp_tid(irsp_tid),
+    .dbg_trace_valid(trace_valid), .dbg_trace_pc(trace_pc), .dbg_trace_insn(trace_insn),
     // nothing of the core's in flight on the memory path
     .quiet(bridge_idle && !mem_req), .msi(msi),
     .tx_valid(con_valid), .tx_byte(con_char), .rx_valid(rx_valid), .rx_byte(rx_byte), .rx_count(rx_count),
@@ -97,13 +110,6 @@ module sh5_top #(
   assign periph_rst_n = rst_n && !soft_rst;
 
   // ---- the core ----
-  logic        ireq_valid, ireq_ready, ireq_last;
-  logic [7:0]  ireq_opc, ireq_src, ireq_tid, ireq_mask;
-  logic [31:0] ireq_addr;
-  logic [63:0] ireq_data;
-  logic        irsp_valid, irsp_ready, irsp_last;
-  logic [7:0]  irsp_opc, irsp_src, irsp_tid;
-  logic [63:0] irsp_data;
   logic        extint_valid;
   logic [3:0]  extint_level;
   logic [31:0] extint_code;

@@ -34,6 +34,13 @@ extern "C" {
 #define SH5_HUB_BOOT_PC   0x028
 #define SH5_HUB_CYCLES    0x030
 #define SH5_HUB_IRQ       0x038
+#define SH5_HUB_LAST_REQ  0x040		/* debug: {opc, tid, mask, 0, addr} of the last core bus request */
+#define SH5_HUB_REQ_COUNT 0x048
+#define SH5_HUB_FAIL_REQ  0x050		/* the request in flight at the first Failure response (sticky) */
+#define SH5_HUB_FAIL_COUNT 0x058
+#define SH5_HUB_TRACE     0x060		/* {insn, pc} of the last retired instruction */
+#define SH5_HUB_TRACE_COUNT 0x068
+#define SH5_HUB_LAST_RSP  0x070		/* {opc, tid} of the last response */
 #define SH5_HUB_CON_STATUS 0x100
 #define SH5_HUB_CON_POP   0x108
 #define SH5_HUB_CON_PUSH  0x110

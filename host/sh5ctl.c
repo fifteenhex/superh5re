@@ -7,6 +7,8 @@
  *   sh5ctl <bdf> poke <paddr> <value>        write one 64-bit word
  *   sh5ctl <bdf> memtest [bytes] [paddr]     write/read/compare DRAM through the BAR (holds the core)
  *   sh5ctl <bdf> hold | release [pc] | reset
+ *   sh5ctl <bdf> rd <baroff> | wr <baroff> <value>  one 64-bit BAR access (registers: 0x10000000 + offset)
+ *   sh5ctl <bdf> dbg                         the hub's view of the core's bus and retirement
  *   sh5ctl <bdf> run <elf> [--cmdline S] [--initrd F] [--done STR] [--timeout SEC]
  *                                            deposit, start, print the console, stop at STR
  *   sh5ctl <bdf> boot <elf> [--cmdline S] [--initrd F]
@@ -175,6 +177,30 @@ static int cmd_status(const struct sh5_bar *b)
 	return 0;
 }
 
+/* ---- debug registers (hub 0x040..0x070, only in builds that have them) ---- */
+static void print_req(const char *what, uint64_t r)
+{
+	printf("%-14s opc %02llx tid %02llx mask %02llx addr %08llx\n", what,
+	       (unsigned long long)(r >> 56), (unsigned long long)((r >> 48) & 0xff),
+	       (unsigned long long)((r >> 40) & 0xff), (unsigned long long)(r & 0xffffffff));
+}
+
+static int cmd_dbg(const struct sh5_bar *b)
+{
+	uint64_t t = hub_rd(b, SH5_HUB_TRACE), r = hub_rd(b, SH5_HUB_LAST_RSP);
+
+	print_status(hub_rd(b, SH5_HUB_STATUS));
+	printf("requests       %llu, failures %llu\n", (unsigned long long)hub_rd(b, SH5_HUB_REQ_COUNT),
+	       (unsigned long long)hub_rd(b, SH5_HUB_FAIL_COUNT));
+	print_req("last request", hub_rd(b, SH5_HUB_LAST_REQ));
+	print_req("first failure", hub_rd(b, SH5_HUB_FAIL_REQ));
+	printf("last response  opc %02llx tid %02llx\n", (unsigned long long)((r >> 8) & 0xff), (unsigned long long)(r & 0xff));
+	printf("retired        %llu instructions, last pc %08llx insn %08llx\n",
+	       (unsigned long long)hub_rd(b, SH5_HUB_TRACE_COUNT), (unsigned long long)(t & 0xffffffff),
+	       (unsigned long long)(t >> 32));
+	return 0;
+}
+
 /* ---- memory through the BAR ---- */
 static int cmd_peek(const struct sh5_bar *b, uint32_t paddr, unsigned n)
 {
@@ -336,7 +362,7 @@ int main(int argc, char **argv)
 	char msg[160];
 
 	if (argc < 3) {
-		fprintf(stderr, "usage: sh5ctl <bdf> probe|status|peek A [N]|poke A V|memtest [BYTES] [A]|hold|release [pc]|reset|\n"
+		fprintf(stderr, "usage: sh5ctl <bdf> probe|status|dbg|peek A [N]|poke A V|rd OFF|wr OFF V|memtest [BYTES] [A]|hold|release [pc]|reset|\n"
 				"              run ELF [--cmdline S] [--initrd F] [--done STR] [--timeout SEC]|\n"
 				"              boot ELF [--cmdline S] [--initrd F]|console\n");
 		return 2;
@@ -350,10 +376,20 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (!strcmp(argv[2], "status")) return cmd_status(&b);
+	if (!strcmp(argv[2], "dbg")) return cmd_dbg(&b);
 	if (!strcmp(argv[2], "hold")) { sh5_hold(&b); return 0; }
 	if (!strcmp(argv[2], "reset")) { sh5_soft_reset(&b); return 0; }
 	if (!strcmp(argv[2], "release")) {
 		sh5_release(&b, argc > 3 ? (uint32_t)strtoul(argv[3], NULL, 0) : SH5_RAM_PHYS);
+		return 0;
+	}
+	if (!strcmp(argv[2], "rd") && argc > 3) {
+		uint64_t off = strtoull(argv[3], NULL, 0);
+		printf("%08llx: %016llx\n", (unsigned long long)off, (unsigned long long)rd64(NULL, off));
+		return 0;
+	}
+	if (!strcmp(argv[2], "wr") && argc > 4) {
+		wr64(NULL, strtoull(argv[3], NULL, 0), strtoull(argv[4], NULL, 0), 0xff);
 		return 0;
 	}
 	if (!strcmp(argv[2], "peek") && argc > 3)

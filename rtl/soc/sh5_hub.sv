@@ -50,6 +50,18 @@ module sh5_hub #(
   output logic        host_irq,         // level, INTC source 63
   input  logic        core_sleep,
   input  logic        bus_error,
+  // ---- debug view of the core's bus and retirement (read-only registers 0x040..0x070) ----
+  input  logic        dbg_req_valid,
+  input  logic [7:0]  dbg_req_opc,
+  input  logic [7:0]  dbg_req_tid,
+  input  logic [7:0]  dbg_req_mask,
+  input  logic [31:0] dbg_req_addr,
+  input  logic        dbg_rsp_valid,
+  input  logic [7:0]  dbg_rsp_opc,
+  input  logic [7:0]  dbg_rsp_tid,
+  input  logic        dbg_trace_valid,
+  input  logic [31:0] dbg_trace_pc,
+  input  logic [31:0] dbg_trace_insn,
 
   // ---- console ----
   input  logic        tx_valid,         // from the SCIF transmit register
@@ -88,6 +100,35 @@ module sh5_hub #(
   assign rx_valid   = first && s_we && (s_addr == 12'h110);
   assign rx_byte    = s_wdata[7:0];
 
+  // ---- debug: the core's bus as the bridge sees it, and retirement ----
+  // LAST_REQ / FAIL_REQ: {opc[63:56], tid[55:48], mask[47:40], 8'h0, addr[31:0]}.
+  // FAIL_REQ holds the request in flight when the first Failure response
+  // arrived (the bridge serialises, so it is the one that failed); sticky
+  // until STATUS is written, like the bus-error bit.
+  logic [63:0] last_req_q, fail_req_q, req_count_q, fail_count_q, trace_count_q;
+  logic [31:0] trace_pc_q, trace_insn_q;
+  logic [7:0]  last_rsp_opc_q, last_rsp_tid_q;
+  wire  [63:0] req_word = {dbg_req_opc, dbg_req_tid, dbg_req_mask, 8'h0, dbg_req_addr};
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      last_req_q <= 64'h0; fail_req_q <= 64'h0; req_count_q <= 64'h0; fail_count_q <= 64'h0;
+      trace_count_q <= 64'h0; trace_pc_q <= 32'h0; trace_insn_q <= 32'h0;
+      last_rsp_opc_q <= 8'h0; last_rsp_tid_q <= 8'h0;
+    end else begin
+      if (dbg_req_valid) begin last_req_q <= req_word; req_count_q <= req_count_q + 64'd1; end
+      if (dbg_rsp_valid) begin
+        last_rsp_opc_q <= dbg_rsp_opc; last_rsp_tid_q <= dbg_rsp_tid;
+        if (dbg_rsp_opc == 8'h81) begin
+          fail_count_q <= fail_count_q + 64'd1;
+          if (fail_count_q == 64'd0) fail_req_q <= last_req_q;
+        end
+      end
+      if (dbg_trace_valid) begin trace_pc_q <= dbg_trace_pc; trace_insn_q <= dbg_trace_insn; trace_count_q <= trace_count_q + 64'd1; end
+      if (first && s_we && s_addr == 12'h018) begin fail_count_q <= 64'h0; fail_req_q <= 64'h0; end
+    end
+  end
+
   logic [63:0] rdata_mux;
   always_comb begin
     case (s_addr)
@@ -98,6 +139,13 @@ module sh5_hub #(
       12'h020: rdata_mux = {63'h0, hold_q};
       12'h028: rdata_mux = {32'h0, bootpc_q};
       12'h030: rdata_mux = cycles_q;
+      12'h040: rdata_mux = last_req_q;
+      12'h048: rdata_mux = req_count_q;
+      12'h050: rdata_mux = fail_req_q;
+      12'h058: rdata_mux = fail_count_q;
+      12'h060: rdata_mux = {trace_insn_q, trace_pc_q};
+      12'h068: rdata_mux = trace_count_q;
+      12'h070: rdata_mux = {48'h0, last_rsp_opc_q, last_rsp_tid_q};
       12'h100: rdata_mux = {32'h0, {3'b000, count}, 3'h0, 5'd16 - rx_count, 4'b0000, ovf_q, 3'b000};
       12'h108: rdata_mux = {55'h0, can_pop, rd_byte_q};
       default: rdata_mux = 64'h0;

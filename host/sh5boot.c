@@ -74,6 +74,7 @@ void sh5_hold(const struct sh5_bar *b)
 void sh5_release(const struct sh5_bar *b, uint32_t boot_pc)
 {
 	hub_wr(b, SH5_HUB_BOOT_PC, boot_pc);
+	hub_wr(b, SH5_HUB_STATUS, 4);		/* clear a bus error seen by an earlier run */
 	hub_wr(b, SH5_HUB_RESET_HOLD, 0);
 }
 
