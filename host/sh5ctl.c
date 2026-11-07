@@ -101,6 +101,8 @@ static uint64_t hub_rd(const struct sh5_bar *b, unsigned reg)
 	return b->read64(b->ctx, SH5_BAR_HUB + reg);
 }
 
+static int type_byte(const struct sh5_bar *b, uint8_t c);
+
 static void print_ascii8(uint64_t v)
 {
 	for (int i = 0; i < 8; i++) {
@@ -307,8 +309,7 @@ static void serve_console(const struct sh5_bar *b)
 			unsigned char c;
 			if (read(0, &c, 1) != 1) return;
 			if (c == 0x1d) return;          /* Ctrl-] */
-			while (!sh5_con_push(b, c))
-				usleep(100);
+			type_byte(b, c);
 		}
 	}
 }
@@ -325,6 +326,41 @@ static int ring_ends_with(const char *ring, size_t ringsz, size_t fill, const ch
 	return l && fill >= l && !memcmp(ring + ringsz - l, s, l);
 }
 
+/* Typed in bursts of at most 13 bytes, the next burst only once the SCIF's
+ * 16-byte receive FIFO has been emptied, because of two things in NetBSD's
+ * scif driver (sys/arch/sh5/dev/scif.c): it masks the FIFO count with
+ * 0x0f, so a FIFO filled to 16 reads as empty and its interrupt handler
+ * loops without draining it; and the handler pops one byte more than the
+ * count it read, which is lost when a byte arrived while it ran. A real
+ * UART at 115200 baud delivers a byte every 87 us and never shows either.
+ * A burst below the 14-byte trigger is read in one go after the 2 ms idle
+ * timeout, with the FIFO empty at the extra read. */
+static unsigned con_waiting_rx(const struct sh5_bar *b)
+{
+	return 16 - ((unsigned)(hub_rd(b, SH5_HUB_CON_STATUS) >> 8) & 0x1f);
+}
+
+static int type_byte(const struct sh5_bar *b, uint8_t c)
+{
+	static unsigned burst;
+	int i;
+
+	if (burst >= 13) {
+		for (i = 0; i < 20000 && con_waiting_rx(b) != 0; i++)     /* 2 s */
+			usleep(100);
+		if (i == 20000) {
+			fprintf(stderr, "sh5ctl: the core is not reading its console\n");
+			return 0;
+		}
+		usleep(2000);                      /* the handler's extra read */
+		burst = 0;
+	}
+	if (!sh5_con_push(b, c))
+		return 0;
+	burst++;
+	return 1;
+}
+
 static void type_string(const struct sh5_bar *b, const char *s)
 {
 	for (; *s; s++) {
@@ -333,8 +369,8 @@ static void type_string(const struct sh5_bar *b, const char *s)
 			s++;
 			c = (*s == 'n') ? '\n' : (*s == 'r') ? '\r' : *s;
 		}
-		while (!sh5_con_push(b, (uint8_t)c))
-			usleep(100);
+		if (!type_byte(b, (uint8_t)c))
+			return;
 	}
 }
 
@@ -467,6 +503,8 @@ int main(int argc, char **argv)
 		sh5_soft_reset(&b);
 		usleep(10000);
 		sh5_hold(&b);
+		while (sh5_con_pop(&b) >= 0)      /* the hub's transmit FIFO is not reset: drop the last run's output */
+			;
 		t0 = now_s();
 		pc = sh5_deposit(&b, argv[3], cmdline, initrd, msg, sizeof msg);
 		if (!pc) { fprintf(stderr, "sh5ctl: %s\n", msg); return 1; }

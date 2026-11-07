@@ -1,0 +1,117 @@
+sh5ctl: Linux image, initrd 99373 bytes at 80f00000 in 1.1 s, starting at 80002000
+[    0.000000] Linux version 6.15.0-00034-g48449896407a (dev@claustrum) (sh64-linux-gcc (GCC) 6.5.0, GNU ld (GNU Binutils) 2.30) #29 PREEMPT Fri Nov  6 14:41:31 UTC 2026
+[    0.000000] Boot params:
+[    0.000000] ... MOUNT_ROOT_RDONLY - 00000001
+[    0.000000] ... RAMDISK_FLAGS     - 00000000
+[    0.000000] ... ORIG_ROOT_DEV     - 00000200
+[    0.000000] ... LOADER_TYPE       - 00000001
+[    0.000000] ... INITRD_START      - 00f00000
+[    0.000000] ... INITRD_SIZE       - 0001842d
+[    0.000000] Booting machvec: Hitachi Cayman
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Kernel command line: console=ttySC0 -- smolinit.getty=/dev/ttySC0 smolinit.hostname=cayman
+[    0.000000] printk: log buffer data + meta data: 1048576 + 3276800 = 4325376 bytes
+[    0.000000] Dentry cache hash table entries: 16384 (order: 4, 65536 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 8192 (order: 3, 32768 bytes, linear)
+[    0.000000] Sorting __ex_table...
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 32768
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] I-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] I-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] D-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] D-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] virtual kernel memory layout:
+[    0.000000]     fixmap  : 0xfffd7000 - 0xfffff000   ( 160 kB)
+[    0.000000]     vmalloc : 0xf0000000 - 0xfffd5000   ( 255 MB)
+[    0.000000]     lowmem  : 0xa0000000 - 0xa8000000   ( 128 MB) (cached)
+[    0.000000]       .init : 0xa0cac000 - 0xa0cec000   ( 256 kB)
+[    0.000000]       .data : 0xa0887940 - 0xa0cab7a0   (4239 kB)
+[    0.000000]       .text : 0xa0001000 - 0xa0887940   (8730 kB)
+[    0.000000] SLUB: HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] Console: colour dummy device 80x25
+[    0.000000]  sh-tmu.0: ch0: used for clock events
+[    0.000000]  sh-tmu.0: ch0: used for periodic clock events
+[    0.000000]  sh-tmu.0: ch1: used as clock source
+[    0.000000] clocksource: sh-tmu.0: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1834811203156 ns
+[    0.000000] sched_clock: 32 bits at 250 Hz, resolution 4000000ns, wraps every 8589934590000000ns
+[    0.004000] Calibrating delay loop (skipped)... 12.50 BogoMIPS PRESET (lpj=25000)
+[    0.004000] CPU: SH5-101
+[    0.004000] pid_max: default: 32768 minimum: 301
+[    0.024000] Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.028000] Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.272000] rcu: Hierarchical SRCU implementation.
+[    0.276000] rcu: 	Max phase no-delay instances is 1000.
+[    0.332000] Memory: 114972K/131072K available (8726K kernel code, 3363K rwdata, 876K rodata, 256K init, 1131K bss, 15628K reserved, 0K cma-reserved)
+[    0.368000] devtmpfs: initialized
+[    0.492000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.496000] posixtimers hash table entries: 512 (order: -1, 2048 bytes, linear)
+[    0.496000] futex hash table entries: 256 (order: -1, 3072 bytes, linear)
+[    0.588000] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.992000] DMA: preallocated 128 KiB GFP_KERNEL pool for atomic allocations
+[    1.216000] pps_core: LinuxPPS API ver. 1 registered
+[    1.216000] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    1.220000] PTP clock support registered
+[    1.228000] sh_tmu sh-tmu.0: kept as earlytimer
+[    1.336000] clocksource: Switched to clocksource sh-tmu.0
+[    2.936000] NET: Registered PF_INET protocol family
+[    2.960000] IP idents hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    3.032000] tcp_listen_portaddr_hash hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    3.040000] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    3.044000] TCP established hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    3.048000] TCP bind hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    3.056000] TCP: Hash tables configured (established 1024 bind 1024)
+[    3.068000] UDP hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    3.076000] UDP-Lite hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    3.092000] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    3.164000] RPC: Registered named UNIX socket transport module.
+[    3.164000] RPC: Registered udp transport module.
+[    3.164000] RPC: Registered tcp transport module.
+[    3.164000] RPC: Registered tcp-with-tls transport module.
+[    3.164000] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    3.192000] SMSC SuperIO devid 00 rev 00
+[    3.324000] Trying to unpack rootfs image as initramfs...
+[    3.464000] workingset: timestamp_bits=30 max_order=15 bucket_order=0
+[    3.708000] romfs: ROMFS MTD (C) 2007 Red Hat, Inc.
+[    3.772000] io scheduler mq-deadline registered
+[    3.780000] io scheduler kyber registered
+[    8.440000] Freeing initrd memory: 96K
+[   16.908000] SuperH (H)SCI(F) driver initialized
+[   16.944000] sh-sci.0: ttySC0 at MMIO 0xa030000 (irq = 40, base_baud = 0) is a scif
+[   16.952000] printk: legacy console [ttySC0] enabled
+[   18.820000] brd: module loaded
+[   19.728000] loop: module loaded
+[   19.844000] NET: Registered PF_PACKET protocol family
+[   19.856000] heartbeat: version 0.1.2 loaded
+[   23.460000] Freeing unused kernel image (initmem) memory: 256K
+[   23.464000] This architecture does not have kernel memory protection.
+[   23.468000] Run /init as init process
+smolutils init (Nov  3 2026, 03:59:49)
+getty: Starting getty on /dev/ttySC0 with shell /bin/smolsh
+smolsh / > uname
+Linux cayman 6.15.0-00034-g48449896407a #29 PREEMPT Fri Nov  6 14:41:31 UTC 2026 sh nolibc/Linux
+smolsh / > cat /proc/cpuinfo
+machine		: Hitachi Cayman
+processor	: 0
+cpu family	: sh
+cpu type	: SH5-101
+cut		: 0.0
+cpu flags	: fpu
+cache type	: split (harvard)
+icache size	: 32KiB (4-way)
+dcache size	: 32KiB (4-way)
+address sizes	: 32 bits physical
+bogomips	: 12.50
+smolsh / > ls /bin
+[36mmv[0m	[36mrm[0m	[36mln[0m	[36mmkdir[0m	[36mrmdir[0m	[36mumount[0m	[36mmount[0m	[36mhalt[0m	[36mpoweroff[0m	[36mreboot[0m	[32msu[0m	[32mping[0m	[32mtftp[0m	[32mdevmem[0m	[32mresolv[0m	[32mip[0m	[32msha256sum[0m	[36mps[0m	[32mls[0m	[36mkill[0m	[36mmknod[0m	[36mfree[0m	[36mtouch[0m	[32muname[0m	[32mless[0m	[32mman[0m	[36mlsusb[0m	[36mlspci[0m	[32mxxd[0m	[36mrtcwake[0m	[36mhwclock[0m	[36mi2cdump[0m	[36mi2cdetect[0m	[36mi2cset[0m	[36mi2cget[0m	[36mflashcp[0m	[36mnandwrite[0m	[36mnanddump[0m	[36mflash_erase[0m	[36mgpiomon[0m	[36mgpioset[0m	[36mgpioget[0m	[36mgpioinfo[0m	[36mgpiodetect[0m	[36mmtdinfo[0m	[32msmolsh[0m	[32mdmesg[0m	[32mdf[0m	[36mchown[0m	[36mchmod[0m	[36mcp[0m	[36mcat[0m	
+smolsh / > echo FIN
+sh5ctl: "FIN" seen after 26.7 s, 668337418 core cycles

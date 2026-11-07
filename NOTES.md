@@ -486,3 +486,26 @@ reproduce it. Confirmed facts move to `docs/`.
   Lesson: grep every Vivado log for "does not have driver" and
   "Synth 8-4767" on our own files; `tests/exc` would have caught this in
   a gate-level simulation, which we do not have.
+  With e9d9aaa4 (the register-file fix): tests/exc 438/0 in 0.1 s, ISA
+  kit 458064/0 in 98 s (2.44 G cycles), SHcompact kit 172323/0 in 63 s,
+  Linux (write-back kernel) to the shell in 25 s / 621 M cycles,
+  `cat /proc/cpuinfo` and `ls /bin` typed through the hub. NetBSD then
+  deposited after Linux printed nothing for 600 s: the PC histogram
+  (300 samples of hub register 0x060 mapped with nm) was putchar/
+  kprintf/cnputc plus the interrupt entry and printf: stray interrupts
+  from the TMU/INTC state Linux left behind, because reset_hold reset
+  only the core. Fixed in RTL (b458b6c6: peripherals and bridge share
+  the core's reset) and in the tool (soft reset before a deposit; the
+  hub's transmit FIFO is drained too, it is not reset by either).
+  NetBSD then booted to `login:` in about 75 s but did not take the
+  typed login: getty flushes input when it prints the prompt (type
+  after 0.2 s of quiet), and NetBSD's scif driver (sys/arch/sh5/dev/
+  scif.c) masks the FIFO count with 0x0f (16 bytes read as 0 and its
+  handler spins without draining) and pops one byte more than the count
+  it read (lost when a byte arrived during the handler). Typing in
+  bursts below the 14-byte trigger with the FIFO drained in between
+  avoids both; NetBSD logs in, `uname -a`, `ps`, `df` in 82 s. Final
+  bitstream of the day b458b6c6, in the card's flash and in
+  `/workspace/files/superh5re-fpga-b458b6c6/`; transcripts
+  `logs/fpga-linux.txt`, `logs/fpga-netbsd.txt`.
+

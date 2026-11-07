@@ -185,8 +185,8 @@ list is headed by the MIG's 200 MHz paths).
 
 ## On the card
 
-First results on the NiteFury II (bitstream e9d9aaa4, 25 MHz core clock,
-2026-11-07), all through `host/sh5ctl` over PCIe:
+First results on the NiteFury II (bitstreams e9d9aaa4 and b458b6c6, 25 MHz
+core clock, 2026-11-07), all through `host/sh5ctl` over PCIe:
 
 | program | result | time |
 |---|---|---|
@@ -195,19 +195,28 @@ First results on the NiteFury II (bitstream e9d9aaa4, 25 MHz core clock,
 | SHmedia ISA kit | 458064 checks, 0 failures, 2.44 G cycles | 98 s |
 | SHcompact kit | 172323 checks, 0 failures, 1.57 G cycles | 63 s |
 | Linux 6.15, write-back caches, smolutils initramfs | boots to the shell; `cat /proc/cpuinfo` says SH5-101 with 32 KiB split caches; `ls /bin` | 25 s, 621 M cycles |
+| NetBSD 3.1 (CAYMAN_QEMU, memory-disk root) | multi-user, root login, `uname -a`, `ps`, `df` | about 75 s to `login:` |
+
+Transcripts: `logs/fpga-linux.txt`, `logs/fpga-netbsd.txt`.
 
 The uncached kits run about eight times slower per instruction than in
 the board testbench (memory latency 6 there, about 30 core cycles here
 through `mem_cdc` and the controller); the cached kernel boot is twice
 the simulated cycle count.
 
-The first bitstream (8a0aba28) fetched and executed but every general
-register read as zero: Vivado had refused to make a memory of `gr_q`,
+Two things the simulations could not show. The first bitstream
+(8a0aba28) fetched and executed but every general register read as zero: Vivado had refused to make a memory of `gr_q`,
 written from two ports in one process, and left a net in `sh5_core`
 without a driver (`Synth 8-3848`); Verilator ran the same code
 correctly. The hub's debug registers (0x040..0x070, `sh5ctl dbg`: last
 bus request, first failing request, counts, last response, retired
-PC/instruction) were added to find it and stay in the design.
+PC/instruction) were added to find it and stay in the design. Second,
+NetBSD deposited after Linux spun in `kprintf` from the interrupt path
+before its console existed: the peripherals kept Linux's TMU and INTC
+state across the host's hold and release, since only the core was in
+`reset_hold`'s reset. The peripherals and the bridge now reset with the
+core, and `sh5ctl` issues fpgaslop's soft reset before every deposit for
+the bitstreams that predate that.
 
 ## Bring-up
 
@@ -253,7 +262,12 @@ the device re-enumerated it with the new subsystem id.
 6. `sh5ctl <bdf> boot vmlinux --initrd sh-sh5.cpio.gz --cmdline
    "console=ttySC0 -- smolinit.getty=/dev/ttySC0 smolinit.hostname=cayman"`:
    the console is interactive (Ctrl-] detaches, `console` reattaches);
-   the prompt is `smolsh / >`. Use a kernel built with
+   the prompt is `smolsh / >`. `run` types its `--expect/--send` steps
+   only after the console has been quiet for 0.2 s (a getty flushes its
+   input as it prints the prompt) and in bursts of at most 13 bytes with
+   the receive FIFO drained in between (two quirks of NetBSD's SCIF
+   driver, `host/sh5ctl.c`, `type_byte`); typing by hand is far slower
+   than either. Use a kernel built with
    `CONFIG_CACHE_WRITEBACK=y`: the image booted on the testbenches until
    2026-11-06 had `CONFIG_CACHE_OFF=y`, never touched the caches, and
    needed 3.1 G cycles to the getty through the board testbench (two

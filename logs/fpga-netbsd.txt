@@ -1,0 +1,98 @@
+sh5ctl: NetBSD image, params at 824919a8, stub at 82491c00 in 2.9 s, starting at 82491c00
+Loaded initial symtab at 0xc245c238, strtab at 0xc2478184, # entries 6768
+Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 3.1 (CAYMAN_QEMU) #3: Mon Nov  2 16:32:59 UTC 2026
+	dev@claustrum:/workspace/home/dev/sh5work/nbobj/sys/arch/evbsh5/compile/CAYMAN_QEMU
+Cayman (fpgaslop), 32-bit mode
+total memory = 230088704
+avail memory = 221478912
+mainbus0 (root)
+superhyway0 at mainbus0: SuperHyway bus
+cpu0 at superhyway0 p-port 0x0d
+cpu0: SH5 STB1 Evaluation Silicon, Version 0, 25.00 MHz
+cpu0: D-cache 32 KB 32b/line 4-way 256-sets VIPT write-back
+cpu0: I-cache 32 KB 32b/line 4-way 256-sets VIVT
+pbridge0 at superhyway0 p-port 0x09: Peripheral Bridge, Version 0x0
+intc0 at pbridge0 offset 0x1000000: Interrupt Controller
+cprc0 at pbridge0 offset 0x1010000: Clock, Power and Watchdog/Reset Controller
+clock0 at cprc0: PLL frequency - 48MHz
+clock0: External Memory Clock: 6MHz, SuperHyway Clock: 12MHz
+clock0: Peripheral Bus Clock: 2MHz, PCIbus Clock: 2MHz
+clock0: FEMI Bus Clock: 6MHz, ST Legacy Clock: 2MHz
+watchdog at cprc0 not configured
+power at cprc0 not configured
+reset at cprc0 not configured
+tmu0 at pbridge0 offset 0x1020000 ipl 14 intevt 0x400: Timer Unit
+tmu0: Ticks per uS: 0.500
+tmu0: Delay constant: 6
+scif0 at pbridge0 offset 0x1030000 ipl 12 intevt 0x700
+scif0: console
+rtc0 at pbridge0 offset 0x1040000 Real-time Clock
+emi at superhyway0 not configured
+dmac at superhyway0 not configured
+femi0 at superhyway0 p-port 0x08: Flash/External Memory Interface, Version 0x0
+femi0: Base Address: 0x0, Length: 0x8000000
+sysfpga0 at femi0 offset 0x4000000: Cayman System FPGA, Revision: 5 - 02/05/24 (yy/mm/dd)
+sysfpga0: CPUCLKSEL: 400/200/100MHz, CPU Clock Mode: 3
+superio0 at sysfpga0 offset 0x0: FDC37C935 Super IO Controller, Id 0x00, Revision 0
+isa0 at superio0
+sm at sysfpga0 offset 0x1000 not configured
+alphaled0 at sysfpga0 offset 0x2100: Alphanumeric LED display
+sh5ctl: (the core has seen a bus error; `dbg` shows the request)
+md0: internal 32768 KB image area
+boot device: <unknown>
+root on md0a dumps on md0b
+mountroot: trying nfs...
+mountroot: trying ffs...
+root file system type: ffs
+WARNING: bad date in battery clock -- CHECK AND RESET THE DATE!
+init: copying out path `/sbin/init' 11
+Mon Nov  2 17:23:45 GMT 2026
+Starting file system checks:
+Setting tty flags.
+Setting sysctl variables:
+Starting network.
+Hostname: cayman
+IPv6 mode: host
+Configuring network interfaces:.
+writing to routing socket: Network is unreachable
+add net default: gateway 10.0.2.2: Network is unreachable
+Building databases...
+Starting syslogd.
+Mounting all filesystems...
+Setting securelevel: kern.securelevel: 0 -> 1
+/etc/rc: WARNING: No swap space configured!
+Starting local daemons:.
+Updating motd.
+Mon Nov  2 17:26:10 GMT 2026
+
+NetBSD/evbsh5 (cayman) (console)
+
+login: root
+Nov  2 17:26:17 cayman login: ROOT LOGIN (root) ON console
+Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 3.1 (CAYMAN_QEMU) #3: Mon Nov 2 16:32:59 UTC 2026
+
+Welcome to NetBSD!
+
+[3g        H        H        H        H        H        H        H        H        HTerminal type is vt100.
+We recommend creating a non-root account and using su(1) for root access.
+cayman# uname -a; ps; df
+NetBSD cayman 3.1 NetBSD 3.1 (CAYMAN_QEMU) #3: Mon Nov  2 16:32:59 UTC 2026  dev@claustrum:/workspace/home/dev/sh5work/nbobj/sys/arch/evbsh5/compile/CAYMAN_QEMU evbsh5
+PID TTY STAT    TIME COMMAND
+271 ?   S    0:01.85 -csh 
+273 ?   Ss   0:03.10 login 
+278 ?   R+   0:00.17 ps 
+Filesystem  1K-blocks      Used     Avail Capacity  Mounted on
+/dev/md0a       31711     23324      6802    77%    /
+kernfs              1         1         0   100%    /kern
+cayman# echo FIN
+sh5ctl: "FIN" seen after 82.3 s, 2058516452 core cycles
