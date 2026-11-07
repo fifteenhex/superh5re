@@ -6,7 +6,7 @@
 # Options, via -tclargs:
 #   -part <p>       FPGA part               (default xc7a200tfbg484-2)
 #   -outdir <d>     where results go        (default out)
-#   -core_div <n>   1000 MHz VCO / n        (default 40 -> 25 MHz)
+#   -core_div <n>   1000 MHz VCO / n        (default 20 -> 50 MHz; 40 was the first bring-up clock)
 #   -tck <ps>       DDR3 clock period       (default 3000, 666 MT/s: the
 #                   speed that does not lose writes on this board,
 #                   fpgaslop docs/ddr3-write-loss.md)
@@ -24,7 +24,7 @@
 
 set part      xc7a200tfbg484-2
 set outdir    ""
-set coredat   40
+set coredat   20
 set tck       3000
 set effort    0
 set synthonly 0
@@ -155,6 +155,8 @@ read_verilog -sv [list \
     $root/rtl/axi4_to_req.sv \
     $root/rtl/req_to_axi4.sv \
     $root/rtl/memarb.sv \
+    $root/rtl/slop_virtio.sv \
+    $root/rtl/slop_virtio_slots.sv \
     $sh5dir/rtl/shwy_pkg.sv \
     $sh5dir/rtl/sh5_pkg.sv \
     $sh5dir/rtl/sh5_uop_pkg.sv \

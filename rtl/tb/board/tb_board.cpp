@@ -27,6 +27,7 @@
 
 extern "C" {
 #include "sh5boot.h"
+#include "sh5blk.h"
 }
 
 namespace {
@@ -107,8 +108,13 @@ struct Tb {
             break;
         }
         case M_HOLD:
+            // one cycle out, like sh5_mem_cdc: memarb keeps its request from
+            // its hold registers until it has sampled the last ack, and a
+            // master behind it may re-request without ever showing a low
+            // cycle; waiting for req to fall deadlocked the first host DRAM
+            // read that overlapped core traffic
             t.mem_ack = 0;
-            if (!t.mem_req) mst = M_IDLE;
+            mst = M_IDLE;
             break;
         }
     }
@@ -173,7 +179,7 @@ void cb_write64(void *, uint64_t off, uint64_t v, uint8_t strb) { tb.bar(off, tr
 
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
-    const char *elf = nullptr, *cmdline = nullptr, *initrd = nullptr, *conlog = nullptr, *tracefile = nullptr;
+    const char *elf = nullptr, *cmdline = nullptr, *initrd = nullptr, *conlog = nullptr, *tracefile = nullptr, *diskimg = nullptr;
     uint64_t max_cycles = 400000000ULL;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--elf") && i + 1 < argc) elf = argv[++i];
@@ -183,6 +189,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--mem-latency") && i + 1 < argc) tb.latency = strtoul(argv[++i], nullptr, 0);
         else if (!strcmp(argv[i], "--done") && i + 1 < argc) tb.done_str = argv[++i];
         else if (!strcmp(argv[i], "--console-log") && i + 1 < argc) conlog = argv[++i];
+        else if (!strcmp(argv[i], "--disk") && i + 1 < argc) diskimg = argv[++i];
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc) tracefile = argv[++i];
         else if (!strcmp(argv[i], "--trace-max") && i + 1 < argc) tb.trace_max = strtoull(argv[++i], nullptr, 0);
         else if (!strcmp(argv[i], "--quiet")) tb.quiet = true;
@@ -221,6 +228,13 @@ int main(int argc, char **argv) {
     uint32_t pc = sh5_deposit(&bar, elf, cmdline, initrd, msg, sizeof msg);
     if (!pc) { fprintf(stderr, "[tb] deposit: %s\n", msg); return 1; }
     fprintf(stderr, "[tb] deposit: %s (%llu cycles)\n", msg, (unsigned long long)(tb.cycle - t0));
+    // a virtio-blk device served from a file (host/sh5blk.c), presented before the kernel probes
+    struct sh5blk *disk = nullptr;
+    if (diskimg) {
+        disk = sh5blk_open(&bar, 0, diskimg, 0, msg, sizeof msg);
+        fprintf(stderr, "[tb] %s\n", msg);
+        if (!disk) return 1;
+    }
     sh5_release(&bar, pc);
     fprintf(stderr, "[tb] released at %08x\n", pc);
 
@@ -230,6 +244,7 @@ int main(int argc, char **argv) {
     while (tb.cycle < max_cycles) {
         for (int k = 0; k < 64 && tb.cycle < max_cycles; k++) tb.tick();
         if (tb.done) { if (!done_cycle) done_cycle = tb.cycle; if (tb.cycle > done_cycle + 2000) break; }
+        if (disk && sh5blk_poll(disk) < 0) { fprintf(stderr, "[tb] virtio-blk ring unusable\n"); sh5blk_close(disk); disk = nullptr; }
         unsigned n = sh5_con_waiting(&bar);
         for (unsigned k = 0; k < n; k++) {
             int c = sh5_con_pop(&bar);
@@ -253,6 +268,12 @@ int main(int argc, char **argv) {
             (unsigned long long)tb.cycle, (unsigned long long)(tb.cycle - run0), (unsigned long long)tb.mem_txns,
             hostcon.size(), con_ok ? "" : " (SHORT)", tb.done ? "done" : "timeout",
             summary.empty() ? "" : ", ", summary.c_str());
+    if (disk) {
+        unsigned long r, w, bytes;
+        sh5blk_stats(disk, &r, &w, &bytes);
+        fprintf(stderr, "[tb] virtio-blk: %lu reads, %lu writes, %lu bytes\n", r, w, bytes);
+        sh5blk_close(disk);
+    }
     if (tb.conlog) fclose(tb.conlog);
     if (tb.trace) fclose(tb.trace);
     top.final();

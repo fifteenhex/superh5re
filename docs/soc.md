@@ -121,6 +121,27 @@ measures: with a 12-cycle controller latency a single write is
 acknowledged in 2 core cycles, a 4-beat write-back in 8, a single read
 takes 11 and a 4-beat line fill 15.
 
+## Storage: virtio-blk (`host/sh5blk.c`)
+
+fpgaslop's `slop_virtio_slots` sits in `sh5_top`: a stock virtio-mmio v2
+register block the core sees at 0x0b00_0000 (slot n at +n*0x200), its
+host side at register window +0x2_0000 (slot n at +n*0x400), the
+interrupt on INTC source 63 together with the hub doorbell (INTEVT 0x560,
+Linux irq 63, priority set by the Cayman platform). The virtqueue is in
+DRAM, which both sides reach, so nothing else crosses. Linux binds the
+transport from its command line, no driver code added:
+
+    virtio_mmio.device=0x200@0x0b000000:63
+
+`host/sh5blk.c` is the device, served from a file over fpgaslop's host
+virtqueue library (`slop_virtq.c`, `slop_vmmio.c`): it presents device id
+2 with the capacity in the config space, waits for DRIVER_OK, then takes
+IN/OUT/FLUSH/GET_ID requests from queue 0 and raises the used-buffer
+interrupt. `sh5ctl run|boot ... --disk IMG` and the board testbench's
+`--disk IMG` both serve it between console polls; the device is presented
+before the core is released, as the transport requires. `mke2fs -d DIR
+img 8M` on the bench machine makes an image with files in it.
+
 ## Results
 
 Through the board testbench (`rtl/tb/board`, memory latency 6 cycles,
@@ -204,8 +225,8 @@ list is headed by the MIG's 200 MHz paths).
 
 ## On the card
 
-First results on the NiteFury II (bitstreams e9d9aaa4 and b458b6c6, 25 MHz
-core clock, 2026-11-07), all through `host/sh5ctl` over PCIe:
+Results on the NiteFury II through `host/sh5ctl` over PCIe. First the
+bitstreams of 2026-11-07 (e9d9aaa4 and b458b6c6, 25 MHz core clock):
 
 | program | result | time |
 |---|---|---|
@@ -217,6 +238,24 @@ core clock, 2026-11-07), all through `host/sh5ctl` over PCIe:
 | NetBSD 3.1 (CAYMAN_QEMU, memory-disk root) | multi-user, root login, `uname -a`, `ps`, `df` | about 75 s to `login:` |
 
 Transcripts: `logs/fpga-linux.txt`, `logs/fpga-netbsd.txt`.
+
+Then 0183b335 (2026-11-08: decode in two stages, interrupts registered,
+the FIFO memory crossing), built with `-core_div 20` and met after routing
+with 0.27 ns to spare; the card measures 49.999 MHz:
+
+| program | 25 MHz | 50 MHz |
+|---|---|---|
+| tests/exc | 0.1 s, 1.35 M cycles | 0.1 s, 1.65 M cycles |
+| SHmedia ISA kit (uncached) | 98 s, 2.44 G cycles | 77 s, 3.85 G cycles |
+| SHcompact kit (uncached) | 63 s, 1.57 G cycles | 51 s, 2.55 G cycles |
+| Linux to its shell | 25 s, 621 M cycles | 12 s, 613 M cycles |
+| NetBSD to root login | 82 s, 2.04 G cycles | 42 s, 2.08 G cycles |
+
+The cached kernels take the same cycles at twice the rate; the uncached
+kits pay the memory latency, now twice as many cycles per access, and
+gain a fifth. The longest core path at 50 MHz is a carry chain in the FPU
+(`pass_r`, the operand classification); the decode path is no longer
+near the top.
 
 The uncached kits run about eight times slower per instruction than in
 the board testbench (memory latency 6 there, about 30 core cycles here
@@ -305,7 +344,7 @@ without the host path.
 
 ## Not done
 
-- No interrupt to the host (CAP_MSI clear); the host polls, as smol68k's board does.
+- No interrupt to the host (CAP_MSI clear); the host polls, as smol68k's board does, and the virtio kick is polled too.
 - The DMA engine of `slop_card` is instantiated but its masters are tied
   off (CAP_DMA clear).
 - A wider DRAM window and the core's bus timing (one request at a time
