@@ -76,7 +76,7 @@ module sh5_top #(
   logic        bridge_idle;
 
   // the virtio host pages, between the host interface and the transports
-  logic        vio_h_req, vio_h_we;
+  logic        vio_h_req, vio_h_we, vio_kick;   // vio_kick: any slot's QueueNotify, to the host MSI
   logic [11:0] vio_h_addr;
   logic [63:0] vio_h_wdata, vio_h_rdata;
   logic [7:0]  vio_h_wstrb;
@@ -179,7 +179,7 @@ module sh5_top #(
   // QueueNotify) goes to the host interface, where slop_card turns it into
   // the host MSI when the host has set the mailbox IRQ enable; the host
   // polls the kick latches otherwise.
-  logic        b_sel_vio, vio_ack_q, vio_irq, vio_kick;
+  logic        b_sel_vio, vio_ack_q, vio_irq;
   logic [63:0] vio_rdata;
   assign b_sel_vio = !b_sel_ram && (b_addr[31:20] == 12'h0b0);
   always_ff @(posedge clk or negedge rst_n) begin
