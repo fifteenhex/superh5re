@@ -154,7 +154,6 @@ read_verilog -sv [list \
     $root/rtl/slop_dmablk.sv \
     $root/rtl/axi4_to_req.sv \
     $root/rtl/req_to_axi4.sv \
-    $root/rtl/mem_cdc.sv \
     $root/rtl/memarb.sv \
     $sh5dir/rtl/shwy_pkg.sv \
     $sh5dir/rtl/sh5_pkg.sv \
@@ -172,6 +171,8 @@ read_verilog -sv [list \
     $sh5dir/rtl/sh5_mm.sv \
     $sh5dir/rtl/sh5_fpu.sv \
     $sh5dir/rtl/sh5_core.sv \
+    $sh5dir/rtl/soc/sh5_afifo.sv \
+    $sh5dir/rtl/soc/sh5_mem_cdc.sv \
     $sh5dir/rtl/soc/sh5_shwy_req.sv \
     $sh5dir/rtl/soc/sh5_periph.sv \
     $sh5dir/rtl/soc/sh5_hub.sv \
@@ -239,6 +240,10 @@ synth_design -top sh5_board_top -part $part \
 
 report_utilization -hierarchical -file $outdir/synth_util.rpt
 report_timing_summary -file $outdir/synth_timing.rpt
+# the core clock's worst paths before placement: where a faster clock would
+# fail first (route delay roughly doubles these figures)
+report_timing -max_paths 100 -nworst 1 -unique_pins -delay_type max -sort_by slack \
+    -group clk_core -file $outdir/synth_timing_core.rpt
 
 if {$synthonly} {
     puts "build.tcl: -synth_only, stopping before place and route."

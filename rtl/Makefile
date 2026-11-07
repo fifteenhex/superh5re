@@ -21,9 +21,13 @@ lint-soc:
 	$(VERILATOR) --lint-only $(SOC_LINTFLAGS) --top-module sh5_top $(SRCS) $(SOC_SRCS) $(SLOP_SRCS)
 
 # the board top with fpgaslop's primitive stubs; the Vivado IP are black boxes
+# the memory clock crossing against the real arbiter and AXI bridge (rtl/tb/cdc)
+check-cdc:
+	$(MAKE) -C tb/cdc check
+
 lint-board:
 	cd .. && fpgaslop/boards/nitefury/lint-top.sh --tcl fpga/nitefury/build.tcl --top sh5_board_top \
 	  --var root=fpgaslop --var sh5dir=. --var here=fpga/nitefury \
 	  --blackbox 'IBUFDS_GTE2|sh5_pcie_ep|sh5_pcie_cdc|sh5_ddr3'
 
-.PHONY: lint lint-soc lint-board
+.PHONY: check-cdc lint lint-soc lint-board

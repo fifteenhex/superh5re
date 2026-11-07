@@ -96,7 +96,8 @@ Module names in `rtl/`: `sh5_core` (top), `sh5_ifu`, `sh5_icache`,
 |---|---|---|---|---|
 | F1 | select next PC; read I-cache tag and data arrays of the indexed set; ITLB CAM lookup in parallel | | | |
 | F2 | tag compare (EA[31:13], ASID or SH, V), way select, PRU check; 8-byte fetch block into the fetch queue; on miss: ITLB result decides refill or ITLBMISS/EXECPROT | | | |
-| D | decode (§4.3); register read (3 GR ports, FR ports); hazard check against the scoreboard; static prediction from the l-bit; privilege, FD and reserved-bit checks | | | |
+| D1 | SHcompact expansion and decode (§4.3) into a one-entry register; privilege, FD and reserved-bit checks | | | |
+| D2 | hazard check against the scoreboard; register read (3 GR ports, FR ports); static prediction from the l-bit; interrupt acceptance; issue | | | |
 | E1 | branch condition, PT target address and checks | 64-bit ALU, shifter, compare; multiply step 1; SIMD step 1 | address generation, misalignment and neff check | operand classification (NaN, denormal, zero, inf): all FPU exceptions are decided here (§9.3); issue to FP pipe |
 | E2 | PT writes TR, starts target preload | multiply step 2; SIMD step 2 | D-cache set read (EA index), EA tag compare, DTLB CAM lookup, store buffer check | FP stage 1 |
 | E3 | | multiply step 3 (result); SIMD step 3 | hit/miss, PA tag compare, protection, data align/extend, LDLO/LDHI byte select | FP stage 2 |
@@ -111,6 +112,13 @@ load-use distance of 3 cycles (**D**, HC13 slide 7).
 Stage E1 to E3 exist for every instruction (**D**, slides 7 and 10 show
 every instruction passing E1 E2 E3 W), so the pipeline is never shorter
 for ALU operations; their results are simply forwarded early.
+
+D was one stage until 2026-11-07: fetch queue, expander, decoder and the
+issue decision in one cycle were 39 logic levels, the longest path of
+the core at 25 MHz. The register between D1 and D2 costs one cycle on
+every redirect, including a predicted branch (the target block is
+injected into the fetch queue and decoded in the next cycle), about 3 %
+of the cycles of tests/exc and 13 % of the ISA kit's `arith` group.
 
 ### 4.2 Fetch
 

@@ -23,12 +23,12 @@ PCIe BAR0 -> axi_pcie -> axi clock converter -> axi4_to_req ---- h_* -----+
   |   memarb -> mem_* ----------------------------------------------------+
   +------------------------------------------------------------------------+
                                                                            |
-                                        mem_cdc -> req_to_axi4 -> MIG -> DDR3
+                                    sh5_mem_cdc -> req_to_axi4 -> MIG -> DDR3
 ```
 
 `fpga/nitefury/sh5_board_top.sv` holds the outer part (copied from
-smol68k's board top, which has built and run) and `build.tcl` the Vivado
-flow; `rtl/tb/board` simulates `sh5_top` with the host and the memory as
+smol68k's board top, which has built and run, with `sh5_mem_cdc` in place
+of `mem_cdc`) and `build.tcl` the Vivado flow; `rtl/tb/board` simulates `sh5_top` with the host and the memory as
 C++ models.
 
 ## Address maps
@@ -101,6 +101,25 @@ order, so the serialisation is legal. Write bursts took 5 % off the
 cycles and 10 % off the transactions of tests/exc through the testbench,
 and 5.5 % and 15 % off a Linux boot with the caches on (332.6 M cycles
 and 11.3 M transactions without them, 314.3 M and 9.6 M with).
+
+## The memory clock crossing (`rtl/soc/sh5_mem_cdc.sv`)
+
+The SoC runs at the core clock, the DDR3 controller's user interface at
+100 MHz, and the two are unrelated (fpgaslop's `mem_cdc.sv` explains).
+fpgaslop's crossing is a four-phase handshake that pays about seven core
+cycles for every beat; `sh5_mem_cdc` has the same ports and reset contract
+(assert both resets together) and three asynchronous FIFOs instead
+(`sh5_afifo.sv`, Gray-code pointers): a command FIFO, a write-data FIFO
+the master fills one beat per acknowledge, and a read-data FIFO the
+controller side fills one beat per cycle. Writes are posted (acknowledged
+when in the FIFO; the command FIFO keeps the order, `req_to_axi4` finishes
+each transaction before the next, so a later read sees them). `rd_ready`
+and `wr_ready` of `req_to_axi4` come from the FIFOs. `rtl/tb/cdc` (`make
+-C rtl check-cdc`) drives the real `memarb` and `req_to_axi4` with two
+clocks at 4:1 and random traffic on both ports against a model, then
+measures: with a 12-cycle controller latency a single write is
+acknowledged in 2 core cycles, a 4-beat write-back in 8, a single read
+takes 11 and a 4-beat line fill 15.
 
 ## Results
 

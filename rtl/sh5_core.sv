@@ -416,8 +416,18 @@ module sh5_core
 
   // ===================================================================
   // D: decode, hazards, operand read
-  uop_t d_uop_raw, d_uop;
+  // D is two stages: D1 decodes the fetch word (SHcompact expansion,
+  // sh5_decode) into dq_uop_q; D2 checks hazards, reads operands, predicts
+  // and issues from that register. The register halves the longest path
+  // of the core (fetch queue -> expander -> decoder -> issue -> fetch
+  // enable, 39 logic levels at 25 MHz); it costs one cycle after every
+  // redirect, including a predicted branch.
+  uop_t d_uop_raw, d1_uop, d_uop;
   logic d_valid, d_stall, d_issue, serial_block_q;
+  logic d1_take;           // D1 hands a uop to D2 this cycle
+  logic dq_valid_q;        // D2 holds a uop
+  logic dq_mid_q;          // ... that is not the first step of its SHcompact instruction, or is a delay slot
+  uop_t dq_uop_q;
   logic isa_compact;
   logic isa_q;             // 1: SHmedia, 0: SHcompact (Vol. 1 2.5.3)
   logic launched_q;        // cycle after a launch or RTE: take the ISA from the control unit
@@ -452,29 +462,50 @@ module sh5_core
 
   // interrupt acceptance from the current SR (Vol. 1 16.10)
   logic irq_nmi, irq_dbg, irq_ext, irq_any;
-  assign irq_nmi = nmi_i;
-  assign irq_dbg = debugint_i && !sr[SR_BL];
-  assign irq_ext = extint_valid_i && !sr[SR_BL] && (extint_level_i > sr[SR_IMASK +: 4]);
-  assign irq_any = cpu_reset_i || irq_nmi || irq_dbg || irq_ext;
+  // the interrupt inputs are registered once: the INTC's priority logic
+  // otherwise sits in the issue path (it was the longest path once decode
+  // was split), and a cycle of latency on an interrupt is nothing
+  logic        nmi_q, debugint_q, extint_valid_q, cpu_reset_q;
+  logic [3:0]  extint_level_q;
+  logic [31:0] extint_code_q;
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      nmi_q <= 1'b0; debugint_q <= 1'b0; extint_valid_q <= 1'b0; cpu_reset_q <= 1'b0;
+      extint_level_q <= 4'd0; extint_code_q <= 32'h0;
+    end else begin
+      nmi_q <= nmi_i; debugint_q <= debugint_i; extint_valid_q <= extint_valid_i; cpu_reset_q <= cpu_reset_i;
+      extint_level_q <= extint_level_i; extint_code_q <= extint_code_i;
+    end
+  end
+  assign irq_nmi = nmi_q;
+  assign irq_dbg = debugint_q && !sr[SR_BL];
+  assign irq_ext = extint_valid_q && !sr[SR_BL] && (extint_level_q > sr[SR_IMASK +: 4]);
+  assign irq_any = cpu_reset_q || irq_nmi || irq_dbg || irq_ext;
   // an SHcompact instruction and a delayed branch with its slot are indivisible
   logic irq_take;
-  assign irq_take = irq_any && !(isa_compact && (useq_q != 4'd0 || slot_q));
+  assign irq_take = irq_any && !(dq_uop_q.compact && dq_mid_q);
 
+  // D1: the decoded instruction as it goes into the register
   always_comb begin
-    d_uop = d_uop_raw;
-    d_uop.compact = isa_compact;
-    d_uop.cinsn   = d_cinsn;
-    d_uop.pc_next = isa_compact ? (slot_q ? slot_pc_q + 32'd4 : d_cpc + 32'd2) : if_insn_pc + 32'd4;
+    d1_uop = d_uop_raw;
+    d1_uop.compact = isa_compact;
+    d1_uop.cinsn   = d_cinsn;
+    d1_uop.pc_next = isa_compact ? (slot_q ? slot_pc_q + 32'd4 : d_cpc + 32'd2) : if_insn_pc + 32'd4;
+  end
+
+  // D2: the registered uop, replaced by an interrupt launch when one is taken
+  always_comb begin
+    d_uop = dq_uop_q;
     if (irq_take) begin
       d_uop.cls = UC_EXC;
       d_uop.wr_gpr = 1'b0; d_uop.wr_tr = 1'b0; d_uop.wr_fr = 1'b0;
       d_uop.rd_fa = 1'b0; d_uop.rd_fb = 1'b0; d_uop.rd_fc = 1'b0; d_uop.rd_tr = 1'b0;
       d_uop.serialize = 1'b1;
-      d_uop.exc_is_irq = !cpu_reset_i;
-      d_uop.exc_is_reset = cpu_reset_i;
-      d_uop.irq_level = extint_level_i;
-      d_uop.imm = {32'h0, extint_code_i};
-      if (cpu_reset_i)      d_uop.exc = EVT_CPURESET;
+      d_uop.exc_is_irq = !cpu_reset_q;
+      d_uop.exc_is_reset = cpu_reset_q;
+      d_uop.irq_level = extint_level_q;
+      d_uop.imm = {32'h0, extint_code_q};
+      if (cpu_reset_q)      d_uop.exc = EVT_CPURESET;
       else if (irq_nmi)     d_uop.exc = EVT_NMI;
       else if (irq_dbg)     d_uop.exc = EVT_INT_DEBUGINT;
       else                  d_uop.exc = EVT_INT_EXTINT;
@@ -482,7 +513,7 @@ module sh5_core
   end
 
   // a redirect from E1 or W kills the instruction in decode
-  assign d_valid = if_insn_valid && !serial_block_q && !sleeping_q && !flush && !e1_redirect;
+  assign d_valid = dq_valid_q && !serial_block_q && !sleeping_q && !flush && !e1_redirect;
 
   // GPR hazards: long-latency producers in E1/E2, FPU results pending
   logic uses_rc;
@@ -536,9 +567,17 @@ module sh5_core
   end
 
   assign d_issue   = d_valid && !d_stall && !hold;
-  // an SHcompact instruction is consumed after its last step, and the fetch
-  // word only after its second half
-  assign if_consume = d_issue && (!isa_compact || (exp_last && cpos_q));
+  // D1 hands over when D2 is empty or issuing, never in a cycle that
+  // redirects fetch (what it decoded is then the wrong path). An SHcompact
+  // instruction is consumed after its last step, and the fetch word only
+  // after its second half.
+  // ... nor while a serialising instruction is issuing or in flight: the
+  // decode depends on SR (FR, SZ, PR, S, MD, FD) that it may change at W
+  // (FSCHG/FRCHG are SRFLAG uops; the single-stage decoder saw the new
+  // bits because it decoded at issue time)
+  assign d1_take   = if_insn_valid && (!dq_valid_q || d_issue) && !redirect &&
+                     !serial_block_q && !(d_issue && d_uop.serialize);
+  assign if_consume = d1_take && (!isa_compact || (exp_last && cpos_q));
 
   // Prediction (Vol. 1 5.3.3): conditional branches with the likely bit and
   // BLINK are predicted taken when the buffer of their target register
@@ -1183,6 +1222,7 @@ module sh5_core
       serial_block_q <= 1'b0; sleeping_q <= 1'b0; reset_q <= 1'b1;
       isa_q <= 1'b1; launched_q <= 1'b0;
       cpos_q <= 1'b0; slot_q <= 1'b0; useq_q <= 4'd0; slot_pc_q <= 32'h0;
+      dq_valid_q <= 1'b0; dq_mid_q <= 1'b0; dq_uop_q <= '0;
       fr_busy_q <= '0; gr_busy_q <= '0;
       pl_pending_q <= 1'b0; pl_sent_q <= 1'b0; pl_drop_q <= 1'b0; pl_tr_q <= 3'd0; pl_ea_q <= '0; pl_ea_sent_q <= '0;
       for (int t = 0; t < 8; t++) begin tb_valid_q[t] <= 1'b0; tb_addr_q[t] <= '0; tb_data_q[t] <= '0; end
@@ -1244,7 +1284,7 @@ module sh5_core
 
       // sleep
       if (w_do && !w_exc && w_q.u.cls == UC_SLEEP) sleeping_q <= 1'b1;
-      if (sleeping_q && (cpu_reset_i || nmi_i || debugint_i || extint_valid_i)) sleeping_q <= 1'b0;
+      if (sleeping_q && (cpu_reset_q || nmi_q || debugint_q || extint_valid_q)) sleeping_q <= 1'b0;
 
       // target register buffers and preload
       if (flush || !sr[SR_MMU] || ici_pulse || ic_inv_valid ||
@@ -1285,10 +1325,19 @@ module sh5_core
       if (e1_q.u.valid && e1_q.u.exc == 12'h0 && !e1_redir_done_q && !hold && e1_q.u.cls == UC_BLINK)
         isa_q <= e1_trv[0];
 
-      // SHcompact sequencing
+      // the D1 -> D2 register
+      if (d1_take) begin
+        dq_valid_q <= 1'b1;
+        dq_uop_q   <= d1_uop;
+        dq_mid_q   <= isa_compact && (useq_q != 4'd0 || slot_q);
+      end else if (d_issue || redirect || flush) begin
+        dq_valid_q <= 1'b0;
+      end
+
+      // SHcompact sequencing, advanced as D1 hands over
       if (redirect) begin
         cpos_q <= redirect_pc[1]; useq_q <= 4'd0; slot_q <= 1'b0;
-      end else if (d_issue && isa_compact && !irq_take) begin
+      end else if (d1_take && isa_compact) begin
         if (exp_last) begin
           useq_q <= 4'd0;
           cpos_q <= ~cpos_q;
