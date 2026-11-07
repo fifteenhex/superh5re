@@ -9,8 +9,8 @@
  *   sh5ctl <bdf> hold | release [pc] | reset
  *   sh5ctl <bdf> rd <baroff> | wr <baroff> <value>  one 64-bit BAR access (registers: 0x10000000 + offset)
  *   sh5ctl <bdf> dbg                         the hub's view of the core's bus and retirement
- *   sh5ctl <bdf> run <elf> [--cmdline S] [--initrd F] [--done STR] [--timeout SEC]
- *                                            deposit, start, print the console, stop at STR
+ *   sh5ctl <bdf> run <elf> [--cmdline S] [--initrd F] [--expect STR --send STR]... [--done STR] [--timeout SEC]
+ *                                            deposit, start, print the console, type at it, stop at STR
  *   sh5ctl <bdf> boot <elf> [--cmdline S] [--initrd F]
  *                                            deposit, start, serve an interactive console
  *   sh5ctl <bdf> console                     attach to a running system
@@ -313,11 +313,37 @@ static void serve_console(const struct sh5_bar *b)
 	}
 }
 
-/* print the console until `done` appears or `timeout` seconds pass; no input */
+/* --expect STR --send STR pairs for `run`: when STR has appeared on the
+ * console, STR is typed (\n and \r escapes) */
+struct step { const char *expect, *send; };
+static struct step steps[16];
+static int nsteps;
+
+static int ring_ends_with(const char *ring, size_t ringsz, size_t fill, const char *s)
+{
+	size_t l = strlen(s);
+	return l && fill >= l && !memcmp(ring + ringsz - l, s, l);
+}
+
+static void type_string(const struct sh5_bar *b, const char *s)
+{
+	for (; *s; s++) {
+		char c = *s;
+		if (c == '\\' && s[1]) {
+			s++;
+			c = (*s == 'n') ? '\n' : (*s == 'r') ? '\r' : *s;
+		}
+		while (!sh5_con_push(b, (uint8_t)c))
+			usleep(100);
+	}
+}
+
+/* print the console until `done` appears or `timeout` seconds pass; type the steps as their expects appear */
 static int run_console(const struct sh5_bar *b, const char *done, double timeout)
 {
 	char ring[256] = { 0 };
-	size_t rl = done ? strlen(done) : 0, fill = 0;
+	size_t fill = 0;
+	int step = 0;
 	double t0 = now_s(), last = t0;
 	uint64_t c0 = hub_rd(b, SH5_HUB_CYCLES);
 
@@ -327,16 +353,20 @@ static int run_console(const struct sh5_bar *b, const char *done, double timeout
 			int c = sh5_con_pop(b);
 			if (c < 0) break;
 			putchar(c);
-			if (rl) {
-				memmove(ring, ring + 1, sizeof ring - 1);
-				ring[sizeof ring - 1] = (char)c;
-				if (fill < sizeof ring) fill++;
-				if (fill >= rl && !memcmp(ring + sizeof ring - rl, done, rl)) {
-					fflush(stdout);
-					fprintf(stderr, "\nsh5ctl: \"%s\" seen after %.1f s, %llu core cycles\n", done,
-						now_s() - t0, (unsigned long long)(hub_rd(b, SH5_HUB_CYCLES) - c0));
-					return 0;
-				}
+			memmove(ring, ring + 1, sizeof ring - 1);
+			ring[sizeof ring - 1] = (char)c;
+			if (fill < sizeof ring) fill++;
+			if (step < nsteps && ring_ends_with(ring, sizeof ring, fill, steps[step].expect)) {
+				fflush(stdout);
+				type_string(b, steps[step].send);
+				step++;
+				memset(ring, 0, sizeof ring); fill = 0;
+			}
+			if (done && ring_ends_with(ring, sizeof ring, fill, done)) {
+				fflush(stdout);
+				fprintf(stderr, "\nsh5ctl: \"%s\" seen after %.1f s, %llu core cycles\n", done,
+					now_s() - t0, (unsigned long long)(hub_rd(b, SH5_HUB_CYCLES) - c0));
+				return 0;
 			}
 			last = now_s();
 		}
@@ -417,6 +447,9 @@ int main(int argc, char **argv)
 			else if (!strcmp(argv[i], "--initrd") && i + 1 < argc) initrd = argv[++i];
 			else if (!strcmp(argv[i], "--done") && i + 1 < argc) done = argv[++i];
 			else if (!strcmp(argv[i], "--timeout") && i + 1 < argc) timeout = atof(argv[++i]);
+			else if (!strcmp(argv[i], "--expect") && i + 3 < argc && !strcmp(argv[i + 2], "--send") && nsteps < 16) {
+				steps[nsteps].expect = argv[i + 1]; steps[nsteps].send = argv[i + 3]; nsteps++; i += 3;
+			}
 		}
 		sh5_hold(&b);
 		t0 = now_s();
