@@ -612,7 +612,19 @@ reproduce it. Confirmed facts move to `docs/`.
   identical to master on 3922 testsuite files. The sh64 kernel
   (48449896407a, write-back config) built with it boots to the smolutils
   shell in qemu. Kernel fixes for newer GCC (access_ok casts in
-  traps_64.c, __kernel_ssize_t in posix_types_64.h) go on a linux branch.
+  traps_64.c, __kernel_ssize_t/__kernel_ptrdiff_t in posix_types_64.h,
+  a fallthrough, four prototypes) are linux branch
+  `intern-sh5-newgcc-20261107` (da73afb87709, 7 commits on 48449896407a);
+  the kernel then builds with 0 errors and 28 warnings (19 missing
+  prototypes that need header work, the clone3 #warning, two generic
+  -Wconstant-logical-operand) and boots in qemu. The bench key cannot
+  read linux.git on gitolite, so that branch was pushed from the sandbox.
+  Heads: binutils base 4db9937a274 / revive 3871bac4d2d, gcc base
+  ce91dc85be5 / revive d360b9bafc8. Build scripts on the bench:
+  `~/build/build-revive.sh` (binutils), `~/build/build-gcc-revive.sh
+  configure libgcc` (into `~/toolchain/gcc-sh64-revive`),
+  `~/kernel/build-kernel.sh`, `~/build/final-tests.sh`. The bench still
+  needs `bc` (a stand-in answers only HZ=250).
   MEXTR: Vol. 2 pp. 200-206 give (Rm >> 8k) | (Rn << 8(8-k)), which is
   what the kit, `rtl/sh5_mm.sv` and GCC implement; qemu-sh5 and the
   binutils cgen description (`cpu/sh64-media.cpu`) have k and 8-k
