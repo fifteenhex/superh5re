@@ -357,7 +357,12 @@ without the host path.
 
 ## Not done
 
-- No interrupt to the host (CAP_MSI clear); the host polls, as smol68k's board does, and the virtio kick is polled too.
+- No interrupt to the host (CAP_MSI clear); the host polls, as smol68k's
+  board does, and the virtio kick is polled too (the kick latch at host
+  offset 0x0f8 is what an MSI would carry).
+- virtio-blk has run in the board testbench only; the bitstream with the
+  transport is not built yet (the 50 MHz bitstream in flash, 0183b335,
+  predates it).
 - The DMA engine of `slop_card` is instantiated but its masters are tied
   off (CAP_DMA clear).
 - A wider DRAM window and the core's bus timing (one request at a time
