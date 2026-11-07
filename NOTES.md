@@ -449,3 +449,40 @@ reproduce it. Confirmed facts move to `docs/`.
   cycles, 11.26 M transactions; the write bursts are worth 5.5 % of the
   cycles and 15 % of the transactions.
 
+- 2026-11-07: first day on the card (NiteFury II in `epyc`, account
+  `clanker`, J-Link EDU Mini on the JTAG header, OpenOCD 0.12; the
+  staging tree is `~clanker/sh5/`: host/, tests/, openocd/ (fpgaslop's
+  flash.sh), bitstream*/, linux/). The proxy bitstream
+  `bscan_spi_xc7a200t.bit` was fetched into `~/.cache/fpgaslop/`.
+  Flash procedure that worked: `flash.sh detect`, `flash.sh sram`,
+  `flash.sh backup` (16 MB of the previous design kept in
+  `~clanker/sh5/flash-backup-20261107.bin`), `flash.sh image sh5.bin`.
+  No cold power cycle was needed: `flash.sh reboot` (PROGRAM_B, the FPGA
+  reconfigures from flash) followed by `echo 1 > /sys/bus/pci/devices/
+  0000:41:00.0/remove; echo 1 > /sys/bus/pci/rescan` re-enumerated the
+  card with the new subsystem id (0x5a05) on this AMD platform; the
+  fpgaslop warning about JTAG loads not enumerating is about SRAM loads.
+  Results with 8a0aba28: probe correct (FPGASLOP, superh5, build id,
+  DDR3 calibrated), core clock measured 25.000 MHz from the hub's cycle
+  counter, memtest 1 MB passed (12.5 MB/s write, 2.4 MB/s read through
+  the BAR). tests/exc: no console output, bus error flagged.
+  Debugging without visibility: poked hand-assembled programs into DRAM
+  (`sh5ctl poke`, `release <pc>`), used the card page's completed
+  read/write counters (slop_id WR_COUNT = {wr_done, rd_done} of
+  req_to_axi4) as the only instrumentation: an uncached loop fetches at
+  1.39 M reads/s (one per 18 cycles) with no error; any load or store,
+  to RAM or to the SCIF, sets the bus-error bit and lands nowhere.
+  Built 6700d74a with hub debug registers (0x040..0x070: last request,
+  first failing request, counts, last response, retired PC/insn;
+  `sh5ctl dbg`): the failing requests were Load8/Store8 with the right
+  opcode and mask and ADDRESS 0; a `beq r2, r63` eight instructions
+  after `movi 1, r2` was taken. Every general register read as zero.
+  Cause in the Vivado log: `gr_q` written twice in one process (W stage
+  and FPU completion) -> "Trying to implement RAM 'gr_q_reg' in
+  registers ... multiple writes via different ports in same process",
+  then "Net p_0_out in module/entity sh5_core does not have driver".
+  Verilator accepted the code. Fix e9d9aaa4: per-register write enable
+  and value from both ports in combinational logic, flops written once.
+  Lesson: grep every Vivado log for "does not have driver" and
+  "Synth 8-4767" on our own files; `tests/exc` would have caught this in
+  a gate-level simulation, which we do not have.
