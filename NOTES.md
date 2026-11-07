@@ -599,3 +599,25 @@ reproduce it. Confirmed facts move to `docs/`.
   printed the host's polling reads wrote 180 MB in ten minutes; old
   out/vivado-* trees, core TB traces and the NetBSD object tree deleted
   (2 GB free). The trace prints host writes only now.
+- 2026-11-07, toolchain (subagent on the bench machine, journal in
+  `~/src/TOOLCHAIN-NOTES.md` there): binutils branch
+  `intern-sh64-revive-20261107` (sh64 restored; gas GOT relocation
+  renumbering fixed, output identical to 2.30 on libgcc's crt). GCC branch
+  `intern-sh64-gcc-base-20261107` is the pre-removal 2016 tree plus the
+  `sh_legitimate_constant_p` fix: a working sh64-linux compiler. GCC branch
+  `intern-sh64-gcc-revive-20261107` is master with the removal reverted
+  and the backend adapted: cc1 and libgcc build (C, no multilib), exc kit
+  438/0 and ISA kit 458064/0 under qemu, SHcompact kit compiles (the sh4
+  build's 37 rotl/rotr failures match the GCC 6.5 build), sh4-linux output
+  identical to master on 3922 testsuite files. The sh64 kernel
+  (48449896407a, write-back config) built with it boots to the smolutils
+  shell in qemu. Kernel fixes for newer GCC (access_ok casts in
+  traps_64.c, __kernel_ssize_t in posix_types_64.h) go on a linux branch.
+  MEXTR: Vol. 2 pp. 200-206 give (Rm >> 8k) | (Rn << 8(8-k)), which is
+  what the kit, `rtl/sh5_mm.sv` and GCC implement; qemu-sh5 and the
+  binutils cgen description (`cpu/sh64-media.cpu`) have k and 8-k
+  swapped. The kit's `ref_mextr` compiles to mextr itself, so the kit
+  cannot see that bug; build the reference at -O0 to make it a test.
+  Manuals: the SH-5 Common Assembly Language Syntax (05-ASM-10001) from
+  the user, the ABI and System Architecture volumes from
+  larsbrinkhoff/awesome-cpus, all under `refs/manuals/`.
