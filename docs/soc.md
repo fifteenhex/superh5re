@@ -223,7 +223,10 @@ the bitstreams that predate that.
 Nothing below has been done on a card yet; this is the order and what
 each step proves. Loading follows `fpgaslop/docs/flashing.md`.
 `host/bringup.sh <bdf>` runs steps 2 to 5 in order, stopping at the
-first failure, with each step's output kept in a log directory. On this
+first failure, with each step's output kept in a log directory;
+`host/check-card.sh <bdf>` is the full regression once the card is known
+to work (both scripts call sudo themselves; over a session without a
+terminal, run them under `sudo` instead). On this
 card no cold power cycle was needed after flashing: `flash.sh reboot`
 (the FPGA reconfigures from flash) and then a PCI remove and rescan of
 the device re-enumerated it with the new subsystem id.

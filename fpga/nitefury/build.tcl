@@ -214,6 +214,23 @@ set build_cfg [expr {($tck << 16) | ($coredat << 8)}]
 set clk_hz [expr {int(1000000000.0 / $coredat)}]
 puts [format "build.tcl: BUILD_ID %016llx BUILD_CFG %016llx core %d Hz" $build_id $build_cfg $clk_hz]
 
+# ---- messages that have cost silicon are errors here ----
+# Verilator accepts all three and the netlist is wrong (checklog.py has the
+# history): an undeclared name becomes a one-bit wire (Synth 8-11241); a
+# net without a driver in one of our modules (Synth 8-3848: the register
+# file, bitstream 8a0aba28, every register read as zero). Promoted for our
+# files and modules only; the IP cores produce both benignly.
+set_msg_config -id {Synth 8-11241} -string [list "[file normalize $sh5dir]/rtl/"] -new_severity ERROR
+set_msg_config -id {Synth 8-11241} -string [list "[file normalize $sh5dir]/fpga/"] -new_severity ERROR
+set_msg_config -id {Synth 8-11241} -string [list "[file normalize $root]/rtl/"] -new_severity ERROR
+foreach f [get_files -quiet *.sv] {
+    set n [file normalize $f]
+    if {[string first [file normalize $sh5dir] $n] == 0 || [string first [file normalize $root]/rtl $n] == 0} {
+        set m [file rootname [file tail $f]]
+        set_msg_config -id {Synth 8-3848} -string [list "module/entity $m "] -new_severity ERROR
+    }
+}
+
 synth_design -top sh5_board_top -part $part \
     -generic [list BUILD_ID=64'd$build_id \
                    BUILD_CFG=64'd$build_cfg \
