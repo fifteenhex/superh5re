@@ -183,12 +183,41 @@ SHcompact, between the expander and decode.
 `timing_core.rpt` lists the core-clock paths on their own (the overall
 list is headed by the MIG's 200 MHz paths).
 
+## On the card
+
+First results on the NiteFury II (bitstream e9d9aaa4, 25 MHz core clock,
+2026-11-07), all through `host/sh5ctl` over PCIe:
+
+| program | result | time |
+|---|---|---|
+| probe, status, memtest | identity, 25.000 MHz measured, 1 MB write/read/compare passed | 1 s |
+| tests/exc | 438 checks, 0 failures, 1.35 M cycles | 0.1 s |
+| SHmedia ISA kit | 458064 checks, 0 failures, 2.44 G cycles | 98 s |
+| SHcompact kit | 172323 checks, 0 failures, 1.57 G cycles | 63 s |
+| Linux 6.15, write-back caches, smolutils initramfs | boots to the shell; `cat /proc/cpuinfo` says SH5-101 with 32 KiB split caches; `ls /bin` | 25 s, 621 M cycles |
+
+The uncached kits run about eight times slower per instruction than in
+the board testbench (memory latency 6 there, about 30 core cycles here
+through `mem_cdc` and the controller); the cached kernel boot is twice
+the simulated cycle count.
+
+The first bitstream (8a0aba28) fetched and executed but every general
+register read as zero: Vivado had refused to make a memory of `gr_q`,
+written from two ports in one process, and left a net in `sh5_core`
+without a driver (`Synth 8-3848`); Verilator ran the same code
+correctly. The hub's debug registers (0x040..0x070, `sh5ctl dbg`: last
+bus request, first failing request, counts, last response, retired
+PC/instruction) were added to find it and stay in the design.
+
 ## Bring-up
 
 Nothing below has been done on a card yet; this is the order and what
 each step proves. Loading follows `fpgaslop/docs/flashing.md`.
 `host/bringup.sh <bdf>` runs steps 2 to 5 in order, stopping at the
-first failure, with each step's output kept in a log directory.
+first failure, with each step's output kept in a log directory. On this
+card no cold power cycle was needed after flashing: `flash.sh reboot`
+(the FPGA reconfigures from flash) and then a PCI remove and rescan of
+the device re-enumerated it with the new subsystem id.
 
 1. `flash.sh detect`, then `flash.sh sram out/sh5.bit`. LEDs, from the
    board top: 0 PCIe link up, 1 DDR3 calibrated, 2 heartbeat from
@@ -245,4 +274,3 @@ without the host path.
   off (CAP_DMA clear).
 - A wider DRAM window and the core's bus timing (one request at a time
   through the bridge) are the performance items.
-- Nothing has run on a card yet.
