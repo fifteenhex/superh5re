@@ -343,7 +343,7 @@ static int run_console(const struct sh5_bar *b, const char *done, double timeout
 {
 	char ring[256] = { 0 };
 	size_t fill = 0;
-	int step = 0;
+	int step = 0, berr_seen = 0;
 	double t0 = now_s(), last = t0;
 	uint64_t c0 = hub_rd(b, SH5_HUB_CYCLES);
 
@@ -372,9 +372,12 @@ static int run_console(const struct sh5_bar *b, const char *done, double timeout
 		}
 		fflush(stdout);
 		if (n == 0) {
-			if (hub_rd(b, SH5_HUB_STATUS) & 4) {
-				fprintf(stderr, "\nsh5ctl: the core saw a bus error (hub STATUS bit 2)\n");
-				return 1;
+			/* a Failure response is not fatal: NetBSD's autoconfiguration
+			 * probes addresses that have nothing behind them. Mentioned
+			 * once; what failed is in `dbg` */
+			if (!berr_seen && (hub_rd(b, SH5_HUB_STATUS) & 4)) {
+				berr_seen = 1;
+				fprintf(stderr, "sh5ctl: (the core has seen a bus error; `dbg` shows the request)\n");
 			}
 			if (now_s() - t0 > timeout) {
 				fprintf(stderr, "\nsh5ctl: timeout after %.0f s (%.1f s since the last console byte, %llu core cycles)\n",
@@ -451,6 +454,12 @@ int main(int argc, char **argv)
 				steps[nsteps].expect = argv[i + 1]; steps[nsteps].send = argv[i + 3]; nsteps++; i += 3;
 			}
 		}
+		sh5_hold(&b);
+		/* the peripherals (TMU, INTC, SCIF) are not reset by the hold on
+		 * bitstreams before 2026-11-07: a timer left running by the last
+		 * kernel interrupts the next one before it has handlers */
+		sh5_soft_reset(&b);
+		usleep(10000);
 		sh5_hold(&b);
 		t0 = now_s();
 		pc = sh5_deposit(&b, argv[3], cmdline, initrd, msg, sizeof msg);

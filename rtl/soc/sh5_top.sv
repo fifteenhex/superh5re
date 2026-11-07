@@ -105,9 +105,14 @@ module sh5_top #(
 
   // The core and the peripherals restart on a soft reset or while the host
   // holds the core; the host path, the arbiter and the hub do not.
+  // The peripherals and the bridge are reset with the core: a kernel
+  // leaves the TMU running and INTC priorities set, and the next kernel
+  // deposited by the host would be interrupted before it has handlers
+  // (NetBSD printed stray interrupts into an unattached console on the
+  // card, after Linux). The host path and the hub are never reset here.
   logic core_rst_n, periph_rst_n;
   assign core_rst_n   = rst_n && !soft_rst && !reset_hold;
-  assign periph_rst_n = rst_n && !soft_rst;
+  assign periph_rst_n = rst_n && !soft_rst && !reset_hold;
 
   // ---- the core ----
   logic        extint_valid;
