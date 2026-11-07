@@ -343,7 +343,7 @@ static int run_console(const struct sh5_bar *b, const char *done, double timeout
 {
 	char ring[256] = { 0 };
 	size_t fill = 0;
-	int step = 0, berr_seen = 0;
+	int step = 0, berr_seen = 0, armed = 0;
 	double t0 = now_s(), last = t0;
 	uint64_t c0 = hub_rd(b, SH5_HUB_CYCLES);
 
@@ -356,10 +356,8 @@ static int run_console(const struct sh5_bar *b, const char *done, double timeout
 			memmove(ring, ring + 1, sizeof ring - 1);
 			ring[sizeof ring - 1] = (char)c;
 			if (fill < sizeof ring) fill++;
-			if (step < nsteps && ring_ends_with(ring, sizeof ring, fill, steps[step].expect)) {
-				fflush(stdout);
-				type_string(b, steps[step].send);
-				step++;
+			if (step < nsteps && !armed && ring_ends_with(ring, sizeof ring, fill, steps[step].expect)) {
+				armed = 1;   /* typed once the console has been quiet for a moment (below) */
 				memset(ring, 0, sizeof ring); fill = 0;
 			}
 			if (done && ring_ends_with(ring, sizeof ring, fill, done)) {
@@ -371,6 +369,14 @@ static int run_console(const struct sh5_bar *b, const char *done, double timeout
 			last = now_s();
 		}
 		fflush(stdout);
+		/* a getty flushes its input when it prints the prompt: type only
+		 * after 0.2 s without console output */
+		if (armed && now_s() - last > 0.2) {
+			type_string(b, steps[step].send);
+			step++;
+			armed = 0;
+			last = now_s();
+		}
 		if (n == 0) {
 			/* a Failure response is not fatal: NetBSD's autoconfiguration
 			 * probes addresses that have nothing behind them. Mentioned
