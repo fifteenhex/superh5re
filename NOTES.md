@@ -509,3 +509,30 @@ reproduce it. Confirmed facts move to `docs/`.
   `/workspace/files/superh5re-fpga-b458b6c6/`; transcripts
   `logs/fpga-linux.txt`, `logs/fpga-netbsd.txt`.
 
+- 2026-11-08: the three follow-ups after the first boots. (1) The gate:
+  `build.tcl` turns Synth 8-11241 and Synth 8-3848 on our files into
+  errors, `fpga/nitefury/checklog.py` reads a finished log for those and
+  for Synth 8-4767 "multiple writes" (3 findings in the two bad logs of
+  the week, none in the good ones), `host/check-card.sh` runs probe,
+  memtest, exc, both kits, Linux and NetBSD on the card against their
+  expected lines (7/7, 4.5 min; run it under sudo over a session without
+  a terminal). (2) Speed. Post-route the 40 worst core paths all started
+  at the IFU's queue pointer: fetch word -> SHcompact expander -> decoder
+  -> issue -> fetch enable. Synth-only at 50 MHz (`-core_div 20
+  -synth_only`): WNS -2.79 ns, 1037 failing endpoints. Decode split into
+  D1/D2 (uop register): WNS -1.75, 567 endpoints, next path the TMU/INTC
+  registers through the interrupt acceptance into issue; the interrupt
+  inputs are now registered in the core. The split's first version lost
+  1025 SHcompact checks: D1 decoded the instruction after FSCHG/FRCHG
+  with the old SR.FR/SZ (the single-stage decoder decoded at issue time,
+  after W); D1 now waits while a serialising uop issues or is in flight.
+  Costs: +13 % cycles on tests/exc, +6 % on the Linux boot (one cycle per
+  redirect). `rtl/soc/sh5_mem_cdc.sv` + `sh5_afifo.sv` replace mem_cdc in
+  the board top; `rtl/tb/cdc` (fpgaslop's memchain harness shape, 4:1
+  clocks, random traffic on both arbiter ports against a model): 4-beat
+  write-back acked in 8 core cycles, 4-beat line fill in 15 at a 12-cycle
+  controller latency. Two harness lessons: a_ack must be a registered
+  one-cycle pulse (everything samples it after the edge), and the slave
+  must not wait for req to fall after the last ack, because memarb holds
+  m_req from its own registers until it has sampled that ack and a fast
+  master never shows a low cycle through it.
