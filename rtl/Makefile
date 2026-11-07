@@ -11,7 +11,7 @@ SLOP = ../fpgaslop/rtl
 SOC_SRCS = soc/sh5_shwy_req.sv soc/sh5_periph.sv soc/sh5_hub.sv soc/sh5_hostif.sv soc/sh5_top.sv
 SLOP_SRCS = $(SLOP)/slop_id.sv $(SLOP)/slop_reset.sv $(SLOP)/slop_mailbox.sv $(SLOP)/slop_flashreg.sv \
             $(SLOP)/slop_spiflash.sv $(SLOP)/slop_dma.sv $(SLOP)/slop_dmadesc.sv $(SLOP)/slop_dmablk.sv \
-            $(SLOP)/slop_card.sv $(SLOP)/memarb.sv
+            $(SLOP)/slop_card.sv $(SLOP)/memarb.sv $(SLOP)/slop_virtio.sv $(SLOP)/slop_virtio_slots.sv
 SOC_LINTFLAGS = $(LINTFLAGS) -Wno-TIMESCALEMOD -Wno-PINCONNECTEMPTY -Wno-GENUNNAMED
 
 lint:

@@ -3,7 +3,8 @@
 # image and both kernels, each with the result it must print, each timed.
 # Runs after a flash, before anyone trusts a bitstream (docs/soc.md, "On
 # the card"). Needs sudo for BAR0; run from the repository root, or set
-# SH5_TESTS, SH5_LINUX, SH5_INITRD, SH5_NETBSD to the images.
+# SH5_TESTS, SH5_LINUX, SH5_INITRD, SH5_NETBSD, SH5_LINUX_VIO, SH5_DISK to
+# the images (the disk is an ext2 image holding hello.txt).
 #
 #   ./host/check-card.sh 0000:41:00.0
 #
@@ -17,6 +18,8 @@ tests=${SH5_TESTS:-$here/../tests}
 linux=${SH5_LINUX:-$here/../linux/vmlinux}
 initrd=${SH5_INITRD:-$here/../linux/sh-sh5.cpio.gz}
 netbsd=${SH5_NETBSD:-$here/../linux/netbsd-qemu}
+vio=${SH5_LINUX_VIO:-$here/../linux/vmlinux-vio}
+disk=${SH5_DISK:-$here/../disk/test.ext2}
 mkdir -p "$log"
 fails=0
 make -C "$here" >/dev/null || exit 1
@@ -54,6 +57,15 @@ if [ -f "$linux" ] && [ -f "$initrd" ]; then
 		--expect "smolsh / >" --send 'cat /proc/cpuinfo\n' --expect "smolsh / >" --send 'echo FIN\n' \
 		--done FIN --timeout 300
 else skip linux "no $linux / $initrd"; fi
+if [ -f "$vio" ] && [ -f "$initrd" ] && [ -f "$disk" ]; then
+	step disk "hello from the virtio disk" \
+		sudo "$ctl" "$bdf" run "$vio" --initrd "$initrd" --disk "$disk" \
+		--cmdline "console=ttySC0 virtio_mmio.device=0x200@0x0b000000:63 -- smolinit.getty=/dev/ttySC0 smolinit.hostname=cayman" \
+		--expect "smolsh / >" --send 'su\n' --expect "smolsh / >" --send 'mkdir /mnt\n' \
+		--expect "smolsh / >" --send 'mount -t ext2 /dev/vda /mnt\n' \
+		--expect "smolsh / >" --send 'cat /mnt/hello.txt\n' --expect "smolsh / >" --send 'echo FIN\n' \
+		--done FIN --timeout 300
+else skip disk "no $vio / $initrd / $disk"; fi
 if [ -f "$netbsd" ]; then
 	step netbsd "NetBSD cayman 3.1" \
 		sudo "$ctl" "$bdf" run "$netbsd" --expect "login: " --send 'root\n' \

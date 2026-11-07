@@ -56,6 +56,14 @@ module sh5_hostif #(
   input  logic [63:0] d_rdata,
   input  logic        d_err,
 
+  // ---- the virtio transports' host pages, +0x2_0000 (one-cycle request pulses) ----
+  output logic        vio_req,
+  output logic        vio_we,
+  output logic [11:0] vio_addr,
+  output logic [63:0] vio_wdata,
+  output logic [7:0]  vio_wstrb,
+  input  logic [63:0] vio_rdata,
+
   // ---- the core and the peripherals ----
   output logic        soft_rst,
   output logic        reset_hold,
@@ -99,7 +107,8 @@ module sh5_hostif #(
   wire is_dram  = !win;
   wire card_sel = win && (h_addr[27:12] == 16'd0);
   wire hub_sel  = win && (h_addr[27:12] == 16'h0010);
-  wire dead_sel = win && !card_sel && !hub_sel;
+  wire vio_sel  = win && (h_addr[27:12] == 16'h0020);
+  wire dead_sel = win && !card_sel && !hub_sel && !vio_sel;
 
   // ---- the shared card page ----
   // CAPS: DRAM aperture, CPU, RESET. No mailbox to the CPU side, no MSI,
@@ -176,15 +185,25 @@ module sh5_hostif #(
     end
   end
 
-  // ---- the dead window answers in one cycle ----
-  logic dead_ack;
+  // ---- the dead window and the virtio pages answer in one cycle ----
+  // slop_virtio wants h_req for exactly one cycle per access and answers
+  // reads combinationally from the address, which the host holds until ack
+  logic dead_ack, vio_ack;
   always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) dead_ack <= 1'b0;
-    else        dead_ack <= h_req && dead_sel && !dead_ack;
+    if (!rst_n) begin dead_ack <= 1'b0; vio_ack <= 1'b0; end
+    else begin
+      dead_ack <= h_req && dead_sel && !dead_ack;
+      vio_ack  <= h_req && vio_sel && !vio_ack;
+    end
   end
+  assign vio_req   = h_req && vio_sel && !vio_ack;
+  assign vio_we    = h_we;
+  assign vio_addr  = h_addr[11:0];
+  assign vio_wdata = h_wdata;
+  assign vio_wstrb = h_wstrb;
 
-  assign h_ack   = card_ack | hub_ack | fwd_ack | dead_ack;
-  assign h_rdata = card_ack ? card_q : hub_ack ? hub_q : fwd_ack ? fwd_rdata : 64'hbaad_f00d_baad_f00d;
+  assign h_ack   = card_ack | hub_ack | fwd_ack | dead_ack | vio_ack;
+  assign h_rdata = card_ack ? card_q : hub_ack ? hub_q : fwd_ack ? fwd_rdata : vio_ack ? vio_rdata : 64'hbaad_f00d_baad_f00d;
   assign h_err   = fwd_ack & fwd_err;
 
 endmodule

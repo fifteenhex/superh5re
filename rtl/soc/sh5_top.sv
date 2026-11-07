@@ -18,7 +18,8 @@ module sh5_top #(
   parameter int          RAM_BITS  = 28,          // 256 MB DRAM window at 0x8000_0000
   parameter bit          AUTOSTART = 1'b0,
   parameter logic [31:0] BOOT_PC   = 32'h8000_0000,
-  parameter bit          FPU_PRESENT = 1'b1
+  parameter bit          FPU_PRESENT = 1'b1,
+  parameter int          VIO_SLOTS = 1              // virtio-mmio transports at 0x0b00_0000
 ) (
   input  logic        clk,
   input  logic        rst_n,
@@ -74,6 +75,11 @@ module sh5_top #(
   logic [4:0]  rx_count;
   logic        bridge_idle;
 
+  // the virtio host pages, between the host interface and the transports
+  logic        vio_h_req, vio_h_we;
+  logic [11:0] vio_h_addr;
+  logic [63:0] vio_h_wdata, vio_h_rdata;
+  logic [7:0]  vio_h_wstrb;
   // the core's bus, declared here because the host interface's debug view names it
   logic        ireq_valid, ireq_ready, ireq_last;
   logic [7:0]  ireq_opc, ireq_src, ireq_tid, ireq_mask;
@@ -90,6 +96,8 @@ module sh5_top #(
     .h_ack(h_ack), .h_rdata(h_rdata), .h_err(h_err),
     .d_req(d_req), .d_we(d_we), .d_addr(d_addr), .d_wdata(d_wdata), .d_wstrb(d_wstrb),
     .d_ack(d_ack), .d_rdata(d_rdata), .d_err(mem_err),
+    .vio_req(vio_h_req), .vio_we(vio_h_we), .vio_addr(vio_h_addr), .vio_wdata(vio_h_wdata),
+    .vio_wstrb(vio_h_wstrb), .vio_rdata(vio_h_rdata),
     .soft_rst(soft_rst), .reset_hold(reset_hold), .boot_pc(boot_pc), .nmi(nmi), .host_irq(host_irq),
     .core_sleep(core_sleep), .bus_error(bus_error),
     .dbg_req_valid(ireq_valid && ireq_ready), .dbg_req_opc(ireq_opc), .dbg_req_tid(ireq_tid),
@@ -163,17 +171,59 @@ module sh5_top #(
 
   logic        p_ack, a_ack;
   logic [63:0] p_rdata, a_rdata;
-  assign b_ack   = b_sel_ram ? a_ack : p_ack;
-  assign b_rdata = b_sel_ram ? a_rdata : p_rdata;
+  // ---- virtio-mmio transports (fpgaslop slop_virtio_slots): the guest
+  // page at 0x0b00_0000 (slot n at +n*0x200), the host pages at register
+  // window +0x2_0000; the rings are in DRAM, which both sides reach. The
+  // interrupt joins the hub doorbell as INTC source 63 (INTEVT 0x560, Linux
+  // irq 63); virtio-mmio drivers share a line by design. The host polls the
+  // kick latches, so `kick` is not wired anywhere.
+  logic        b_sel_vio, vio_ack_q, vio_irq;
+  logic [63:0] vio_rdata;
+  assign b_sel_vio = !b_sel_ram && (b_addr[31:20] == 12'h0b0);
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) vio_ack_q <= 1'b0;
+    else        vio_ack_q <= b_req && b_sel_vio && !vio_ack_q;
+  end
+  // Not reset by reset_hold: the host presents the device (identity,
+  // features, config) while the core is held, before releasing it, and
+  // that must survive. The guest-owned half is reset by the driver itself
+  // (Status = 0 is a device reset); a soft reset still clears everything.
+  slop_virtio_slots #(.N_SLOTS(VIO_SLOTS), .N_QUEUES(2)) u_vio (
+    .clk(clk), .rst(~(rst_n && !soft_rst)),
+    .req(b_req && b_sel_vio && !vio_ack_q), .we(b_we), .addr(b_addr[11:0]), .wdata(b_wdata), .wstrb(b_wstrb),
+    .rdata(vio_rdata),
+    .h_req(vio_h_req), .h_we(vio_h_we), .h_addr(vio_h_addr), .h_wdata(vio_h_wdata), .h_wstrb(vio_h_wstrb),
+    .h_rdata(vio_h_rdata),
+    .kick(), .irq(vio_irq)
+  );
+
+`ifdef VERILATOR
+  // +viotrace: every guest access to the virtio page (writes when
+  // accepted, reads with the data the core samples)
+  logic vio_trace;
+  longint vio_cycle = 0;
+  initial vio_trace = $test$plusargs("viotrace");
+  always_ff @(posedge clk) if (vio_trace) begin
+    vio_cycle <= vio_cycle + 1;
+    if (b_req && b_sel_vio && !vio_ack_q && b_we)
+      $display("[vio] %0d wr %03x strb %02x data %016x", vio_cycle, b_addr[11:0], b_wstrb, b_wdata);
+    if (vio_ack_q && !b_we)
+      $display("[vio] %0d rd %03x -> %016x", vio_cycle, b_addr[11:0], vio_rdata);
+    if (vio_h_req && vio_h_we)       // host writes only: the host polls by reading
+      $display("[vio] %0d host wr %03x data %016x", vio_cycle, vio_h_addr, vio_h_wdata);
+  end
+`endif
+  assign b_ack   = b_sel_ram ? a_ack : b_sel_vio ? vio_ack_q : p_ack;
+  assign b_rdata = b_sel_ram ? a_rdata : b_sel_vio ? vio_rdata : p_rdata;
   assign b_err   = b_sel_ram && mem_err;
 
   sh5_periph #(.CLK_HZ(CLK_HZ), .PCLK_DIV(PCLK_DIV)) u_periph (
     .clk(clk), .rst_n(periph_rst_n),
-    .s_req(b_req && !b_sel_ram), .s_we(b_we), .s_addr(b_addr[31:0]), .s_wdata(b_wdata), .s_wstrb(b_wstrb),
+    .s_req(b_req && !b_sel_ram && !b_sel_vio), .s_we(b_we), .s_addr(b_addr[31:0]), .s_wdata(b_wdata), .s_wstrb(b_wstrb),
     .s_ack(p_ack), .s_rdata(p_rdata),
     .con_tx_valid(con_valid), .con_tx_byte(con_char),
     .con_rx_valid(rx_valid), .con_rx_byte(rx_byte), .con_rx_count(rx_count),
-    .host_irq(host_irq), .led(led),
+    .host_irq(host_irq || vio_irq), .led(led),
     .extint_valid(extint_valid), .extint_level(extint_level), .extint_code(extint_code)
   );
 

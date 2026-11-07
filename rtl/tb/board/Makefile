@@ -10,14 +10,16 @@ SOC_SRCS = $(RTL)/soc/sh5_shwy_req.sv $(RTL)/soc/sh5_periph.sv $(RTL)/soc/sh5_hu
        $(RTL)/soc/sh5_hostif.sv $(RTL)/soc/sh5_top.sv
 SLOP_SRCS = $(SLOP)/slop_id.sv $(SLOP)/slop_reset.sv $(SLOP)/slop_mailbox.sv $(SLOP)/slop_flashreg.sv \
        $(SLOP)/slop_spiflash.sv $(SLOP)/slop_dma.sv $(SLOP)/slop_dmadesc.sv $(SLOP)/slop_dmablk.sv \
-       $(SLOP)/slop_card.sv $(SLOP)/memarb.sv
+       $(SLOP)/slop_card.sv $(SLOP)/memarb.sv $(SLOP)/slop_virtio.sv $(SLOP)/slop_virtio_slots.sv
 VFLAGS = --cc --exe --build -O3 -Wno-fatal -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-DECLFILENAME \
          -Wno-TIMESCALEMOD -Wno-PINCONNECTEMPTY -Wno-GENUNNAMED -Wno-SYNCASYNCNET \
          --top-module sh5_top -Mdir obj --x-assign fast --x-initial fast \
-         -CFLAGS "-I$(abspath $(HOST))" -GAUTOSTART=0 -GCLK_HZ=25000000
+         -CFLAGS "-I$(abspath $(HOST)) -I$(abspath ../../../fpgaslop/host) -fpermissive -Wno-permissive" -GAUTOSTART=0 -GCLK_HZ=25000000
 
-obj/Vsh5_top: $(CORE_SRCS) $(SOC_SRCS) $(SLOP_SRCS) tb_board.cpp $(HOST)/sh5boot.c $(HOST)/sh5boot.h
-	$(VERILATOR) $(VFLAGS) $(CORE_SRCS) $(SOC_SRCS) $(SLOP_SRCS) tb_board.cpp $(HOST)/sh5boot.c -o Vsh5_top
+SLOPHOST = $(abspath ../../../fpgaslop/host)
+HOST_SRCS = $(HOST)/sh5boot.c $(HOST)/sh5blk.c $(SLOPHOST)/slop_virtq.c $(SLOPHOST)/slop_vmmio.c
+obj/Vsh5_top: $(CORE_SRCS) $(SOC_SRCS) $(SLOP_SRCS) tb_board.cpp $(HOST_SRCS) $(HOST)/sh5boot.h $(HOST)/sh5blk.h
+	$(VERILATOR) $(VFLAGS) $(CORE_SRCS) $(SOC_SRCS) $(SLOP_SRCS) tb_board.cpp $(HOST_SRCS) -o Vsh5_top
 
 build: obj/Vsh5_top
 

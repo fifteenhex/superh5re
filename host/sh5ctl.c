@@ -9,8 +9,10 @@
  *   sh5ctl <bdf> hold | release [pc] | reset
  *   sh5ctl <bdf> rd <baroff> | wr <baroff> <value>  one 64-bit BAR access (registers: 0x10000000 + offset)
  *   sh5ctl <bdf> dbg                         the hub's view of the core's bus and retirement
- *   sh5ctl <bdf> run <elf> [--cmdline S] [--initrd F] [--expect STR --send STR]... [--done STR] [--timeout SEC]
+ *   sh5ctl <bdf> run <elf> [--cmdline S] [--initrd F] [--disk IMG] [--expect STR --send STR]... [--done STR] [--timeout SEC]
  *                                            deposit, start, print the console, type at it, stop at STR
+ *   --disk IMG serves IMG as a virtio-blk device (Linux: add
+ *   virtio_mmio.device=0x200@0x0b000000:63 to the command line, root=/dev/vda ...)
  *   sh5ctl <bdf> boot <elf> [--cmdline S] [--initrd F]
  *                                            deposit, start, serve an interactive console
  *   sh5ctl <bdf> console                     attach to a running system
@@ -37,6 +39,9 @@
 #include <sys/select.h>
 
 #include "sh5boot.h"
+#include "sh5blk.h"
+
+static struct sh5blk *disk;          /* --disk: a virtio-blk device served from a file */
 
 static volatile uint64_t *bar;
 static size_t bar_len;
@@ -297,6 +302,8 @@ static void serve_console(const struct sh5_bar *b)
 		struct timeval tv = { 0, 1000 };
 		unsigned n = sh5_con_waiting(b);
 
+		if (disk && sh5blk_poll(disk) < 0) { disk = NULL; fprintf(stderr, "\r\nsh5ctl: virtio-blk ring unusable, device stopped\r\n"); }
+
 		for (unsigned k = 0; k < n; k++) {
 			int c = sh5_con_pop(b);
 			if (c < 0) break;
@@ -385,6 +392,7 @@ static int run_console(const struct sh5_bar *b, const char *done, double timeout
 
 	for (;;) {
 		unsigned n = sh5_con_waiting(b);
+		if (disk && sh5blk_poll(disk) < 0) { disk = NULL; fprintf(stderr, "\nsh5ctl: virtio-blk ring unusable, device stopped\n"); }
 		for (unsigned k = 0; k < n; k++) {
 			int c = sh5_con_pop(b);
 			if (c < 0) break;
@@ -482,7 +490,7 @@ int main(int argc, char **argv)
 				   argc > 4 ? (uint32_t)strtoul(argv[4], NULL, 0) : SH5_RAM_PHYS);
 	if (!strcmp(argv[2], "console")) { serve_console(&b); return 0; }
 	if ((!strcmp(argv[2], "boot") || !strcmp(argv[2], "run")) && argc > 3) {
-		const char *cmdline = NULL, *initrd = NULL, *done = NULL;
+		const char *cmdline = NULL, *initrd = NULL, *done = NULL, *diskimg = NULL;
 		double timeout = 600;
 		uint32_t pc;
 		double t0;
@@ -490,6 +498,7 @@ int main(int argc, char **argv)
 		for (int i = 4; i < argc; i++) {
 			if (!strcmp(argv[i], "--cmdline") && i + 1 < argc) cmdline = argv[++i];
 			else if (!strcmp(argv[i], "--initrd") && i + 1 < argc) initrd = argv[++i];
+			else if (!strcmp(argv[i], "--disk") && i + 1 < argc) diskimg = argv[++i];
 			else if (!strcmp(argv[i], "--done") && i + 1 < argc) done = argv[++i];
 			else if (!strcmp(argv[i], "--timeout") && i + 1 < argc) timeout = atof(argv[++i]);
 			else if (!strcmp(argv[i], "--expect") && i + 3 < argc && !strcmp(argv[i + 2], "--send") && nsteps < 16) {
@@ -509,6 +518,11 @@ int main(int argc, char **argv)
 		pc = sh5_deposit(&b, argv[3], cmdline, initrd, msg, sizeof msg);
 		if (!pc) { fprintf(stderr, "sh5ctl: %s\n", msg); return 1; }
 		fprintf(stderr, "sh5ctl: %s in %.1f s, starting at %08x\n", msg, now_s() - t0, pc);
+		if (diskimg) {
+			disk = sh5blk_open(&b, 0, diskimg, 0, msg, sizeof msg);
+			fprintf(stderr, "sh5ctl: %s\n", msg);
+			if (!disk) return 1;
+		}
 		sh5_release(&b, pc);
 		if (!strcmp(argv[2], "run"))
 			return run_console(&b, done, timeout);

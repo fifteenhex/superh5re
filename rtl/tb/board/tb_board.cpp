@@ -245,6 +245,14 @@ int main(int argc, char **argv) {
         for (int k = 0; k < 64 && tb.cycle < max_cycles; k++) tb.tick();
         if (tb.done) { if (!done_cycle) done_cycle = tb.cycle; if (tb.cycle > done_cycle + 2000) break; }
         if (disk && sh5blk_poll(disk) < 0) { fprintf(stderr, "[tb] virtio-blk ring unusable\n"); sh5blk_close(disk); disk = nullptr; }
+        // with SH5BLK_DEBUG: where the core is, now and then (the hub's debug registers)
+        if (disk && getenv("SH5BLK_DEBUG") && (tb.cycle & 0x3ffffff) < 64) {
+            uint64_t t = cb_read64(&tb, SH5_BAR_HUB + SH5_HUB_TRACE);
+            fprintf(stderr, "[tb] cycle %llu: pc %08llx insn %08llx, requests %llu failures %llu\n", (unsigned long long)tb.cycle,
+                    (unsigned long long)(t & 0xffffffff), (unsigned long long)(t >> 32),
+                    (unsigned long long)cb_read64(&tb, SH5_BAR_HUB + SH5_HUB_REQ_COUNT),
+                    (unsigned long long)cb_read64(&tb, SH5_BAR_HUB + SH5_HUB_FAIL_COUNT));
+        }
         unsigned n = sh5_con_waiting(&bar);
         for (unsigned k = 0; k < n; k++) {
             int c = sh5_con_pop(&bar);

@@ -142,6 +142,18 @@ interrupt. `sh5ctl run|boot ... --disk IMG` and the board testbench's
 before the core is released, as the transport requires. `mke2fs -d DIR
 img 8M` on the bench machine makes an image with files in it.
 
+The device offers VIRTIO_F_ACCESS_PLATFORM (feature bit 33) besides
+VERSION_1. Without it Linux assumes a device that is coherent with the
+CPU's caches and uses plain kernel memory for the ring and the buffers:
+with the write-back data cache the host saw the avail index only when
+its line happened to be evicted (131 M cycles after the kick in one
+run) and the guest never saw the used index the host wrote. With the
+bit the driver goes through the DMA API: the ring in an uncached mapping
+(sh64's `pgprot_noncached` is CB=device), every buffer written back or
+invalidated around the request by `arch_sync_dma_for_device`. The
+testbench's `+viotrace` plusarg prints every guest access to the
+transport and every host write, with the cycle number.
+
 ## Results
 
 Through the board testbench (`rtl/tb/board`, memory latency 6 cycles,
@@ -155,6 +167,7 @@ every host access a 64-bit BAR transaction):
 | Linux 6.15 with the smolutils initrd, kernel built with CONFIG_CACHE_OFF | boots to the getty on ttySC0, 3.13 G cycles after release, 262 M memory transactions |
 | the same kernel built with CONFIG_CACHE_WRITEBACK | shell prompt after 314 M cycles, 9.6 M memory transactions (12.6 s at 25 MHz) |
 | NetBSD 3.1 (CAYMAN_QEMU, memory-disk root) | root login, `uname -a`, 1.77 G cycles |
+| the write-back kernel with VIRTIO_MMIO + VIRTIO_BLK and `--disk` (8 MB ext2) | `mount -t ext2 /dev/vda /mnt`, `cat`, `ls` of the image: 8 reads, 1 write, 352 M cycles to FIN |
 
 With the caches off every instruction fetch and data access is a
 serialised bridge transaction, about 14 cycles per instruction (memory

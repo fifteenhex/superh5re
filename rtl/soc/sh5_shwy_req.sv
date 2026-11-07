@@ -103,7 +103,8 @@ module sh5_shwy_req
   assign in_periph = (addr_q[31:20] == 12'h0a0) ||          // INTC CPRC TMU SCIF RTC
                      (addr_q[31:16] == 16'h0400) ||          // system FPGA
                      (addr_q[31:24] == 8'h0d) || (addr_q[31:24] == 8'h09) || (addr_q[31:24] == 8'h08) ||  // VCRs
-                     (addr_q[31:20] == 12'h0c1);             // debug module (writes ignored)
+                     (addr_q[31:20] == 12'h0c1) ||           // debug module (writes ignored)
+                     (addr_q[31:20] == 12'h0b0);             // virtio-mmio transports (sh5_top)
 
   // bus side
   logic burst_rd, burst_wr;

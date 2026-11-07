@@ -536,3 +536,66 @@ reproduce it. Confirmed facts move to `docs/`.
   must not wait for req to fall after the last ack, because memarb holds
   m_req from its own registers until it has sampled that ack and a fast
   master never shows a low cycle through it.
+  50 MHz: 0183b335 built with `-core_div 20` met timing after routing
+  (WNS 0.27 ns, WHS 0.05 ns) and runs on the card at a measured
+  49.999 MHz, check-card 7/7: Linux to the shell 12 s, NetBSD to login
+  42 s, ISA kit 77 s (3.85 G cycles: the uncached kits are memory-latency
+  bound and gain only a fifth). 50 MHz is build.tcl's default now. The
+  longest core path at 50 MHz is the FPU's operand classification carry
+  chain (`pass_r`).
+  Toolchain groundwork (the user wants the SHmedia backend revived so a
+  newer Linux can be built): gcc and binutils are cloned on the bench
+  machine under `~/src/`. The removals to revert, in order: binutils
+  211dc24b874 "Remove sh5 and sh64 support" (2018-04-16, binutils 2.31),
+  gdb 8a3de5e1a3f (same day), fad3d2c1b26 "Remove SH-5 remnants"
+  (2020-04-21), f8cab0b9958 "sim: sh64: delete port" (2021-01-09); GCC's
+  was a 2016 series by Oleg Endo on gcc/config/sh (34d5fe774e8 "Remove
+  SH5 target regs", e1fab8ba233 "sh-common.c: Remove SH5 support",
+  9129c8cfcd8 crt1.S, bc6d901463c config.guess, af95276348b longlong.h,
+  99dec205a12 divtab, and the main sh.c/sh.md cleanup before them in
+  GCC 7). Plan: binutils first (revert on a branch at the removal commit,
+  build, assemble tests/isa, then walk forward release by release), then
+  GCC the same way, starting from the last GCC 6 tree we already build
+  with. Needed on the bench machine: flex bison texinfo gawk libgmp-dev
+  libmpfr-dev libmpc-dev libisl-dev zlib1g-dev libzstd-dev autoconf
+  automake libtool gettext rsync tmux.
+  The sandbox has 7 GB of memory: eight parallel Verilator core runs plus
+  two board runs and a Verilator build got the container killed. One
+  board-model Linux boot at a time (about 40 minutes), and the core
+  groups in batches of three or four.
+  virtio-blk (task 3): fpgaslop's slop_virtio_slots in sh5_top at
+  0x0b00_0000 (guest) / register window +0x2_0000 (host), interrupt on
+  INTC source 63; `host/sh5blk.c` serves a file over fpgaslop's
+  slop_virtq/slop_vmmio; `--disk IMG` in the board testbench and sh5ctl.
+  Kernel: CONFIG_VIRTIO_MMIO, VIRTIO_BLK, VIRTIO_MMIO_CMDLINE_DEVICES
+  (`vmlinux-vio`), command line `virtio_mmio.device=0x200@0x0b000000:63`.
+  First simulation: the transport registers, but the device read as
+  DeviceID 0 because the transport sat in the reset_hold group and the
+  host presents the identity while the core is held -> the transport is
+  reset by the soft reset only. Second: `virtio_blk virtio0: [vda] 16384
+  512-byte logical blocks`, driver status 0xf, queue 0 ready (desc
+  0x812aa000 avail 0x812aa100 used 0x812ab000), then nothing: no request
+  ever appears in the ring as the host reads it (SH5BLK_DEBUG=1 traces).
+  The ext2 image is `mke2fs -d` on the bench machine (there is no mke2fs
+  in the sandbox).
+  Found with a trace of every guest access to the transport (`+viotrace`
+  in the board testbench): the guest kicked (QueueNotify) at cycle 297 M,
+  but the host saw avail idx 1 only at cycle 428 M, and after the host
+  served the request and raised the interrupt the guest acknowledged it
+  (InterruptStatus read 1, ACK written) and went idle for good. The ring
+  was in cached memory: the device did not offer VIRTIO_F_ACCESS_PLATFORM
+  (bit 33), and without it Linux assumes a cache-coherent device and does
+  not use the DMA API (vring_use_dma_api). sh5blk now sets bit 33 after
+  slop_vmmio_present; the driver accepts 0x3_00000200, the first request
+  is served at once and the kernel reaches the shell in 347 M cycles.
+  Then two test-script facts: smolsh's mkdir has no `-p` and the shell
+  stops at the first failing command of a line; the getty shell is an
+  unprivileged user (getty.c users_changeuser), so `su` first, otherwise
+  mount fails with EPERM.
+  Housekeeping: the container was OOM-killed (the sim and the vc.py
+  client died; the Vivado worker went offline at 12:05 UTC in the middle
+  of the virtio build, job j1794049124832, its retained status still
+  says running). The work disk was full: a `+viotrace` run that also
+  printed the host's polling reads wrote 180 MB in ten minutes; old
+  out/vivado-* trees, core TB traces and the NetBSD object tree deleted
+  (2 GB free). The trace prints host writes only now.
