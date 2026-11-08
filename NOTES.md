@@ -769,3 +769,16 @@ reproduce it. Confirmed facts move to `docs/`.
   dpkg, libc6 and perl-base are configured; under investigation with a
   fault-loop debug patch. The passive monitor replaced a watchdog that
   killed dash's legitimately CPU-bound read loops.
+  Debian second stage, round 3: the instrumented run reached 31 packages
+  ("Unpacking the base system") before the subagent's own 7800 s timeout;
+  the rm fault loop did not recur (intermittent). Random SIGSEGVs in
+  dpkg-deb, dpkg and dash (PC 0, PR 0, sane positive SPs: not a missed
+  gUSA restart) point at data corruption. Hardware fact relevant to it:
+  the operand cache is indexed by EA[12:5] and the PA alias check covers
+  only the set the EA selects, so two mappings of one physical page that
+  differ in virtual bit 12 hold two independent copies (SH-5 nsynbits = 1,
+  Vol. 4 §8.4); the kernel must copy/clear user pages through coloured
+  mappings and purge after kernel-alias writes (cache-sh5.c). Suspect:
+  page migration (folio_copy through the kernel alias, PG_dcache_clean
+  carried to the new folio, so no purge). Experiment handed to the
+  subagent: CONFIG_COMPACTION=n / CONFIG_MIGRATION=n.
