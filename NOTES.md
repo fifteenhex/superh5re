@@ -755,3 +755,17 @@ reproduce it. Confirmed facts move to `docs/`.
   busybox signal scripts all OK including the pattern that spun forever
   through the delay-slot TEA bug, no [compact_stub] mapping. The kernel
   options default to n from here (kept for older bitstreams).
+  Debian second stage (subagent, card): dynamic binaries run (dash, ls,
+  bash, perl, dpkg, dpkg-deb, dpkg -i); more old sh64 kernel bugs found
+  by it and pushed on the branch: pte_special() returned a non-boolean
+  (b708e1cc4931); non-present PTEs (glibc's MADV_GUARD_INSTALL markers)
+  were loaded as valid no-access DTLB entries (9fa61ba0d07a);
+  flush_cache_range never invalidated the user icache (8e5dc650daa7);
+  local_flush_tlb_page used the running ASID instead of the vma mm's, so
+  kcompactd page migration corrupted other processes (b3c4c5678f3a);
+  local_flush_tlb_one stopped at the first matching slot (961d7549c16e).
+  Open: a second-stage run hangs in `rm` in an endless minor-fault loop
+  (90 M faults, disk untouched for hours) after base-files, base-passwd,
+  dpkg, libc6 and perl-base are configured; under investigation with a
+  fault-loop debug patch. The passive monitor replaced a watchdog that
+  killed dash's legitimately CPU-bound read loops.
