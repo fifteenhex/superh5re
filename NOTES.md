@@ -687,3 +687,23 @@ reproduce it. Confirmed facts move to `docs/`.
   import with no shared history) is on intern-sh5-newgcc-20261107
   tracking gitolite (ca91592ba424, identical tree); kernel work can be
   pushed from the bench machine directly.
+- 2026-11-08, goal: SH-4 static busybox, then a Debian sh4 userspace, on
+  the SH-5 system. Findings: the core is not the obstacle (SHcompact is
+  the SH-4 user ISA; compact state = R0-R15, GBR R16, MAC R17, PR R18, T
+  R19 of the SHmedia file, ISA by PC bit 0); the sh64 kernel is: it forces
+  SHmedia in start_thread, accepts only the sh64 trapa encoding
+  (TRA 0x1yzzzz), builds SH-5 signal frames, and traps_64.c says user
+  SHcompact is unsupported. A subagent adds the sh32 user ABI on linux
+  branch intern-sh5-shcompact-20261108 (ELF-flag detection, r3/r4-r7,r0,r1
+  trapa #0x10 convention, sh32 sigframes with stack trampoline, gUSA
+  restart, uapi audit), tested with hand-built -m5-compact programs on
+  the card (qemu-sh5 has no SHcompact mode). Target binary downloaded with
+  permission: Debian unstable busybox-static 1:1.38.0-3 sh4
+  (pool-sh4/main/b/busybox/busybox-static_1.38.0-3_sh4.deb, sha256
+  5ece2e489cd2d9f9b7fc29987c549fda1c8d319b0ce0203635d565df19ac45f5):
+  static glibc, ELF32 EM_SH e_flags 0x17 (sh2a-or-sh4), PT_TLS (GBR thread
+  pointer, 1439 stc gbr), syscalls `mov.l const,r3; trapa #16..#21`, about
+  520 gUSA sequences (mov #-8,r15 ...), 914 mac.l, no FTRV/FIPR/movli.
+  The user debootstraps Debian sh4 into a directory on the bench machine;
+  the plan is mke2fs -d into an image served by sh5ctl --disk, with the
+  second debootstrap stage run on the card.
