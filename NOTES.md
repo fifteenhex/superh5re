@@ -748,3 +748,10 @@ reproduce it. Confirmed facts move to `docs/`.
   perl, bash) run; a pte_special() fix was needed (kernel b708e1cc4931);
   the second debootstrap stage hung after "Installing core packages" once
   (under investigation with a watchdog, and now with the fixed device).
+  Proof of the RTL fixes on the card (subagent, bitstream f0c9c857, kernel
+  with CONFIG_SH64_COMPACT_RTE_STUB and CONFIG_SH64_COMPACT_SLOT_ITLB off):
+  ctest/ctest-nx ALL PASSED (store fault resumes at the faulting
+  instruction 24/24, gUSA 600000/600000, COW/fork stress, signals, TLS),
+  busybox signal scripts all OK including the pattern that spun forever
+  through the delay-slot TEA bug, no [compact_stub] mapping. The kernel
+  options default to n from here (kept for older bitstreams).
