@@ -280,10 +280,12 @@ with 0.27 ns to spare; the card measures 49.999 MHz:
 | NetBSD to root login | 82 s, 2.04 G cycles | 42 s, 2.08 G cycles |
 
 Then 0af65334 (2026-11-08: the virtio-mmio transport and the kick as a
-host MSI). This build missed timing by 0.30 ns after routing (20
+host MSI). The standard flow missed timing by 0.30 ns after routing (20
 endpoints, all in the core and route-dominated: the dcache tag RAM to
-the write-back data register, the FPU's `term_r` to `al_r`); the card
-runs it without a failure, `check-card.sh` 8/8:
+the write-back data register, the FPU's `term_r` to `al_r`) and the card
+ran it without a failure; the same sources with `-effort high` (build id
+...00000001, now in flash) meet timing with 0.134 ns to spare, and
+`check-card.sh` is 8/8 on both:
 
 | program | result | time |
 |---|---|---|

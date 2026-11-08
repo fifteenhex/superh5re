@@ -665,3 +665,7 @@ reproduce it. Confirmed facts move to `docs/`.
   adjustment); binutils revive at 9dc736aec34 (sh64elf.em %F crash fixed,
   testsuite exceptions: gas 521/0, ld 862/2 (pr20995, fails for all SH),
   binutils 250/0). bc installed on the bench.
+  The `-effort high` build of 0af65334 (id ...00000001) met timing (worst
+  core slack 0.134 ns, 0 gate findings), flashed; check-card 8/8 again
+  (exc 1.65 M cycles, ISA 77 s, compact 51 s, Linux 12.3 s, disk 13.4 s,
+  NetBSD 41.6 s). It is the bitstream in flash and in the hand-over dir.
