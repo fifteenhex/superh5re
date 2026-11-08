@@ -390,9 +390,14 @@ without the host path.
 
 ## Not done
 
-- The host MSI (below) has run in the board testbench only; on the card
-  it needs fpgaslop's kernel module (`insmod fpgaslop.ko msi=1`), which
-  the bench machine does not have. sh5ctl polls.
+- The host MSI has run in the board testbench only. Consuming it on the
+  card needs fpgaslop's kernel module (`insmod fpgaslop.ko msi=1`): the
+  bench machine has no kernel headers to build it, its `SLOP_IOC_KICKS`
+  and `poll()` need `SLOP_CAP_MAILBOX`, which this design does not set,
+  and fpgaslop's README records three hard lockups of an AMD host from
+  interrupts the driver could not clear. Enabling IRQEN without a driver
+  that owns the interrupt is not an option (an unclaimed interrupt is
+  the same failure). sh5ctl polls; the card leaves the MSI masked.
 - The DMA engine of `slop_card` is instantiated but its masters are tied
   off (CAP_DMA clear).
 - A wider DRAM window and the core's bus timing (one request at a time

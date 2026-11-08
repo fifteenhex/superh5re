@@ -669,3 +669,14 @@ reproduce it. Confirmed facts move to `docs/`.
   core slack 0.134 ns, 0 gate findings), flashed; check-card 8/8 again
   (exc 1.65 M cycles, ISA 77 s, compact 51 s, Linux 12.3 s, disk 13.4 s,
   NetBSD 41.6 s). It is the bitstream in flash and in the hand-over dir.
+  MSI on the card: not exercised, and not just for lack of time. The
+  bench machine has no kernel headers (no /lib/modules/<rel>/build), so
+  fpgaslop.ko cannot be built there; the module's kick ioctl and poll()
+  need CAP_MAILBOX, which sh5_hostif does not set (the kick reaches
+  h_msi through the mailbox block but the mailbox data path is not wired
+  to the core); and fpgaslop's kmod README records three hard lockups
+  (HyperTransport sync flood) of an AMD host from interrupts the driver
+  could not clear. Enabling IRQEN with no driver bound would raise an
+  unclaimed interrupt on the user's server. Decision for the user:
+  install linux-headers, add CAP_MAILBOX (or a kick-count ioctl without
+  it) and accept the risk, or leave the MSI masked and polled.
