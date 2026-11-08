@@ -490,6 +490,7 @@ module sh5_core
     d1_uop = d_uop_raw;
     d1_uop.compact = isa_compact;
     d1_uop.cinsn   = d_cinsn;
+    d1_uop.slot    = isa_compact && slot_q;
     d1_uop.pc_next = isa_compact ? (slot_q ? slot_pc_q + 32'd4 : d_cpc + 32'd2) : if_insn_pc + 32'd4;
   end
 
@@ -1380,7 +1381,7 @@ module sh5_core
         e2_q.u.exc <= e1_exc;
         e2_q.u.tea_valid <= e1_tea_valid;
         e2_q.ea <= (e1_q.u.cls == UC_PT) ? e1_pt_target[31:0] :
-                   e1_q.u.fetch_fault ? e1_q.u.pc :
+                   e1_q.u.fetch_fault ? e1_q.u.pc + (e1_q.u.slot ? 32'd2 : 32'd0) :   // the slot's own fetch address, not its branch's
                    (e1_tea_valid && e1_q.u.cls != UC_PT) ? e1_tea : e1_ea64[31:0];
         if (e1_q.u.cls == UC_PT && e1_pt_bad) e2_q.ea <= e1_pt_target[31:0];
         e2_q.sdata <= e1_sdata;

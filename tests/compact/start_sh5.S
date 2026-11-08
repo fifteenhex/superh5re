@@ -22,6 +22,9 @@ _start:
 	movi	1, r1
 	shlli	r1, 15, r1		/* SR.FD */
 	andc	r0, r1, r0
+	movi	1, r1
+	shlli	r1, 28, r1		/* SR.BL: set at reset; an exception with it set is a panic to RESVEC */
+	andc	r0, r1, r0
 	putcon	r0, sr
 	movi	datalabel exc_vectors, r0
 	putcon	r0, vbr
@@ -41,12 +44,13 @@ exc_common:
 	addi	r21, 1, r21
 	st.q	r20, 0, r21
 	getcon	expevt, r21
-	st.q	r20, 8, r21		/* cop_exc_last follows cop_exc_count */
+	movi	datalabel cop_exc_last, r20
+	st.q	r20, 0, r21
 	getcon	spc, r21
 	andi	r21, 1, r22
 	addi	r21, 4, r23
 	addi	r21, 2, r21
-	cmveq	r22, r23, r21		/* ISA bit set: SHmedia, +4; clear: SHcompact, +2 */
+	cmvne	r22, r23, r21		/* ISA bit set: SHmedia, +4; clear: SHcompact, +2 (CMVNE: Rd = Rn when Rm != 0) */
 	putcon	r21, spc
 	rte
 	nop

@@ -654,3 +654,23 @@ cycles with the caches and target preload; the kernel's cache maintenance,
 whole-cache purges through ALLOCO, and the line refills on the
 one-word-per-cycle bus are the suspected costs of the difference, not yet
 measured).
+
+## 13. Two SHcompact bugs found by the sh32 user ABI (2026-11-08)
+
+Running Debian's SH-4 busybox under the sh64 kernel (SHcompact user
+processes) found two bugs the kits had not reached:
+
+- RTE formed the return address as `{SPC[31:2], 00}`: bit 1 of an
+  SHcompact SPC was dropped, so a return to an instruction at 2 mod 4
+  re-executed the instruction before it. RTE now keeps bit 1 (bit 0 is
+  the ISA, taken separately). `tests/compact` group `sys` has a TRAPA at
+  0 mod 4 and one at 2 mod 4 whose return must land on the next
+  instruction; the kit's exception entry (`start_sh5.S`) was also fixed
+  (SR.BL was still set from reset, and its CMVEQ chose +4 for SHcompact).
+- An instruction-fetch fault in an SHcompact delay slot reported the
+  branch's address in TEA. The slot's uops carry the branch's PC (that is
+  SPC, so the pair restarts at the branch), so TEA for a fetch fault is
+  now PC + 2 when the uop is a slot (`uop.slot`). The case is a delayed
+  branch in the last halfword of a page whose slot is on an unmapped
+  page: the kernel refilled the branch's page forever.
+

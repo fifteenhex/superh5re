@@ -88,6 +88,19 @@ ISA_GROUP(sys)
 		CHECK1("nop", r.r2, RES32(0x9abcdef0), t); CHECK1("nop", r.r3, RES32(0x0badcafe), t);
 	}
 
+	/* TRAPA at 2 mod 4 and at 0 mod 4: the return lands after the TRAPA
+	 * (one exception each, counted by the handler) */
+	{
+		u64 n = cop_exc_count;
+		r = cop(cop_sys_trapa_half, 0, 0, 0, 0); CHECK0("trapa 2mod4 rte", r.r0, 17);
+		CHECK0("trapa 2mod4 count", cop_exc_count - n, 1);
+		n = cop_exc_count;
+		r = cop(cop_sys_trapa_word, 0, 0, 0, 0); CHECK0("trapa 0mod4 rte", r.r0, 17);
+		CHECK0("trapa 0mod4 count", cop_exc_count - n, 1);
+		CHECK0("trapa expevt", cop_exc_last, 0x160);
+		cop_exc_count -= 2;	/* expected: the harness flags any other exception */
+	}
+
 	/* FPUL */
 	COP_FOREACH(v) {
 		r = cop(cop_sys_lds_fpul, v, 0, 0, 0); CHECK1("lds/sts fpul", r.r0, RES32(v), v);

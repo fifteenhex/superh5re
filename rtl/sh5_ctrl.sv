@@ -199,7 +199,10 @@ module sh5_ctrl
       pc_launch = {vbr_q[31:2], 2'b00} + {20'h0, VEC_EXCEPTION};
     end
 
-    new_pc_o = rte_en_i ? {spc_q[31:2], 2'b00} : pc_launch;
+    // RTE: SPC bit 0 is the ISA (isa_q below), bit 1 is half of an SHcompact
+    // address and must survive; a return to an SHcompact instruction at
+    // 2 mod 4 otherwise re-executes the instruction before it.
+    new_pc_o = rte_en_i ? {spc_q[31:1], 1'b0} : pc_launch;
   end
 
   // ------------------------------------------------------------------

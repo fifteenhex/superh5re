@@ -716,3 +716,20 @@ reproduce it. Confirmed facts move to `docs/`.
   `mke2fs -t ext2 -L debsh4 -d ~/debian-sh4 ~/sh5/disk/debian-sh4.ext2 1G`
   (236 MB used; /debootstrap/debootstrap for the second stage, 69 .debs in
   /var/cache/apt/archives). Log: ~/debootstrap-sh4.log on the bench.
+  Milestone 1 reached by the kernel subagent: Debian's sh4 busybox-static
+  runs as init with a shell on the card (linux branch
+  intern-sh5-shcompact-20261108, head 321af6d52864: sh32 user ABI keyed on
+  the ELF machine flags, separate sh32 syscall table, sh32 signal frames
+  with stack trampoline, gUSA restart, plus fixes to old sh64 bugs: a TLB
+  flush that never matched kernel addresses (COW corruption, also for
+  SHmedia), an icache flush with an end address as length, icache
+  invalidate skipping the first line, FPU state around signals). Two RTL
+  bugs it found, fixed here: RTE dropped SPC bit 1 (sh5_ctrl.sv), TEA of a
+  fetch fault in an SHcompact delay slot was the branch's address
+  (sh5_core.sv, uop.slot). The compact kit's exception entry had never
+  been exercised: SR.BL left set (panic to RESVEC 0) and CMVEQ with the
+  wrong sense; fixed, and `sys` gained TRAPA-return tests (the 0 mod 4
+  TRAPA hangs the unfixed RTL). exc kit 438/0 and compact sys 634/0 on
+  the core TB. The kernel keeps its two workarounds
+  (CONFIG_SH64_COMPACT_RTE_STUB, CONFIG_SH64_COMPACT_SLOT_ITLB) until the
+  bitstream with the fixes is on the card.

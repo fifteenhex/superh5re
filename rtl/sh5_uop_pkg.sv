@@ -132,7 +132,8 @@ package sh5_uop_pkg;
     logic        exc_is_irq;  // interrupt pseudo-op: re-check acceptance at W
     logic        exc_is_reset;// CPURESET pseudo-op
     logic        tea_valid;   // exc delivers an address in TEA
-    logic        fetch_fault; // exc raised by the instruction fetch: TEA = PC
+    logic        fetch_fault; // exc raised by the instruction fetch: TEA = the fetch address (PC, or PC + 2 for an SHcompact delay slot, whose PC is its branch's)
+    logic        slot;        // SHcompact delay slot (pc is the branch's address, the instruction sits at pc + 2)
     cop_t        cop;
     logic [3:0]  irq_level;
     logic        pred;        // branch predicted taken in D from a target buffer
