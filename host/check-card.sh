@@ -47,7 +47,7 @@ step exc     "SUMMARY 438 tests, 0 failures" \
 step isa     "SUMMARY 458064 tests, 0 failures" \
 	sudo "$ctl" "$bdf" run "$tests/isa/isatest-bare.elf" --done "isa: DONE" --timeout 300
 if [ -f "$tests/compact/compact-sh5.elf" ]; then
-	step compact "SUMMARY 172323 tests, 0 failures" \
+	step compact "SUMMARY 172328 tests, 0 failures" \
 		sudo "$ctl" "$bdf" run "$tests/compact/compact-sh5.elf" --done "isa: DONE" --timeout 300
 else skip compact "no $tests/compact/compact-sh5.elf"; fi
 if [ -f "$linux" ] && [ -f "$initrd" ]; then

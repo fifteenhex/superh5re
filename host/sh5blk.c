@@ -21,11 +21,14 @@
 #define VIRTIO_BLK_S_OK      0
 #define VIRTIO_BLK_S_IOERR   1
 #define VIRTIO_BLK_S_UNSUPP  2
+#define VIRTIO_BLK_F_SIZE_MAX (1u << 1)
+#define VIRTIO_BLK_F_SEG_MAX  (1u << 2)
 #define VIRTIO_BLK_F_RO      (1u << 5)
 #define VIRTIO_BLK_F_FLUSH   (1u << 9)
 
 #define QUEUE_MAX  16          /* descriptors the driver may use */
-#define MAX_IO     (QUEUE_MAX * 4096 + 64)
+#define SIZE_MAX_B 65536       /* config size_max: largest data segment */
+#define SEG_MAX    (QUEUE_MAX - 2) /* config seg_max: header and status take two descriptors */
 
 struct sh5blk {
 	const struct sh5_bar *bar;
@@ -35,8 +38,23 @@ struct sh5blk {
 	slop_virtq q;
 	int q_ready;
 	unsigned long n_read, n_write, n_bytes, polls;
-	uint8_t *buf;
+	uint8_t *buf;                  /* the reply: data then the status byte, grown to the request */
+	size_t buf_len;
 };
+
+/* The reply buffer must hold the whole writable area of the chain: the
+ * status byte is its last byte and slop_virtq_push() scatters the reply
+ * from the start, so a short reply would leave the real status
+ * descriptor untouched (0 = OK) and the guest would take unfilled
+ * memory for data. */
+static int reply_buf(struct sh5blk *d, size_t need)
+{
+	if (need <= d->buf_len) return 0;
+	uint8_t *p = (uint8_t *)realloc(d->buf, need);
+	if (!p) return -1;
+	d->buf = p; d->buf_len = need;
+	return 0;
+}
 
 /* ---- guest memory through the DRAM window, any alignment ---- */
 static int gmem_read(void *user, uint64_t gpa, void *dst, size_t len)
@@ -81,6 +99,7 @@ static void vio_wr(void *user, uint32_t off, uint64_t v)
 }
 
 static void put_le64(uint8_t *p, uint64_t v) { for (int i = 0; i < 8; i++) p[i] = (uint8_t)(v >> (8 * i)); }
+static void put_le32(uint8_t *p, uint32_t v) { for (int i = 0; i < 4; i++) p[i] = (uint8_t)(v >> (8 * i)); }
 static uint32_t get_le32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
 static uint64_t get_le64(const uint8_t *p) { return get_le32(p) | (uint64_t)get_le32(p + 4) << 32; }
 
@@ -90,7 +109,7 @@ struct sh5blk *sh5blk_open(const struct sh5_bar *b, unsigned slot, const char *i
 	struct sh5blk *d = (struct sh5blk *)calloc(1, sizeof(*d));
 	struct stat st;
 	slop_vmmio_io io;
-	uint8_t cfg[8];
+	uint8_t cfg[16];
 
 	if (!d) return NULL;
 	d->bar = b;
@@ -102,15 +121,18 @@ struct sh5blk *sh5blk_open(const struct sh5_bar *b, unsigned slot, const char *i
 		return NULL;
 	}
 	d->sectors = (uint64_t)st.st_size / 512;
-	d->buf = (uint8_t *)malloc(MAX_IO);
+	d->buf = NULL; d->buf_len = 0;
 	d->debug = getenv("SH5BLK_DEBUG") != NULL;     /* trace the driver's steps and every request */
 
 	io.rd = vio_rd; io.wr = vio_wr; io.user = (void *)b;
 	slop_vmmio_init(&d->t, &io, slot);
-	put_le64(cfg, d->sectors);
-	slop_vmmio_config(&d->t, 0, cfg, 8);              /* capacity, in 512-byte sectors */
+	put_le64(cfg, d->sectors);                        /* capacity, in 512-byte sectors */
+	put_le32(cfg + 8, SIZE_MAX_B);                    /* size_max: Linux caps a segment at it */
+	put_le32(cfg + 12, SEG_MAX);                      /* seg_max: and a request at this many */
+	slop_vmmio_config(&d->t, 0, cfg, 16);
 	slop_vmmio_present(&d->t, VIRTIO_ID_BLOCK, 0x53483500 /* "SH5" */,
-			   (readonly ? VIRTIO_BLK_F_RO : 0) | VIRTIO_BLK_F_FLUSH, QUEUE_MAX);
+			   (readonly ? VIRTIO_BLK_F_RO : 0) | VIRTIO_BLK_F_FLUSH |
+			   VIRTIO_BLK_F_SIZE_MAX | VIRTIO_BLK_F_SEG_MAX, QUEUE_MAX);
 	/* VIRTIO_F_ACCESS_PLATFORM (bit 33): the device is not coherent with the
 	 * CPU's write-back cache. With it Linux puts the ring in an uncached
 	 * mapping and flushes/invalidates every buffer around a request (the
@@ -127,21 +149,27 @@ struct sh5blk *sh5blk_open(const struct sh5_bar *b, unsigned slot, const char *i
 static int serve(struct sh5blk *d, slop_virtq_chain *c)
 {
 	uint8_t status = VIRTIO_BLK_S_OK;
-	size_t out = 0;                /* bytes of reply before the status byte */
+	size_t data = c->out_len ? c->out_len - 1 : 0;   /* writable bytes before the status byte */
 
-	if (c->in_len < 16 || c->out_len < 1) {
+	/* Whatever happens, the reply is the whole writable area: data (or
+	 * zeros) and the status as its last byte. Without the data part the
+	 * status would be scattered into the data buffer and the guest would
+	 * see a stale status descriptor (0 = OK) over unfilled memory. */
+	if (c->out_len < 1 || reply_buf(d, data + 1) < 0)
+		return -1;
+	memset(d->buf, 0, data);
+	if (c->in_len < 16) {
 		status = VIRTIO_BLK_S_IOERR;
 	} else {
 		uint32_t type = get_le32(c->in);
 		uint64_t sector = get_le64(c->in + 8);
 		if (type == VIRTIO_BLK_T_IN) {
-			size_t len = c->out_len - 1;
-			if (len > MAX_IO - 1 || sector * 512 + len > d->sectors * 512) {
+			if (sector * 512 + data > d->sectors * 512) {
 				status = VIRTIO_BLK_S_IOERR;
-			} else if (pread(d->fd, d->buf, len, (off_t)(sector * 512)) != (ssize_t)len) {
+			} else if (pread(d->fd, d->buf, data, (off_t)(sector * 512)) != (ssize_t)data) {
 				status = VIRTIO_BLK_S_IOERR;
 			} else {
-				out = len; d->n_read++; d->n_bytes += len;
+				d->n_read++; d->n_bytes += data;
 			}
 		} else if (type == VIRTIO_BLK_T_OUT) {
 			size_t len = c->in_len - 16;
@@ -155,15 +183,15 @@ static int serve(struct sh5blk *d, slop_virtq_chain *c)
 		} else if (type == VIRTIO_BLK_T_FLUSH) {
 			if (!d->readonly && fsync(d->fd)) status = VIRTIO_BLK_S_IOERR;
 		} else if (type == VIRTIO_BLK_T_GET_ID) {
-			memset(d->buf, 0, 20);
-			memcpy(d->buf, "sh5blk0", 7);
-			out = c->out_len - 1 < 20 ? c->out_len - 1 : 20;
+			memcpy(d->buf, "sh5blk0", data < 7 ? data : 7);
 		} else {
 			status = VIRTIO_BLK_S_UNSUPP;
 		}
 	}
-	d->buf[out] = status;
-	return slop_virtq_push(&d->q, c, d->buf, out + 1);
+	if (d->debug && status != VIRTIO_BLK_S_OK)
+		fprintf(stderr, "sh5blk: request failed, status %u (in %zu out %zu)\n", status, c->in_len, c->out_len);
+	d->buf[data] = status;
+	return slop_virtq_push(&d->q, c, d->buf, data + 1);
 }
 
 int sh5blk_poll(struct sh5blk *d)

@@ -297,6 +297,17 @@ Transcript: `logs/fpga-linux-disk.txt`. The host interrupt is advertised
 and masked; nothing on the bench machine consumes it yet (see "Not
 done").
 
+Then f0c9c857 (2026-11-08: RTE keeps SPC bit 1, TEA of a delay-slot fetch
+fault is the slot's address, `core-design.md` §13), `-effort high`,
+timing met with 0.116 ns to spare, in flash: `check-card.sh` 8/8 with
+the SHcompact kit at 172328 checks (five TRAPA-return checks added) and
+the disk step on the fixed `sh5blk` (replies always cover the writable
+area, `size_max` 64 KB and `seg_max` 14 advertised; before that Linux
+sent 1280 KB reads, which came back as success over unfilled memory).
+Running SH-4 user processes under the sh64 kernel is what found all
+three; the kernel work is on the linux branch
+`intern-sh5-shcompact-20261108`.
+
 The cached kernels take the same cycles at twice the rate; the uncached
 kits pay the memory latency, now twice as many cycles per access, and
 gain a fifth. The longest core path at 50 MHz is a carry chain in the FPU

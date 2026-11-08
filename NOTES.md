@@ -733,3 +733,18 @@ reproduce it. Confirmed facts move to `docs/`.
   the core TB. The kernel keeps its two workarounds
   (CONFIG_SH64_COMPACT_RTE_STUB, CONFIG_SH64_COMPACT_SLOT_ITLB) until the
   bitstream with the fixes is on the card.
+  f0c9c857 built with -effort high in 45 min (worker idle): timing met
+  (0.116 ns), 0 gate findings, flashed; check-card 8/8 (compact kit now
+  172328 checks; check-card.sh updated). sh5blk bug found by the Debian
+  stage: Linux (no SIZE_MAX/SEG_MAX offered) sent reads up to 1280 KB,
+  sh5blk rejected > 64 KB with IOERR and pushed the 1-byte status from the
+  start of the writable area, so the status descriptor stayed 0 (OK) and
+  the guest took unfilled memory for data (190 of 388 blocks of libc.so.6
+  wrong). Fixed: reply = whole writable area (zeros on error) with the
+  status last, buffer grown per request, size_max 64 KB and seg_max 14 in
+  the config space with the feature bits. The card's disk step passes with
+  it; the kernel subagent's max_sectors_kb=32 workaround is obsolete.
+  Debian stage status from the subagent: dynamic binaries (dash, ls, dpkg,
+  perl, bash) run; a pte_special() fix was needed (kernel b708e1cc4931);
+  the second debootstrap stage hung after "Installing core packages" once
+  (under investigation with a watchdog, and now with the fixed device).
