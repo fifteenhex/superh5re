@@ -1,5 +1,5 @@
 sh5ctl: Linux image, initrd 99373 bytes at 80f00000 in 0.4 s, starting at 80002000
-sh5ctl: virtio-blk slot 0: /home/clanker/sh5/host/../disk/test.ext2, 16384 sectors
+sh5ctl: virtio-blk slot 0: ../disk/test.ext2, 16384 sectors
 [    0.000000] Linux version 6.15.0-00034-g48449896407a (dev@claustrum) (sh64-linux-gcc (GCC) 6.5.0, GNU ld (GNU Binutils) 2.30) #30 PREEMPT Sat Nov  7 08:19:59 UTC 2026
 [    0.000000] Boot params:
 [    0.000000] ... MOUNT_ROOT_RDONLY - 00000001
