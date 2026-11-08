@@ -642,3 +642,26 @@ reproduce it. Confirmed facts move to `docs/`.
   polls. The PCIe IP keeps MSI_DECODE_ENABLED false (dmaslop sets it with
   the bus-mastering settings; untested here whether the endpoint needs it
   for INTX_MSI_Request).
+- 2026-11-08: the Vivado worker came back at 23:07 UTC. The build of
+  cb8f4b2 failed the Synth 8-11241 gate (vio_kick used in the hostif
+  instance before its declaration; Verilator accepts that) -> 0af65334,
+  declaration hoisted, checkdecl clean. 0af65334: 0 gate findings, but
+  timing NOT met by 0.30 ns (20 endpoints, dcache tag RAM -> wb_data_q,
+  FPU term_r -> al_r, 16 ns of routing in a 20 ns path). Flashed anyway
+  (`flash.sh image`, `flash.sh reboot`, PCI remove + rescan): probe shows
+  caps DRAM MSI CPU RESET, check-card 8/8 including the new disk step
+  (Linux mounts the virtio disk, 13.4 s). Hand-over in
+  files/superh5re-fpga-0af65334-50mhz-virtio. A `-effort high` build of
+  the same sources (build id ...00000001) is running for the timing.
+  MEXTR: the kit's ref_mextr now has an empty asm on one half so GCC
+  cannot fold it into mextr (the toolchain subagent's patch); under qemu
+  18230 checks failed (mextr1/2/3/5/6/7), on the card 458064/0, so the
+  RTL agrees with the manual. qemu fixed (target/sh5/op_helper.c, shift
+  counts n and 8-n swapped), kit 458064/0 under qemu; pushed on qemu's
+  intern-sh5-20261102 (532517057a).
+  Toolchain final round (subagent): kernel branch intern-sh5-newgcc-20261107
+  at ca91592ba424 builds with only the clone3 #warning and two generic
+  warnings; gcc revive at 24b7088701b (leaf r18 save, one stack
+  adjustment); binutils revive at 9dc736aec34 (sh64elf.em %F crash fixed,
+  testsuite exceptions: gas 521/0, ld 862/2 (pr20995, fails for all SH),
+  binutils 250/0). bc installed on the bench.

@@ -1,0 +1,110 @@
+sh5ctl: Linux image, initrd 99373 bytes at 80f00000 in 0.4 s, starting at 80002000
+sh5ctl: virtio-blk slot 0: /home/clanker/sh5/host/../disk/test.ext2, 16384 sectors
+[    0.000000] Linux version 6.15.0-00034-g48449896407a (dev@claustrum) (sh64-linux-gcc (GCC) 6.5.0, GNU ld (GNU Binutils) 2.30) #30 PREEMPT Sat Nov  7 08:19:59 UTC 2026
+[    0.000000] Boot params:
+[    0.000000] ... MOUNT_ROOT_RDONLY - 00000001
+[    0.000000] ... RAMDISK_FLAGS     - 00000000
+[    0.000000] ... ORIG_ROOT_DEV     - 00000200
+[    0.000000] ... LOADER_TYPE       - 00000001
+[    0.000000] ... INITRD_START      - 00f00000
+[    0.000000] ... INITRD_SIZE       - 0001842d
+[    0.000000] Booting machvec: Hitachi Cayman
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Kernel command line: console=ttySC0 virtio_mmio.device=0x200@0x0b000000:63 -- smolinit.getty=/dev/ttySC0 smolinit.hostname=cayman
+[    0.000000] printk: log buffer data + meta data: 1048576 + 3276800 = 4325376 bytes
+[    0.000000] Dentry cache hash table entries: 16384 (order: 4, 65536 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 8192 (order: 3, 32768 bytes, linear)
+[    0.000000] Sorting __ex_table...
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 32768
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] I-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] I-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] D-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] D-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] virtual kernel memory layout:
+[    0.000000]     fixmap  : 0xfffd7000 - 0xfffff000   ( 160 kB)
+[    0.000000]     vmalloc : 0xf0000000 - 0xfffd5000   ( 255 MB)
+[    0.000000]     lowmem  : 0xa0000000 - 0xa8000000   ( 128 MB) (cached)
+[    0.000000]       .init : 0xa0cbc000 - 0xa0cfc000   ( 256 kB)
+[    0.000000]       .data : 0xa0895740 - 0xa0cbbb00   (4248 kB)
+[    0.000000]       .text : 0xa0001000 - 0xa0895740   (8785 kB)
+[    0.000000] SLUB: HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] Console: colour dummy device 80x25
+[    0.000000]  sh-tmu.0: ch0: used for clock events
+[    0.000000]  sh-tmu.0: ch0: used for periodic clock events
+[    0.000000]  sh-tmu.0: ch1: used as clock source
+[    0.000000] clocksource: sh-tmu.0: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1834811203156 ns
+[    0.000000] sched_clock: 32 bits at 250 Hz, resolution 4000000ns, wraps every 8589934590000000ns
+[    0.004000] Calibrating delay loop (skipped)... 12.50 BogoMIPS PRESET (lpj=25000)
+[    0.004000] CPU: SH5-101
+[    0.004000] pid_max: default: 32768 minimum: 301
+[    0.024000] Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.028000] Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.280000] rcu: Hierarchical SRCU implementation.
+[    0.284000] rcu: 	Max phase no-delay instances is 1000.
+[    0.336000] Memory: 114908K/131072K available (8781K kernel code, 3364K rwdata, 884K rodata, 256K init, 1131K bss, 15692K reserved, 0K cma-reserved)
+[    0.372000] devtmpfs: initialized
+[    0.492000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.496000] posixtimers hash table entries: 512 (order: -1, 2048 bytes, linear)
+[    0.496000] futex hash table entries: 256 (order: -1, 3072 bytes, linear)
+[    0.588000] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    1.008000] DMA: preallocated 128 KiB GFP_KERNEL pool for atomic allocations
+[    1.232000] pps_core: LinuxPPS API ver. 1 registered
+[    1.236000] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    1.240000] PTP clock support registered
+[    1.244000] sh_tmu sh-tmu.0: kept as earlytimer
+[    1.352000] clocksource: Switched to clocksource sh-tmu.0
+[    2.892000] NET: Registered PF_INET protocol family
+[    2.916000] IP idents hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    2.984000] tcp_listen_portaddr_hash hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    2.988000] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    2.996000] TCP established hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    3.000000] TCP bind hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    3.004000] TCP: Hash tables configured (established 1024 bind 1024)
+[    3.016000] UDP hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    3.020000] UDP-Lite hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    3.036000] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    3.096000] RPC: Registered named UNIX socket transport module.
+[    3.096000] RPC: Registered udp transport module.
+[    3.096000] RPC: Registered tcp transport module.
+[    3.096000] RPC: Registered tcp-with-tls transport module.
+[    3.096000] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    3.112000] virtio-mmio: Registering device virtio-mmio.0 at 0xb000000-0xb0001ff, IRQ 63.
+[    3.156000] SMSC SuperIO devid 00 rev 00
+[    3.248000] Trying to unpack rootfs image as initramfs...
+[    3.380000] workingset: timestamp_bits=30 max_order=15 bucket_order=0
+[    3.632000] romfs: ROMFS MTD (C) 2007 Red Hat, Inc.
+[    3.688000] io scheduler mq-deadline registered
+[    3.688000] io scheduler kyber registered
+[    7.856000] Freeing initrd memory: 96K
+[   16.100000] SuperH (H)SCI(F) driver initialized
+[   16.136000] sh-sci.0: ttySC0 at MMIO 0xa030000 (irq = 40, base_baud = 0) is a scif
+[   16.144000] printk: legacy console [ttySC0] enabled
+[   17.908000] brd: module loaded
+[   18.784000] loop: module loaded
+[   18.792000] virtio_blk virtio0: 1/0/0 default/read/poll queues
+[   18.820000] virtio_blk virtio0: [vda] 16384 512-byte logical blocks (8.39 MB/8.00 MiB)
+[   19.092000] NET: Registered PF_PACKET protocol family
+[   19.104000] heartbeat: version 0.1.2 loaded
+[   22.764000] Freeing unused kernel image (initmem) memory: 256K
+[   22.772000] This architecture does not have kernel memory protection.
+[   22.776000] Run /init as init process
+smolutils init (Nov  3 2026, 03:59:49)
+getty: Starting getty on /dev/ttySC0 with shell /bin/smolsh
+smolsh / > su
+smolsh / > mkdir /mnt
+smolsh / > mount -t ext2 /dev/vda /mnt
+smolsh / > cat /mnt/hello.txt
+hello from the virtio disk
+smolsh / > echo FIN
+sh5ctl: "FIN" seen after 13.4 s, 670099958 core cycles

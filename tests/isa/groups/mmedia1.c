@@ -238,7 +238,14 @@ static u64 ref_mshf(u64 a, u64 b, int n, int hi)
 /* MEXTRk: (UpperBytes_(8-k)(Rm) >> (k*8)) | (LowerBytes_k(Rn) << ((8-k)*8)). */
 static u64 ref_mextr(u64 a, u64 b, int k)
 {
-	return (UpperBytes(a, 8 - k) >> (k * 8)) | (LowerBytes(b, k) << ((8 - k) * 8));
+	u64 hi = UpperBytes(a, 8 - k) >> (k * 8);
+	u64 lo = LowerBytes(b, k) << ((8 - k) * 8);
+
+	/* Hide one half from the optimizer: GCC otherwise recombines the
+	   shift/or into a mextrN instruction, and the test would compare
+	   the instruction under test with itself. */
+	__asm__ ("" : "+r"(hi));
+	return hi | lo;
 }
 
 /* ---- Operand construction so that every lane sees boundary values ---- */

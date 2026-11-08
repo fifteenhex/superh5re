@@ -279,6 +279,22 @@ with 0.27 ns to spare; the card measures 49.999 MHz:
 | Linux to its shell | 25 s, 621 M cycles | 12 s, 613 M cycles |
 | NetBSD to root login | 82 s, 2.04 G cycles | 42 s, 2.08 G cycles |
 
+Then 0af65334 (2026-11-08: the virtio-mmio transport and the kick as a
+host MSI). This build missed timing by 0.30 ns after routing (20
+endpoints, all in the core and route-dominated: the dcache tag RAM to
+the write-back data register, the FPU's `term_r` to `al_r`); the card
+runs it without a failure, `check-card.sh` 8/8:
+
+| program | result | time |
+|---|---|---|
+| probe | caps DRAM MSI CPU RESET, 50 MHz, DDR3 calibrated | |
+| tests/exc, both kits, Linux, NetBSD | as for 0183b335 (the SHmedia kit with the independent MEXTR reference, 458064 checks, 0 failures) | 77 s, 51 s, 12 s, 42 s |
+| Linux + virtio-blk (`--disk`, 8 MB ext2) | `su`, `mkdir /mnt`, `mount -t ext2 /dev/vda /mnt`, `cat /mnt/hello.txt` prints the file | 13.4 s, 670 M cycles |
+
+Transcript: `logs/fpga-linux-disk.txt`. The host interrupt is advertised
+and masked; nothing on the bench machine consumes it yet (see "Not
+done").
+
 The cached kernels take the same cycles at twice the rate; the uncached
 kits pay the memory latency, now twice as many cycles per access, and
 gain a fifth. The longest core path at 50 MHz is a carry chain in the FPU
@@ -375,9 +391,6 @@ without the host path.
 - The host MSI (below) has run in the board testbench only; on the card
   it needs fpgaslop's kernel module (`insmod fpgaslop.ko msi=1`), which
   the bench machine does not have. sh5ctl polls.
-- virtio-blk has run in the board testbench only; the bitstream with the
-  transport is not built yet (the 50 MHz bitstream in flash, 0183b335,
-  predates it).
 - The DMA engine of `slop_card` is instantiated but its masters are tied
   off (CAP_DMA clear).
 - A wider DRAM window and the core's bus timing (one request at a time

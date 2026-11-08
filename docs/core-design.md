@@ -425,6 +425,11 @@ software; the hardware also flushes the fetch queue and target buffers.
   take two passes (**C**).
 - SIMD adders: 8 x 8, 4 x 16, 2 x 32 lanes with saturation; MSAD.UBQ,
   MCMP*, MABS, MSHF*, MCMV, MPERM.W, MEXTR1-7, MCNVS, MSH* shifts.
+  MEXTRk follows Vol. 2 pp. 200-206: (UpperBytes(8-k)(Rm) >> 8k) |
+  (LowerBytes(k)(Rn) << 8(8-k)). The kit's reference is kept from being
+  compiled into mextr itself (an empty asm on one half), since GCC had
+  folded it and the check compared the instruction with itself; qemu-sh5
+  had k and 8-k swapped (fixed on its intern branch).
   Semantics per the Vol. 2 pseudocode as validated by `tests/isa`.
 - Results after E1 (ALU) or E3 (multiplier and 3-stage SIMD ops).
 
