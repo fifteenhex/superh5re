@@ -680,3 +680,5 @@ reproduce it. Confirmed facts move to `docs/`.
   unclaimed interrupt on the user's server. Decision for the user:
   install linux-headers, add CAP_MAILBOX (or a kick-count ioctl without
   it) and accept the risk, or leave the MSI masked and polled.
+  User decision 2026-11-08: leave the host MSI advertised and masked, the
+  host polls; task 3 closed with virtio-blk verified on the card.
