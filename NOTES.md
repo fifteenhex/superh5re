@@ -682,3 +682,8 @@ reproduce it. Confirmed facts move to `docs/`.
   it) and accept the risk, or leave the MSI masked and polled.
   User decision 2026-11-08: leave the host MSI advertised and masked, the
   host polls; task 3 closed with virtio-blk verified on the card.
+  2026-11-08: the bench key can read and push linux.git on gitolite now.
+  The bench kernel tree (~/kernel/linux-sh5, previously a git-archive
+  import with no shared history) is on intern-sh5-newgcc-20261107
+  tracking gitolite (ca91592ba424, identical tree); kernel work can be
+  pushed from the bench machine directly.
