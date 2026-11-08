@@ -707,3 +707,12 @@ reproduce it. Confirmed facts move to `docs/`.
   The user debootstraps Debian sh4 into a directory on the bench machine;
   the plan is mke2fs -d into an image served by sh5ctl --disk, with the
   second debootstrap stage run on the card.
+  Debian sh4 stage 1 on the bench machine (one sudo, granted by the user
+  after their own attempt failed; /usr/sbin is not in the user's PATH,
+  which may have been why): `debootstrap --foreign --arch=sh4
+  --variant=minbase --keyring=debian-ports-archive-keyring.gpg
+  --include=debian-ports-archive-keyring,busybox-static unstable
+  ~/debian-sh4 http://deb.debian.org/debian-ports`, 81 packages, then
+  `mke2fs -t ext2 -L debsh4 -d ~/debian-sh4 ~/sh5/disk/debian-sh4.ext2 1G`
+  (236 MB used; /debootstrap/debootstrap for the second stage, 69 .debs in
+  /var/cache/apt/archives). Log: ~/debootstrap-sh4.log on the bench.
