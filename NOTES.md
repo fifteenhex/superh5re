@@ -782,3 +782,11 @@ reproduce it. Confirmed facts move to `docs/`.
   page migration (folio_copy through the kernel alias, PG_dcache_clean
   carried to the new folio, so no purge). Experiment handed to the
   subagent: CONFIG_COMPACTION=n / CONFIG_MIGRATION=n.
+  Second stage completed by hand (subagent, 2026-11-09 08:27 bench time):
+  `dpkg --unpack` of the remaining base .debs then `dpkg --configure -a`
+  returned 0; `dpkg -l` lists 78 installed packages. One failure:
+  util-linux_2.41.3-4 (dpkg-deb's xz child died with SIGSEGV, the
+  intermittent corruption) is not installed. The subagent's wrapper
+  for the card runs is ~/bin/card-sh5ctl.sh in the sandbox; its first
+  version re-parsed the arguments in a second shell (`sudo bash -c`),
+  which turned "\n" into "n"; it now runs sudo ./sh5ctl directly.
