@@ -797,3 +797,16 @@ reproduce it. Confirmed facts move to `docs/`.
   logs/fpga-debian-sh4.txt (40 s, 2.0 G cycles). Open: util-linux, the
   intermittent corruption (compaction/migration experiment), a direct
   root=/dev/vda boot without the rescue initrd.
+  Root-cause candidate for the intermittent corruption (2026-11-09): the
+  subagent's instrumentation shows it correlates with ASID wraps (8-bit
+  ASIDs, hundreds of wraps per stress round). At a wrap get_mmu_context()
+  calls flush_cache_all(); sh64's sh64_dcache_purge_sets() purges by one
+  ALLOCO per way per set on dummy_alloco_area and leaves the dummy lines
+  resident. The RTL (and Vol. 2: ALLOCO is a hint) allocates only when
+  the block is neither an EA nor a PA hit, so later purges evict nothing
+  in sets whose dummy lines are still present; stale EA+ASID-tagged user
+  lines (an EA hit needs no PA check) survive and a process with the
+  recycled ASID reads them at the same EA (ld.so at 0x2aaa0000). Fix
+  proposed to the subagent: OCBI/OCBP the dummy lines after the sweep.
+  Stress numbers: baseline kernel 1 bad decompression in 12 (dst3),
+  a modified kernel 0 in 8 (dst4).
