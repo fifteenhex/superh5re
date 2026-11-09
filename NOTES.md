@@ -825,3 +825,13 @@ reproduce it. Confirmed facts move to `docs/`.
   plus the purge bug), so the full second stage is being rerun from the
   pristine stage-1 copy on the fixed kernel as the validation; then a
   fork/exec storm and dstress against tmpfs, then the direct root boot.
+  Console garbling and the "ring unusable" of 2026-11-09 explained: two
+  sh5ctl processes on the card at once (the subagent started ul1/ds7
+  while its dst4 stress was still running; my checks used `tail -1` and
+  saw one). Each drained every other console byte ("Spr HSIF rvriiilzd"
+  = even positions only), both served the virtqueue and wrote the ext2
+  image (hence the 950 fsck findings). The OCBI kernel is exonerated: an
+  A/B boot of 961d754 and the OCBI build with the same initrd prints the
+  same clean console. sh5ctl now takes an exclusive flock on
+  /tmp/sh5ctl-<bdf>.lock, and card-sh5ctl.sh refuses to start while an
+  sh5ctl runs on the bench.

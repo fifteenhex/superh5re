@@ -36,6 +36,7 @@
 #include <time.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <sys/select.h>
 
 #include "sh5boot.h"
@@ -55,6 +56,17 @@ static int map_bar(const char *bdf)
 	snprintf(path, sizeof path, "/sys/bus/pci/devices/%s/enable", bdf);
 	fd = open(path, O_WRONLY);
 	if (fd >= 0) { if (write(fd, "1", 1) < 0) { /* already enabled */ } close(fd); }
+
+	/* One sh5ctl per card. Two of them share one console FIFO (each sees
+	 * every other byte) and, with --disk, both serve one virtqueue and
+	 * write one image: the ring and the file system are corrupted. */
+	snprintf(path, sizeof path, "/tmp/sh5ctl-%s.lock", bdf);
+	fd = open(path, O_RDWR | O_CREAT, 0666);
+	if (fd >= 0 && flock(fd, LOCK_EX | LOCK_NB) < 0) {
+		fprintf(stderr, "sh5ctl: another sh5ctl holds %s: one job per card\n", bdf);
+		return -1;
+	}
+	/* fd stays open for the life of the process: it is the lock */
 
 	snprintf(path, sizeof path, "/sys/bus/pci/devices/%s/resource0", bdf);
 	fd = open(path, O_RDWR | O_SYNC);
