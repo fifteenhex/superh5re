@@ -810,3 +810,11 @@ reproduce it. Confirmed facts move to `docs/`.
   proposed to the subagent: OCBI/OCBP the dummy lines after the sweep.
   Stress numbers: baseline kernel 1 bad decompression in 12 (dst3),
   a modified kernel 0 in 8 (dst4).
+  The subagent confirms the fit: dst3 (clean head) had one burst at
+  kernel time 4115 s where sha256sum (SIGILL), memstress and cmp died at
+  once, then nothing; dst4 (head + a printk per ASID wrap) 0 bad in 10
+  with 500 wraps so far. The no-op purge also hits flush_cache_mm at
+  exit/munmap, so dead dirty lines are written back later into pages
+  reallocated to other processes (code pages included): that is the
+  burst. Fix in progress: OCBI the dummy lines after the ALLOCO sweep in
+  sh64_dcache_purge_sets(); the icache path uses ICCR0.ICI and is fine.
