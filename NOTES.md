@@ -818,3 +818,10 @@ reproduce it. Confirmed facts move to `docs/`.
   reallocated to other processes (code pages included): that is the
   burst. Fix in progress: OCBI the dummy lines after the ALLOCO sweep in
   sh64_dcache_purge_sets(); the icache path uses ICCR0.ICI and is fine.
+  Fix committed on the kernel branch: 5e89d4b54a0a "sh: sh64: invalidate
+  the dummy lines after the D-cache purge sweep" (OCBI after the ALLOCO
+  sweep; passes cowm and ctest-nx). The Debian image used for the stress
+  runs is corrupt (ext2, about 950 fsck findings: runs killed mid-write
+  plus the purge bug), so the full second stage is being rerun from the
+  pristine stage-1 copy on the fixed kernel as the validation; then a
+  fork/exec storm and dstress against tmpfs, then the direct root boot.
