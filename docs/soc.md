@@ -169,6 +169,41 @@ only says when to look, which is fpgaslop's contract for its kernel
 module's `poll()`. The board testbench sets IRQEN when it serves a disk
 and counts the pulses on `sh5_top.msi`.
 
+## SH-4 user space: Debian sh4 on the SH-5 kernel
+
+SHcompact is the SH-4 user ISA, and the compact state is R0-R19 of the
+SHmedia register file, so SH-4 Linux binaries run under the sh64 kernel
+once the kernel speaks the sh32 user ABI. That work is on the linux
+branch `intern-sh5-shcompact-20261108` (ELF machine flags select the
+ABI; `trapa #0x10..0x17` with the number in r3 and arguments in r4-r7,
+r0, r1, a separate sh32 syscall table with wrappers for the 64-bit
+argument and `stat64`/`statfs64`/`flock64` layouts; sh32 signal frames
+with a stack trampoline; gUSA restart on return to user; GBR as the
+thread pointer survives switches as R16). It found two core bugs (RTE
+and delay-slot TEA, `core-design.md` §13), the sh5blk request-size bug,
+and a run of old sh64 kernel bugs (TLB flushes matching nothing or the
+wrong ASID or only the first slot, a cache flush with an end address for
+a length, the I-cache not invalidated by flush_cache_range or for the
+first line of a range, non-present PTE markers loaded into the TLB, FPU
+state around signal frames).
+
+On the card, bitstream f0c9c857, kernel 6.15 from that branch with both
+hardware workarounds off:
+
+| | result |
+|---|---|
+| Debian unstable `busybox-static` 1:1.38.0-3 (sh4, static glibc) as init | ash shell; fork/exec, signals, TLS, 600000/600000 gUSA increments under a timer; `logs/fpga-debian-busybox.txt` |
+| Debian unstable, `debootstrap --foreign --arch=sh4 --variant=minbase` stage 1 (sandbox, one sudo on the bench machine) into a 1 GB ext2 image served by `sh5ctl --disk` | second stage run on the card by hand (`dpkg --unpack` of the base .debs, `dpkg --configure -a`): 78 packages installed, util-linux missing after one crash |
+| chroot into that root from the busybox rescue initrd | `forky/sid`; `apt 3.3.7 (sh4)`; `ldd /bin/ls` resolves through `/lib/ld-linux.so.2`; bash, dpkg, perl run; `logs/fpga-debian-sh4.txt` |
+
+Still open: intermittent SIGSEGVs of dpkg-deb's xz child and dash during
+the install, suspected to be the operand cache's virtual synonyms (the
+cache is indexed by EA bit 12, so a page mapped at two colours has two
+copies; the kernel must copy and clear user pages through coloured
+mappings and purge after kernel-alias writes, as `cache-sh5.c` does for
+COW, but page migration copies through the plain alias). The experiment
+without CONFIG_COMPACTION/MIGRATION and the proper fix are in progress.
+
 ## Results
 
 Through the board testbench (`rtl/tb/board`, memory latency 6 cycles,

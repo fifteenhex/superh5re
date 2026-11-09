@@ -1,0 +1,286 @@
+sh5ctl: Linux image, initrd 1077391 bytes at 80e00000 in 0.5 s, starting at 80002000
+[    0.000000] Linux version 6.15.0-gb708e1cc4931 (builder) (sh64-linux-gcc (GCC) 17.0.0 20261107 (experimental), GNU ld (GNU Binutils) 2.47.50.20261107) #1 PREEMPT Sun Nov  8 18:37:00 JST 2026
+[    0.000000] Boot params:
+[    0.000000] ... MOUNT_ROOT_RDONLY - 00000001
+[    0.000000] ... RAMDISK_FLAGS     - 00000000
+[    0.000000] ... ORIG_ROOT_DEV     - 00000200
+[    0.000000] ... LOADER_TYPE       - 00000001
+[    0.000000] ... INITRD_START      - 00e00000
+[    0.000000] ... INITRD_SIZE       - 0010708f
+[    0.000000] Booting machvec: Hitachi Cayman
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Kernel command line: console=ttySC0 print-fatal-signals=1 rdinit=/bin/busybox -- sh
+[    0.000000] printk: log buffer data + meta data: 1048576 + 3276800 = 4325376 bytes
+[    0.000000] Dentry cache hash table entries: 16384 (order: 4, 65536 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 8192 (order: 3, 32768 bytes, linear)
+[    0.000000] Sorting __ex_table...
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 32768
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] I-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] I-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] D-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] D-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] virtual kernel memory layout:
+[    0.000000]     fixmap  : 0xfffd7000 - 0xfffff000   ( 160 kB)
+[    0.000000]     vmalloc : 0xf0000000 - 0xfffd5000   ( 255 MB)
+[    0.000000]     lowmem  : 0xa0000000 - 0xa8000000   ( 128 MB) (cached)
+[    0.000000]       .init : 0xa0c8d000 - 0xa0ccc000   ( 252 kB)
+[    0.000000]       .data : 0xa0869720 - 0xa0c8c260   (4234 kB)
+[    0.000000]       .text : 0xa0001000 - 0xa0869720   (8609 kB)
+[    0.000000] SLUB: HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] Console: colour dummy device 80x25
+[    0.000000]  sh-tmu.0: ch0: used for clock events
+[    0.000000]  sh-tmu.0: ch0: used for periodic clock events
+[    0.000000]  sh-tmu.0: ch1: used as clock source
+[    0.000000] clocksource: sh-tmu.0: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1834811203156 ns
+[    0.000000] sched_clock: 32 bits at 250 Hz, resolution 4000000ns, wraps every 8589934590000000ns
+[    0.004000] Calibrating delay loop (skipped)... 12.50 BogoMIPS PRESET (lpj=25000)
+[    0.004000] CPU: SH5-101
+[    0.004000] pid_max: default: 32768 minimum: 301
+[    0.024000] Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.024000] Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.232000] rcu: Hierarchical SRCU implementation.
+[    0.236000] rcu: 	Max phase no-delay instances is 1000.
+[    0.280000] Memory: 114144K/131072K available (8605K kernel code, 3362K rwdata, 872K rodata, 252K init, 1128K bss, 16456K reserved, 0K cma-reserved)
+[    0.312000] devtmpfs: initialized
+[    0.420000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.424000] posixtimers hash table entries: 512 (order: -1, 2048 bytes, linear)
+[    0.428000] futex hash table entries: 256 (order: -1, 3072 bytes, linear)
+[    0.512000] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.864000] DMA: preallocated 128 KiB GFP_KERNEL pool for atomic allocations
+[    1.068000] pps_core: LinuxPPS API ver. 1 registered
+[    1.068000] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    1.072000] PTP clock support registered
+[    1.080000] sh_tmu sh-tmu.0: kept as earlytimer
+[    1.164000] clocksource: Switched to clocksource sh-tmu.0
+[    2.572000] NET: Registered PF_INET protocol family
+[    2.592000] IP idents hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    2.652000] tcp_listen_portaddr_hash hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    2.660000] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    2.664000] TCP established hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    2.664000] TCP bind hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    2.672000] TCP: Hash tables configured (established 1024 bind 1024)
+[    2.684000] UDP hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    2.688000] UDP-Lite hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    2.704000] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    2.748000] RPC: Registered named UNIX socket transport module.
+[    2.748000] RPC: Registered udp transport module.
+[    2.752000] RPC: Registered tcp transport module.
+[    2.752000] RPC: Registered tcp-with-tls transport module.
+[    2.752000] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    2.772000] SMSC SuperIO devid 00 rev 00
+[    2.864000] Trying to unpack rootfs image as initramfs...
+[    3.004000] workingset: timestamp_bits=30 max_order=15 bucket_order=0
+[    3.232000] romfs: ROMFS MTD (C) 2007 Red Hat, Inc.
+[    3.288000] io scheduler mq-deadline registered
+[    3.296000] io scheduler kyber registered
+[   12.444000] Freeing initrd memory: 1052K
+[   18.032000] SuperH (H)SCI(F) driver initialized
+[   18.068000] sh-sci.0: ttySC0 at MMIO 0xa030000 (irq = 40, base_baud = 0) is a scif
+[   18.072000] printk: legacy console [ttySC0] enabled
+[   19.632000] brd: module loaded
+[   20.372000] loop: module loaded
+[   20.480000] NET: Registered PF_PACKET protocol family
+[   20.492000] heartbeat: version 0.1.2 loaded
+[   23.388000] Freeing unused kernel image (initmem) memory: 252K
+[   23.392000] This architecture does not have kernel memory protection.
+[   23.396000] Run /bin/busybox as init process
+
+
+BusyBox v1.38.0 (Debian 1:1.38.0-3) built-in shell (ash)
+Enter 'help' for a list of built-in commands.
+
+sh: can't access tty; job control turned off
+~ # [6nbusybox mount -t proc proc /proc; /bin/busybox --install -s 2>/dev/null; bus
+ybox uname -a
+Linux (none) 6.15.0-gb708e1cc4931 #1 PREEMPT Sun Nov  8 18:37:00 JST 2026 sh GNU/Linux
+~ # [6nsh /alrm.sh
+A1
+alarm-trap
+slept
+A2
+alarm-trap
+slept
+A3
+alarm-trap
+read
+A4
+ignored-ok
+A5
+t
+self-ok
+A6
+t
+sub-ok
+A7
+t
+wait-ok
+A8
+t
+usr1-sleep-ok
+A9
+t
+usr1-sleep-frac-ok
+alrm-end
+~ # [6nsh /alrm3.sh
+B8
+t8
+usr1-sleep-ok
+B8b
+killed-rc 0
+t8b
+usr1-sleep-ok
+B9
+t9
+usr1-sleep-frac-ok
+round-1
+B8
+t8
+usr1-sleep-ok
+B8b
+killed-rc 0
+t8b
+usr1-sleep-ok
+B9
+t9
+usr1-sleep-frac-ok
+round-2
+B8
+t8
+usr1-sleep-ok
+B8b
+killed-rc 0
+t8b
+usr1-sleep-ok
+B9
+t9
+usr1-sleep-frac-ok
+round-3
+B8
+[   76.676000] random: crng init done
+t8
+usr1-sleep-ok
+B8b
+killed-rc 0
+t8b
+usr1-sleep-ok
+B9
+t9
+usr1-sleep-frac-ok
+round-4
+B8
+t8
+usr1-sleep-ok
+B8b
+killed-rc 0
+t8b
+usr1-sleep-ok
+B9
+t9
+usr1-sleep-frac-ok
+round-5
+B8
+t8
+usr1-sleep-ok
+B8b
+killed-rc 0
+t8b
+usr1-sleep-ok
+B9
+t9
+usr1-sleep-frac-ok
+round-6
+/alrm3.sh: line 25: loop-end: not found
+~ # [6nsh /bbtest.sh
+== bbtest start
+sh
+00400000-0058e000 r-xp 00000000 00:02 13         /bin/busybox
+0059e000-005a0000 r--p 0018e000 00:02 13         /bin/busybox
+005a0000-005a2000 rw-p 00190000 00:02 13         /bin/busybox
+005a2000-005a5000 rwxp 00000000 00:00 0 
+005a5000-005c7000 rwxp 00000000 00:00 0          [heap]
+2aaab000-2aabb000 rw-p 00000000 00:00 0 
+7f85e000-7f87f000 rw-p 00000000 00:00 0          [stack]
+-rwxr-xr-x    1 0        0          1648200 Nov  8  2026 /bin/busybox
+1648200 13 1 regular file
+Filesystem           1K-blocks      Used Available Use% Mounted on
+df: /: can't find mount point
+Thu Jan  1 00:01:44 UTC 1970
+real	0m 1.20s
+user	0m 0.03s
+sys	0m 0.14s
+2000
+300
+299
+298
+awk: cmd. line:1: Math support is not compiled in
+2.500 1.234568e+04
+aXc
+d41d8cd98f00b204e9800998ecf8427e  -
+9b226080c537dc4fce0a7149b8c48b6b  /bin/busybox
+6e90167aa5380f1e
+bg pid 160
+bg done
+wait done
+got USR1
+after kill
+alarm-trap
+slept
+loop 200
+forks ok
+total 4
+drwxr-xr-x    2 0        0               80 Jan  1 00:02 .
+drwxrwxrwt    3 0        0               60 Jan  1 00:02 ..
+-rw-r--r--    1 0        0                6 Jan  1 00:02 f
+lrwxrwxrwx    1 0        0                1 Jan  1 00:02 l -> f
+hello
+PID   USER     COMMAND
+    1 0        /bin/busybox sh
+    2 0        [kthreadd]
+    3 0        [pool_workqueue_]
+    4 0        [kworker/R-rcu_g]
+    5 0        [kworker/R-sync_]
+    6 0        [kworker/R-kvfre]
+    7 0        [kworker/R-slub_]
+    8 0        [kworker/R-netns]
+    9 0        [kworker/0:0]
+   10 0        [kworker/0:0H-ev]
+   11 0        [kworker/0:1-eve]
+   12 0        [kworker/u4:0-ev]
+   13 0        [kworker/R-mm_pe]
+   14 0        [ksoftirqd/0]
+   15 0        [rcu_preempt]
+   16 0        [rcu_exp_par_gp_]
+   17 0        [rcu_exp_gp_kthr]
+   18 0        [kdevtmpfs]
+   19 0        [kworker/R-inet_]
+   20 0        [khungtaskd]
+   21 0        [oom_reaper]
+   22 0        [kworker/R-write]
+   23 0        [kcompactd0]
+   24 0        [kworker/R-kbloc]
+   25 0        [kworker/0:1H]
+   26 0        [kworker/R-rpcio]
+   27 0        [kworker/R-xprti]
+   28 0        [kworker/u4:1]
+   29 0        [kswapd0]
+   30 0        [kworker/R-nfsio]
+   31 0        [kworker/u4:2]
+  138 0        sh /bbtest.sh
+  179 0        ps
+              total        used        free      shared  buff/cache   available
+Mem:         115920        4168      109640        1676        2112      107836
+Swap:             0           0           0
+== bbtest end
+~ # [6necho FIN
+sh5ctl: "FIN" seen after 72.4 s, 3620389767 core cycles

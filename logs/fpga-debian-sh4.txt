@@ -1,0 +1,145 @@
+sh5ctl: Linux image, initrd 1079722 bytes at 80e00000 in 0.5 s, starting at 80002000
+sh5ctl: virtio-blk slot 0: ../disk/debian-sh4.ext2, 2097152 sectors
+[    0.000000] Linux version 6.15.0-g961d7549c16e (builder) (sh64-linux-gcc (GCC) 17.0.0 20261107 (experimental), GNU ld (GNU Binutils) 2.47.50.20261107) #11 PREEMPT Mon Nov  9 02:35:20 JST 2026
+[    0.000000] Boot params:
+[    0.000000] ... MOUNT_ROOT_RDONLY - 00000001
+[    0.000000] ... RAMDISK_FLAGS     - 00000000
+[    0.000000] ... ORIG_ROOT_DEV     - 00000200
+[    0.000000] ... LOADER_TYPE       - 00000001
+[    0.000000] ... INITRD_START      - 00e00000
+[    0.000000] ... INITRD_SIZE       - 001079aa
+[    0.000000] Booting machvec: Hitachi Cayman
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000080000000-0x0000000087ffffff]
+[    0.000000] Kernel command line: console=ttySC0 virtio_mmio.device=0x200@0x0b000000:63 rdinit=/bin/busybox -- sh
+[    0.000000] printk: log buffer data + meta data: 1048576 + 3276800 = 4325376 bytes
+[    0.000000] Dentry cache hash table entries: 16384 (order: 4, 65536 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 8192 (order: 3, 32768 bytes, linear)
+[    0.000000] Sorting __ex_table...
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 32768
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] I-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] I-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] D-cache : n_ways=4 n_sets=256 way_incr=8192
+[    0.000000] D-cache : entry_mask=0x00001fe0 alias_mask=0x00001000 n_aliases=2
+[    0.000000] virtual kernel memory layout:
+[    0.000000]     fixmap  : 0xfffd7000 - 0xfffff000   ( 160 kB)
+[    0.000000]     vmalloc : 0xf0000000 - 0xfffd5000   ( 255 MB)
+[    0.000000]     lowmem  : 0xa0000000 - 0xa8000000   ( 128 MB) (cached)
+[    0.000000]       .init : 0xa0c8d000 - 0xa0ccc000   ( 252 kB)
+[    0.000000]       .data : 0xa0869600 - 0xa0c8c260   (4235 kB)
+[    0.000000]       .text : 0xa0001000 - 0xa0869600   (8609 kB)
+[    0.000000] SLUB: HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] Console: colour dummy device 80x25
+[    0.000000]  sh-tmu.0: ch0: used for clock events
+[    0.000000]  sh-tmu.0: ch0: used for periodic clock events
+[    0.000000]  sh-tmu.0: ch1: used as clock source
+[    0.000000] clocksource: sh-tmu.0: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1834811203156 ns
+[    0.000000] sched_clock: 32 bits at 250 Hz, resolution 4000000ns, wraps every 8589934590000000ns
+[    0.004000] Calibrating delay loop (skipped)... 12.50 BogoMIPS PRESET (lpj=25000)
+[    0.004000] CPU: SH5-101
+[    0.004000] pid_max: default: 32768 minimum: 301
+[    0.024000] Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.024000] Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    0.232000] rcu: Hierarchical SRCU implementation.
+[    0.236000] rcu: 	Max phase no-delay instances is 1000.
+[    0.280000] Memory: 114144K/131072K available (8605K kernel code, 3363K rwdata, 872K rodata, 252K init, 1128K bss, 16456K reserved, 0K cma-reserved)
+[    0.308000] devtmpfs: initialized
+[    0.416000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.416000] posixtimers hash table entries: 512 (order: -1, 2048 bytes, linear)
+[    0.420000] futex hash table entries: 256 (order: -1, 3072 bytes, linear)
+[    0.508000] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.860000] DMA: preallocated 128 KiB GFP_KERNEL pool for atomic allocations
+[    1.060000] pps_core: LinuxPPS API ver. 1 registered
+[    1.060000] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    1.064000] PTP clock support registered
+[    1.068000] sh_tmu sh-tmu.0: kept as earlytimer
+[    1.152000] clocksource: Switched to clocksource sh-tmu.0
+[    2.552000] NET: Registered PF_INET protocol family
+[    2.572000] IP idents hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    2.640000] tcp_listen_portaddr_hash hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    2.644000] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    2.648000] TCP established hash table entries: 1024 (order: 0, 4096 bytes, linear)
+[    2.652000] TCP bind hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    2.656000] TCP: Hash tables configured (established 1024 bind 1024)
+[    2.664000] UDP hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    2.668000] UDP-Lite hash table entries: 256 (order: 1, 8192 bytes, linear)
+[    2.684000] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    2.740000] RPC: Registered named UNIX socket transport module.
+[    2.740000] RPC: Registered udp transport module.
+[    2.740000] RPC: Registered tcp transport module.
+[    2.740000] RPC: Registered tcp-with-tls transport module.
+[    2.740000] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    2.760000] virtio-mmio: Registering device virtio-mmio.0 at 0xb000000-0xb0001ff, IRQ 63.
+[    2.800000] SMSC SuperIO devid 00 rev 00
+[    2.864000] Trying to unpack rootfs image as initramfs...
+[    3.012000] workingset: timestamp_bits=30 max_order=15 bucket_order=0
+[    3.244000] romfs: ROMFS MTD (C) 2007 Red Hat, Inc.
+[    3.300000] io scheduler mq-deadline registered
+[    3.300000] io scheduler kyber registered
+[   12.696000] Freeing initrd memory: 1052K
+[   18.204000] SuperH (H)SCI(F) driver initialized
+[   18.236000] sh-sci.0: ttySC0 at MMIO 0xa030000 (irq = 40, base_baud = 0) is a scif
+[   18.244000] printk: legacy console [ttySC0] enabled
+[   19.800000] brd: module loaded
+[   20.544000] loop: module loaded
+[   20.552000] virtio_blk virtio0: 1/0/0 default/read/poll queues
+[   20.576000] virtio_blk virtio0: [vda] 2097152 512-byte logical blocks (1.07 GB/1.00 GiB)
+[   20.804000] NET: Registered PF_PACKET protocol family
+[   20.816000] heartbeat: version 0.1.2 loaded
+[   23.720000] Freeing unused kernel image (initmem) memory: 252K
+[   23.724000] This architecture does not have kernel memory protection.
+[   23.728000] Run /bin/busybox as init process
+
+
+BusyBox v1.38.0 (Debian 1:1.38.0-3) built-in shell (ash)
+Enter 'help' for a list of built-in commands.
+
+sh: can't access tty; job control turned off
+~ # [6n/setup.sh
+[   25.912000] EXT2-fs (vda): warning: mounting unchecked fs, running e2fsck is recommended
+setup-done
+~ # [6nbusybox chroot /mnt /bin/bash -c 'cat /etc/debian_version; uname -a; echo E'
+'1'
+forky/sid
+Linux (none) 6.15.0-g961d7549c16e #11 PREEMPT Mon Nov  9 02:35:20 JST 2026 sh GNU/Linux
+E1
+~ # [6nbusybox chroot /mnt /bin/bash -c 'dpkg -l | grep -c ^ii; dpkg -l | grep -c ^
+iU; dpkg -l | wc -l; echo E''2'
+78
+0
+83
+E2
+~ # [6nbusybox chroot /mnt /bin/bash -c 'apt-get --version | head -1; ldd /bin/ls; 
+echo E''3'
+apt 3.3.7 (sh4)
+	libselinux.so.1 => /usr/lib/sh4-linux-gnu/libselinux.so.1 (0x2aaf0000)
+	libcap.so.2 => /usr/lib/sh4-linux-gnu/libcap.so.2 (0x2ab40000)
+	libc.so.6 => /usr/lib/sh4-linux-gnu/libc.so.6 (0x2ab70000)
+	/lib/ld-linux.so.2 (0x2aaa0000)
+	libpcre2-8.so.0 => /usr/lib/sh4-linux-gnu/libpcre2-8.so.0 (0x2ad10000)
+E3
+~ # [6nbusybox chroot /mnt /bin/bash -c 'ls -l /usr/bin | head -4; tail -3 /deboots
+trap/debootstrap.log; echo E''4'
+[   70.628000] random: crng init done
+total 26932
+-rwxr-xr-x 1 root root     67268 Oct 30  2026 [
+-rwxr-xr-x 1 root root     67348 Nov  6  2026 apt
+-rwxr-xr-x 1 root root    133024 Nov  6  2026 apt-cache
+
+Setting up grep (3.12-1) ...
+Processing triggers for libc-bin (2.43-7) ...
+E4
+~ # [6n/fin.sh; echo FI''N
+umount-ok
+FIN
+sh5ctl: "FIN" seen after 39.8 s, 1990596878 core cycles

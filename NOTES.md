@@ -790,3 +790,10 @@ reproduce it. Confirmed facts move to `docs/`.
   for the card runs is ~/bin/card-sh5ctl.sh in the sandbox; its first
   version re-parsed the arguments in a second shell (`sudo bash -c`),
   which turned "\n" into "n"; it now runs sudo ./sh5ctl directly.
+  Milestone 2 evidence on the card (bitstream f0c9c857, kernel
+  961d7549c16e, no workarounds): chroot from the rescue initrd into the
+  Debian root: /etc/debian_version forky/sid, dpkg -l 78 ii, apt 3.3.7
+  (sh4), ldd /bin/ls through /lib/ld-linux.so.2, bash; transcript
+  logs/fpga-debian-sh4.txt (40 s, 2.0 G cycles). Open: util-linux, the
+  intermittent corruption (compaction/migration experiment), a direct
+  root=/dev/vda boot without the rescue initrd.
