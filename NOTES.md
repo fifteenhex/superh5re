@@ -835,3 +835,17 @@ reproduce it. Confirmed facts move to `docs/`.
   same clean console. sh5ctl now takes an exclusive flock on
   /tmp/sh5ctl-<bdf>.lock, and card-sh5ctl.sh refuses to start while an
   sh5ctl runs on the bench.
+  Validation run of the second stage on 5e89d4b (2026-11-09 18:00 bench
+  time, one sh5ctl, clean image): one dpkg-deb SIGSEGV (TEA f0037008) at
+  "Unpacking passwd", then at "Unpacking tzdata" the disk stopped changing
+  for 45 min while the core ran 24 M instructions/s in the kernel; 26 PC
+  samples through `sh5ctl dbg` (which no longer takes the lock: only run,
+  boot and console do) resolve to handle_mm_fault, mt_find,
+  lock_mm_and_find_vma, do_page_fault, ptep_set_access_flags,
+  restore_user: the same fault loop as the earlier rm case, so the purge
+  fix is not the whole story. RTL facts for it: the TLB lookup takes the
+  lowest-index matching slot when two match; the protection check uses
+  the TLB's bits, not the cache tag copies. Next: the subagent's stashed
+  fault-loop report (fault.c, tlbex_64.c fast-fail counters) built into
+  the vio kernel and the second stage rerun to catch the loop's PTE, vma,
+  ASID and DTLB contents.
