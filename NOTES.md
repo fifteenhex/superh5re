@@ -865,3 +865,12 @@ reproduce it. Confirmed facts move to `docs/`.
   recurring TEA f0037008 and kernel-looking register values; the rerun on
   806f95f2 has a user-fault MMU dump (PTE, vma, matching DTLB/ITLB slots)
   as an uncommitted debug patch.
+  fbae1660dc2c (flush inside __update_tlb) stopped every user process at
+  exec: __update_tlb is also the fast TLB-miss path's loader (tlbex_64.c
+  calls update_mmu_cache), which runs on the small fast-path stack with
+  only the registers of tlb_save_extra preserved; calling the out-of-line
+  local_flush_tlb_one from there broke the interrupted context (busybox
+  never printed its banner on two kernels with it). Reverted as
+  dc6a2a599fc7; the slow-path flush before handle_mm_fault (806f95f2b6a0)
+  stays: a protection exception always reaches the slow path, and a plain
+  miss has no matching entry to duplicate.
