@@ -271,8 +271,13 @@ uint32_t sh5_deposit(const struct sh5_bar *b, const char *elf_path,
 			free(ini);
 			if (msg && msglen)
 				snprintf(msg, msglen, "Linux image, initrd %zu bytes at %08x", ilen, base);
-		} else if (msg && msglen) {
-			snprintf(msg, msglen, "image loaded, entry %08x", entry & ~1u);
+		} else {
+			/* no initrd: say so in the header, or the kernel finds the
+			 * previous boot's pointer and length in DRAM */
+			w32(b, zp + 0x10, 0);
+			w32(b, zp + 0x14, 0);
+			if (msg && msglen)
+				snprintf(msg, msglen, "image loaded, entry %08x", entry & ~1u);
 		}
 		free(img);
 		return entry & ~1u;

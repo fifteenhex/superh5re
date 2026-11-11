@@ -196,13 +196,29 @@ hardware workarounds off:
 | Debian unstable, `debootstrap --foreign --arch=sh4 --variant=minbase` stage 1 (sandbox, one sudo on the bench machine) into a 1 GB ext2 image served by `sh5ctl --disk` | second stage run on the card by hand (`dpkg --unpack` of the base .debs, `dpkg --configure -a`): 78 packages installed, util-linux missing after one crash |
 | chroot into that root from the busybox rescue initrd | `forky/sid`; `apt 3.3.7 (sh4)`; `ldd /bin/ls` resolves through `/lib/ld-linux.so.2`; bash, dpkg, perl run; `logs/fpga-debian-sh4.txt` |
 
-Still open: intermittent SIGSEGVs of dpkg-deb's xz child and dash during
-the install, suspected to be the operand cache's virtual synonyms (the
-cache is indexed by EA bit 12, so a page mapped at two colours has two
-copies; the kernel must copy and clear user pages through coloured
-mappings and purge after kernel-alias writes, as `cache-sh5.c` does for
-COW, but page migration copies through the plain alias). The experiment
-without CONFIG_COMPACTION/MIGRATION and the proper fix are in progress.
+The second stage completes only with CONFIG_COMPACTION (and so
+CONFIG_MIGRATION) off: with them on, every run crashed in dash and dpkg
+(glibc aborting on "stack smashing detected", wrong xz output) or wedged
+in a fault loop; with them off the same install ran to the end with no
+fatal signal (79 packages, 2 h 37 min on the card). Signals through the
+on-stack trampoline (20000), fork, gUSA, TLS, exec of dynamic binaries
+(600) and disk reads under load were each stressed on the card and are
+clean, so the fault is in page migration's handling of the virtually
+indexed, ASID-tagged operand cache (a user page copied through the kernel
+alias while its lines live at the user colour); the kernel branch
+documents it and turns compaction off in the sh64 configs. Three more
+kernel fixes came out of the install: the sh64 purge-all was a no-op on
+resident dummy lines (OCBI after the ALLOCO sweep), a protection
+exception left its TLB entry loaded so a resolved fault repeated forever
+(the page's entries are flushed before handle_mm_fault), and loading an
+entry from the fast TLB-miss path must not call out-of-line code.
+
+| | result |
+|---|---|
+| direct boot, `root=/dev/vda rw init=/bin/bash`, the rescue initrd only as a carrier (`rdinit=/nonexistent`) | the Debian root is `/` (ext4 driver on the ext2 image), bash prompt 24 s after release; `dpkg -l` 79 installed, `apt 3.3.7 (sh4)`, `ldd /bin/ls`; `logs/fpga-debian-root.txt` |
+
+A kernel booted with no initrd found the previous boot's initrd pointer
+and length in the zero page (DRAM keeps them); `sh5boot` now clears them.
 
 ## Results
 

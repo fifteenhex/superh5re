@@ -934,3 +934,16 @@ reproduce it. Confirmed facts move to `docs/`.
   alias while the user maps it at another colour). Workaround for the
   branch: compaction and migration off; proper fix to find in
   folio_copy/folio_migrate_flags vs PG_dcache_clean and __update_cache.
+  Debian root booted directly from the disk (vmlinux-dbg-nomig,
+  `rdinit=/nonexistent root=/dev/vda rw init=/bin/bash`, the bb-sh4
+  initrd only as the carrier of the boot protocol): `/dev/vda on / type
+  ext4`, bash as init in 24 s, forky/sid, 79 packages, apt 3.3.7, ld.so
+  works; transcript logs/fpga-debian-root.txt. Booting with no initrd at
+  all panicked before the console: sh5boot wrote the zero page's initrd
+  pointer/length only when an initrd was given, so the kernel read the
+  previous boot's values from DRAM; fixed (zeros). Kernel branch at
+  81c8f6df1710 (documentation of the compaction finding, cayman_defconfig
+  with COMPACTION off). The installed image is kept on the bench as
+  ~/sh5/disk/debian-sh4.ext2.installed (1 GB). Open: the migration cache
+  bug itself (compaction stays off), the 2 h install time (debootstrap's
+  dash progress reader is CPU-bound), no getty/login yet (init=/bin/bash).
