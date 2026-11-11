@@ -874,3 +874,17 @@ reproduce it. Confirmed facts move to `docs/`.
   dc6a2a599fc7; the slow-path flush before handle_mm_fault (806f95f2b6a0)
   stays: a protection exception always reaches the slow path, and a plain
   miss has no matching entry to duplicate.
+  Second stage on the slow-path-flush kernel (dc6a2a5-dirty): past the
+  core packages (every earlier run crashed there) into "Unpacking the base
+  system" with 4 fatal signals. The dumps decode as: dash SIGILL at
+  libc+0x20dec = the `sleep` instruction glibc's abort() falls into when
+  raise(SIGABRT) returns, and /debootstrap/debootstrap.log in the image
+  says "*** stack smashing detected ***: terminated" before it, so the
+  processes detect user-memory corruption and abort; the abort shows as
+  SIGILL because SIGABRT was not delivered on the return from tgkill (to
+  test: `kill -ABRT $$` must report signal 6). TEA fffffffff0037008 in all
+  dumps is stale (a vmalloc/fixmap address from the kernel's own last
+  fault). cexpand's MOVA and MOV.L @(disp,PC) mask (PC+4) to 4 bytes
+  correctly; the compact kit covers both alignments. Known-good hashes
+  from the pristine image for an on-card read-integrity test: libc.so.6
+  94513560bac3dc53..., perl 4474098885e22021..., dash eec54e7db43c3f13....
