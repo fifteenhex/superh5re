@@ -916,3 +916,11 @@ reproduce it. Confirmed facts move to `docs/`.
   bytes; ctest `sigstress N` raises SIGUSR1 from 32 stack alignments with
   a fork loop in the background. (b) exec and ld.so of dynamic binaries
   from the ro-mounted image: 600 x chroot /bin/true and dash -c 'exit 3'.
+  Both clean on the card: `sigstress 20000` (0 lost, GBR intact, fork
+  loop in the background) and 600 x chroot exec of /bin/true and dash
+  from the image (0 failures). Signal trampolines, exec/ld.so, disk
+  reads, fork, gUSA, TLS and memory patterns are all clean in isolation;
+  the corruption needs the install's load (page-cache turnover under
+  memory pressure, writes). Next: the full second stage on a kernel with
+  CONFIG_COMPACTION/MIGRATION off (same head plus the fault dump) as the
+  A/B the subagent planned.
