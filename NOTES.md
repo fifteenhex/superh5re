@@ -849,3 +849,19 @@ reproduce it. Confirmed facts move to `docs/`.
   fault-loop report (fault.c, tlbex_64.c fast-fail counters) built into
   the vio kernel and the second stage rerun to catch the loop's PTE, vma,
   ASID and DTLB contents.
+- 2026-11-11: the kernel subagent's run ended at the usage limit; its final
+  report is in its transcript and ~/src/TOOLCHAIN-NOTES.md on the bench
+  (17 commits on intern-sh5-shcompact-20261108 up to 5e89d4b54a0a, test
+  matrix, open items). Its last finding, confirmed by my PC samples: a
+  protection exception is raised while a TLB entry matches, so the entry
+  stays loaded; when the PTE already allows the access handle_mm_fault()
+  changes nothing and loads nothing, and the access faults forever (the
+  rm/dpkg-deb/tzdata loops). Two kernel commits from here, pushed:
+  fbae1660dc2c (__update_tlb flushes the page's older entries before
+  loading, the TLB takes the lowest matching slot) and 806f95f2b6a0
+  (do_page_fault drops the page's entries for the ASID before handling a
+  user fault). The instrumented second stage on 5e89d4b crashed
+  debootstrap itself (rc 139) after 5 fatal signals in dpkg/dash with
+  recurring TEA f0037008 and kernel-looking register values; the rerun on
+  806f95f2 has a user-fault MMU dump (PTE, vma, matching DTLB/ITLB slots)
+  as an uncommitted debug patch.
