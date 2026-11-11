@@ -924,3 +924,13 @@ reproduce it. Confirmed facts move to `docs/`.
   memory pressure, writes). Next: the full second stage on a kernel with
   CONFIG_COMPACTION/MIGRATION off (same head plus the fault dump) as the
   A/B the subagent planned.
+  A/B result (2026-11-12): the full second stage on the same kernel head
+  with CONFIG_COMPACTION and CONFIG_MIGRATION off (vmlinux-dbg-nomig)
+  completed cleanly: rc 0, 79 packages installed (util-linux included), 0
+  fatal signals, 2 h 37 min on the card, 165 debootstrap steps. With
+  compaction on, every full run crashed in dash/dpkg (glibc aborts on
+  stack corruption) or wedged. The corruption is in page migration's
+  cache handling on sh64 (the copy of a user page through the kernel
+  alias while the user maps it at another colour). Workaround for the
+  branch: compaction and migration off; proper fix to find in
+  folio_copy/folio_migrate_flags vs PG_dcache_clean and __update_cache.
