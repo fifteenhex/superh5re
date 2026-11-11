@@ -902,3 +902,9 @@ reproduce it. Confirmed facts move to `docs/`.
   on the card. Running: six rounds of sha256sum of libc.so.6, perl and
   dash from the ro-mounted pristine image with drop_caches between rounds
   and two fork loops in the background, against the known-good hashes.
+  Disk-read integrity on the card (vmlinux-dbg-preflush, pristine image
+  mounted ro, two fork loops in the background, drop_caches between
+  rounds): 6 rounds x 3 files (libc.so.6, perl, dash) = 18 hashes, all
+  equal to the bench's. The virtio read path and the page cache via
+  read() are clean; the remaining suspects are mmap'd file pages (exec,
+  ld.so), especially files rewritten by dpkg and executed right after.
