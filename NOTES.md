@@ -888,3 +888,17 @@ reproduce it. Confirmed facts move to `docs/`.
   correctly; the compact kit covers both alignments. Known-good hashes
   from the pristine image for an on-card read-integrity test: libc.so.6
   94513560bac3dc53..., perl 4474098885e22021..., dash eec54e7db43c3f13....
+  The second stage on the slow-path-flush kernel wedged at "Unpacking
+  the base system" with the core idle (default_idle in 12 of 12 samples)
+  and the virtqueue idle (avail idx = used idx = 0x361, read with
+  `sh5ctl rd` at the queue addresses from the host page): a user-space
+  wait after the aborted postinst, not an I/O or kernel hang. Self-sent
+  signals terminate a SHcompact process correctly (kill -ABRT -> fatal
+  signal 6, -SEGV -> 11), so glibc's abort() falling into `sleep` is a
+  raise() path problem (tgkill with the TLS tid?) or a sign of TLS
+  corruption. New ctest subcommand `gbrstress N` (GBR magic, stack
+  canary, 64 KB pattern, 4 MB fresh mapping touched each round, fork +
+  SIGUSR1/SIGCHLD + gUSA + nanosleep): 400 rounds, 0 bad, 600 signals,
+  on the card. Running: six rounds of sha256sum of libc.so.6, perl and
+  dash from the ro-mounted pristine image with drop_caches between rounds
+  and two fork loops in the background, against the known-good hashes.
