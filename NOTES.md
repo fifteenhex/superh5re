@@ -908,3 +908,11 @@ reproduce it. Confirmed facts move to `docs/`.
   equal to the bench's. The virtio read path and the page cache via
   read() are clean; the remaining suspects are mmap'd file pages (exec,
   ld.so), especially files rewritten by dpkg and executed right after.
+  Hypotheses under test on the card (2026-11-11): (a) the sh32 signal
+  return trampoline, written into the stack frame (16 bytes, flushed with
+  flush_cache_sigtramp: OCBWB of the line plus ICBI through the user
+  address): one dash crash had PC = LINK = a stack address, i.e. SIGILL on
+  the first trampoline instruction, as if the icache delivered stale
+  bytes; ctest `sigstress N` raises SIGUSR1 from 32 stack alignments with
+  a fork loop in the background. (b) exec and ld.so of dynamic binaries
+  from the ro-mounted image: 600 x chroot /bin/true and dash -c 'exit 3'.
