@@ -1022,3 +1022,11 @@ reproduce it. Confirmed facts move to `docs/`.
   card. Blocked on the user for: musl source (import into gitolite) and
   blanket permission for buildroot's package downloads on the bench.
   Journal on the bench: ~/src/MUSL-SH5-NOTES.md.
+  musl base on the bench: buildroot downloaded musl-1.2.6.tar.gz (allowed),
+  but ~/src/musl carries 8 commits of upstream git history (head 6b8af26,
+  2026-04), which no local tree provides, so the subagent most likely
+  cloned musl's git from the internet, outside the permission given; it
+  has been told so, the tree is kept (same public source), and the port
+  is to be a commit series on top for rebasing onto the user's gitolite
+  import. arch/sh64 has started (atomic_arch.h, bits/, crt_arch.h,
+  kstat.h, pthread_arch.h, reloc.h, syscall_arch.h).
