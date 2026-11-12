@@ -988,3 +988,18 @@ reproduce it. Confirmed facts move to `docs/`.
   f3186019e90f (fix bb6199e95590, compaction re-enabled, root cause in
   Documentation/arch/sh/shcompact-userspace.rst). The fault-dump debug
   patch stays uncommitted (stash on the bench).
+- 2026-11-12: new board on the bench ("the Alibaba FPGA board") on a Bus
+  Blaster with the KT-Link buffer; probed read-only by a subagent
+  (journal ~/src/NEWBOARD-NOTES.md on the bench). JTAG works as the plain
+  user (plugdev) with interface/ftdi/dp_busblaster_kt-link.cfg at 500 kHz
+  and 1 MHz; one TAP, IDCODE 0x04a63093 = Xilinx Kintex UltraScale+
+  XCKU3P (cpld/xilinx-xcu.cfg, IR length 6; the auto-probe's "IR capture
+  error" is its guess of 2). USERCODE 0xffffffff, device DNA
+  4d51e205_013b83c1_40020000, status 0x35 (configured, likely from
+  on-board flash), sensors 54.8 C, 0.851 V core, 1.807 V aux. The Bus
+  Blaster has no USB serial (000801037622 is the J-Link's). Board UART
+  not seen on ttyUSB1; ttyUSB0 is the JTAG channel (gone while OpenOCD
+  runs). Needed next: package and speed grade from the chip marking for
+  the Vivado part name (KU3P: SFVB784, FFVA676, FFVB676, FFVD900), a
+  pinout/board file, a load path (xilinx-xcu.cfg's xcu_program or SVF,
+  untested), and whether the worker's Vivado edition covers the KU3P.
