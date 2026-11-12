@@ -947,3 +947,20 @@ reproduce it. Confirmed facts move to `docs/`.
   ~/sh5/disk/debian-sh4.ext2.installed (1 GB). Open: the migration cache
   bug itself (compaction stays off), the 2 h install time (debootstrap's
   dash progress reader is CPU-bound), no getty/login yet (init=/bin/bash).
+- 2026-11-12, goal: root-cause the compaction corruption. Candidate root
+  cause from reading the paths: sh64's __update_tlb() tags the entry it
+  loads with the current ASID and, unlike sh32's (tlb-sh4.c:23), never
+  checked that the vma's mm is the running one. remove_migration_pte()
+  calls update_mmu_cache() from kcompactd for other processes' pages, so
+  whichever process owned the current ASID (kernel threads keep the last
+  user's ASID in SR) got a translation of the victim's address to the
+  victim's new page: processes read and wrote each other's memory,
+  exactly what memstress saw ("process 3 saw process 1's data") and what
+  the dash/dpkg stack smashing looks like; with compaction off
+  remove_migration_pte never runs. Fix committed on the kernel branch as
+  bb6199e95590 (return unless current->active_mm == vma->vm_mm; the
+  owner's miss loads it under its own ASID). Validation: a fast
+  reproducer (ctest memstress 12 x 40 with `echo 1 >
+  /proc/sys/vm/compact_memory` in a loop) on the unfixed compaction-on
+  kernel, then on the fixed one (vmlinux-dbg-cmpfix), then the full
+  second stage with compaction on.
