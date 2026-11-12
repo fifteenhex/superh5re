@@ -196,18 +196,24 @@ hardware workarounds off:
 | Debian unstable, `debootstrap --foreign --arch=sh4 --variant=minbase` stage 1 (sandbox, one sudo on the bench machine) into a 1 GB ext2 image served by `sh5ctl --disk` | second stage run on the card by hand (`dpkg --unpack` of the base .debs, `dpkg --configure -a`): 78 packages installed, util-linux missing after one crash |
 | chroot into that root from the busybox rescue initrd | `forky/sid`; `apt 3.3.7 (sh4)`; `ldd /bin/ls` resolves through `/lib/ld-linux.so.2`; bash, dpkg, perl run; `logs/fpga-debian-sh4.txt` |
 
-The second stage completes only with CONFIG_COMPACTION (and so
+The second stage first completed only with CONFIG_COMPACTION (and so
 CONFIG_MIGRATION) off: with them on, every run crashed in dash and dpkg
 (glibc aborting on "stack smashing detected", wrong xz output) or wedged
-in a fault loop; with them off the same install ran to the end with no
-fatal signal (79 packages, 2 h 37 min on the card). Signals through the
-on-stack trampoline (20000), fork, gUSA, TLS, exec of dynamic binaries
-(600) and disk reads under load were each stressed on the card and are
-clean, so the fault is in page migration's handling of the virtually
-indexed, ASID-tagged operand cache (a user page copied through the kernel
-alias while its lines live at the user colour); the kernel branch
-documents it and turns compaction off in the sh64 configs. Three more
-kernel fixes came out of the install: the sh64 purge-all was a no-op on
+in a fault loop. Signals through the on-stack trampoline (20000), fork,
+gUSA, TLS, exec of dynamic binaries (600), disk reads under load and
+pattern writers under forced compaction from the shell were all clean on
+the card; the reproducer that finally failed was three pattern writers
+each forcing a compaction every round (`ctest memstress 12 30 compact`):
+11 pages of another process's data per writer within one round. Root
+cause: sh64's `__update_tlb()` tags the entry it loads with the current
+ASID and, unlike the sh32 version, never checked that the vma's mm is the
+running one; page migration remaps other processes' pages from kcompactd
+or from whichever process asked for compaction, so the owner of the
+current ASID got a translation of the victim's address to the victim's
+new page. One check (return unless `current->active_mm == vma->vm_mm`,
+kernel commit bb6199e95590) fixes it; the reproducer passes with 1061
+migrations, and compaction is back on in the branch. Three more kernel
+fixes came out of the install: the sh64 purge-all was a no-op on
 resident dummy lines (OCBI after the ALLOCO sweep), a protection
 exception left its TLB entry loaded so a resolved fault repeated forever
 (the page's entries are flushed before handle_mm_fault), and loading an
