@@ -1037,3 +1037,26 @@ reproduce it. Confirmed facts move to `docs/`.
   1b76ff07) with 78 tags, and the two branches pushed to gitolite too;
   the bench key reads and writes it. The subagent rebases its sh64 port
   onto it as intern-sh64-musl-20261112.
+  musl sh5 milestone (subagent, 2026-11-12): static musl busybox runs on
+  qemu-sh5 and on the card (vmlinux-musl-0db5ff6 + bb-musl.cpio.gz, 405
+  applets, scripted test of mounts, awk floats, gzip, jobs, traps, timeout
+  passes on both). The musl tree's extra history was buildroot's own
+  patches applied with git am on the 1.2.6 tarball, not an internet
+  clone (correction to the entry above). Branches: musl
+  intern-sh64-musl-20261112 (arch sh64, static; atomics are a gUSA
+  sequence in SHmedia code with a new kernel rollback), linux
+  intern-sh5-musl-20261112 (restart_syscall left r9 = 0; sigreturn
+  truncated r9; SA_SIGINFO handlers got &uc_mcontext for &uc;
+  CLONE_SETTLS ignored for SHmedia; SHmedia gUSA rollback), gcc revive
+  (all four inverse-multiply -mdiv strategies wrong, default now fp with
+  an FPU and call without; libgcc's SHmedia 64-bit division gave 3 wrong
+  results per 400k, replaced by the C versions; FPU macros for
+  -m5-32media), buildroot intern-sh5-buildroot-20261112 (BR2_sh5 with
+  BR2_ARCH sh64, gcc/binutils/musl from override dirs,
+  configs/sh5_cayman_defconfig). SHmedia user ABI as implemented: trapa
+  r9 with r9 = 0x100000 | nr, args r2-r7, result r9, old sh64 numbering,
+  64-bit args in one register, 32-bit args sign-extended, thread pointer
+  r16. Decisions taken: gUSA rollback approved as the SHmedia atomics
+  ABI; GCC uses the normal bitfield layout for sh64-linux (the SuperH ABI
+  document's MS-style layout makes struct iphdr 24 bytes). Blocked on
+  the bench for the buildroot build: rsync and unzip (gawk useful).
