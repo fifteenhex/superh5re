@@ -1003,3 +1003,10 @@ reproduce it. Confirmed facts move to `docs/`.
   the Vivado part name (KU3P: SFVB784, FFVA676, FFVB676, FFVD900), a
   pinout/board file, a load path (xilinx-xcu.cfg's xcu_program or SVF,
   untested), and whether the worker's Vivado edition covers the KU3P.
+  Mixed ABIs on one root (2026-11-12): two static SHmedia nolibc binaries
+  (smolutils sha256sum and uname, ELF flags 0xa) written into the Debian
+  sh4 image with debugfs run from the Debian bash as init alongside the
+  sh4 userland; sha256sum-sh5 and Debian's sha256sum agree on
+  /etc/debian_version. The kernel picks the ABI per process from the ELF
+  machine flags, so SHmedia and SHcompact processes coexist. Dynamic
+  SHmedia binaries need a libc that does not exist yet.
