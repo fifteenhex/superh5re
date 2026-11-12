@@ -228,6 +228,25 @@ entry from the fast TLB-miss path must not call out-of-line code.
 A kernel booted with no initrd found the previous boot's initrd pointer
 and length in the zero page (DRAM keeps them); `sh5boot` now clears them.
 
+## SHmedia user space: musl and buildroot
+
+A native SHmedia (sh5, `-m5-32media`) userland exists as well: musl
+gained an `sh64` arch (static; thread pointer r16; syscalls `trapa r9`
+with r9 = 0x100000 | number, arguments r2-r7, result r9, the kernel's old
+sh64 numbering; atomics as a gUSA-style sequence that the kernel rolls
+back on return to user, mirroring sh32, documented in the kernel branch),
+buildroot gained `BR2_sh5` (tuple sh64) with gcc, binutils and musl from
+our trees and `configs/sh5_cayman_defconfig`, and the revived GCC gained
+the fixes the build found (division strategies, libgcc's 64-bit division
+and unwinder, FPU macros, normal bitfield layout for sh64-linux, the musl
+dynamic-linker name). The defconfig's `rootfs.cpio.gz` boots on qemu-sh5
+and on the card to "Welcome to Buildroot on SH-5" and a root login, with
+the same busybox on both; hand-over in `files/sh5-buildroot-musl/`.
+Branches: musl `intern-sh64-musl-20261112`, linux
+`intern-sh5-musl-20261112`, gcc `intern-sh64-gcc-revive-20261107`,
+buildroot `intern-sh5-buildroot-20261112`. Not done: dynamic linking,
+`__thread` in GCC for SHmedia, C++.
+
 ## Results
 
 Through the board testbench (`rtl/tb/board`, memory latency 6 cycles,

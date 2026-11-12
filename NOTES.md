@@ -1060,3 +1060,18 @@ reproduce it. Confirmed facts move to `docs/`.
   ABI; GCC uses the normal bitfield layout for sh64-linux (the SuperH ABI
   document's MS-style layout makes struct iphdr 24 bytes). Blocked on
   the bench for the buildroot build: rsync and unzip (gawk useful).
+  Goal met (2026-11-12): buildroot configs/sh5_cayman_defconfig builds on
+  the bench and its rootfs.cpio.gz boots on qemu-sh5 and the card
+  (vmlinux-musl2-c3816bd, 27.7 s to the marker on the card) through the
+  init scripts to a root login; same /bin/busybox md5 on both. Fixes the
+  build found: a GCC selftest assertion (V4SF bypassing the -O0 r10-r14
+  rule), the restored libgcc unwinder's frame-state layout and its use of
+  struct ucontext, libatomic's lib/!m5-32media location, buildroot
+  refusing an empty kernel-headers URL. Decisions applied: gUSA rollback
+  documented (Documentation/arch/sh/shmedia-userspace.rst; restart r0 +
+  r15 - 4), normal bitfields for sh64-linux (sh64-elf keeps the ABI
+  document's; -mhitachi selects it), CONFIG_SH64_FPU_DENORM_FLUSH=y in the
+  cayman defconfigs. Heads: musl 5296ec64, linux c3816bd3b745, gcc
+  75263e4fef7, buildroot fa8d57f31e. Hand-over
+  files/sh5-buildroot-musl/. Open: dynamic linking (ld.so untested),
+  __thread for SHmedia in GCC, C++, the kernel's unused udivdi3.S bug.
