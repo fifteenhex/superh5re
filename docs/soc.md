@@ -212,8 +212,10 @@ or from whichever process asked for compaction, so the owner of the
 current ASID got a translation of the victim's address to the victim's
 new page. One check (return unless `current->active_mm == vma->vm_mm`,
 kernel commit bb6199e95590) fixes it; the reproducer passes with 1061
-migrations, and compaction is back on in the branch. Three more kernel
-fixes came out of the install: the sh64 purge-all was a no-op on
+migrations, and compaction is back on in the branch; the full second
+stage on that kernel with compaction on completed with no fatal signal
+(79 packages, 2 h 39 min). Three more kernel fixes came out of the
+install: the sh64 purge-all was a no-op on
 resident dummy lines (OCBI after the ALLOCO sweep), a protection
 exception left its TLB entry loaded so a resolved fault repeated forever
 (the page's entries are flushed before handle_mm_fault), and loading an

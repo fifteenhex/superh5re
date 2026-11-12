@@ -980,3 +980,11 @@ reproduce it. Confirmed facts move to `docs/`.
   round 1. Kernel branch: compaction re-enabled (defconfig line dropped,
   the rst describes the root cause). Final validation running: the full
   second stage on the fixed kernel with compaction on.
+  Final validation (2026-11-12): the full second stage on
+  vmlinux-dbg-cmpfix (bb6199e95590, compaction on) completed: rc 0, 79
+  packages, 0 fatal signals, 2 h 39 min. Goal closed: the compaction
+  corruption was __update_tlb() loading entries for another mm under the
+  current ASID. Kernel branch intern-sh5-shcompact-20261108 head
+  f3186019e90f (fix bb6199e95590, compaction re-enabled, root cause in
+  Documentation/arch/sh/shcompact-userspace.rst). The fault-dump debug
+  patch stays uncommitted (stash on the bench).
