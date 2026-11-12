@@ -1010,3 +1010,15 @@ reproduce it. Confirmed facts move to `docs/`.
   /etc/debian_version. The kernel picks the ABI per process from the ELF
   machine flags, so SHmedia and SHcompact processes coexist. Dynamic
   SHmedia binaries need a libc that does not exist yet.
+- 2026-11-12, goal: a musl-based sh5 (SHmedia) buildroot userspace. The
+  gitolite buildroot repo (was 2019.02-git, 4c8760bdc5, with a user
+  branch dfb2funngames) was fast-forwarded to upstream master 2026.11-git
+  (dc10246725) with 968 tags, with the user's permission; clone on the
+  bench at ~/src/buildroot. buildroot's SuperH support is sh4 only. An
+  opus subagent works on: the SHmedia user ABI write-up from the kernel,
+  a buildroot sh5 arch using the revived gcc/binutils trees (override
+  dirs), a musl sh64 port (static first; atomics via SWAP.Q since
+  SHmedia has no CAS or LL/SC), busybox initramfs on qemu-sh5 and the
+  card. Blocked on the user for: musl source (import into gitolite) and
+  blanket permission for buildroot's package downloads on the bench.
+  Journal on the bench: ~/src/MUSL-SH5-NOTES.md.
