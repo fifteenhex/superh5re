@@ -1075,3 +1075,15 @@ reproduce it. Confirmed facts move to `docs/`.
   75263e4fef7, buildroot fa8d57f31e. Hand-over
   files/sh5-buildroot-musl/. Open: dynamic linking (ld.so untested),
   __thread for SHmedia in GCC, C++, the kernel's unused udivdi3.S bug.
+- 2026-11-12, goal: finish the sh5 libc/toolchain to Debian-bootstrap
+  readiness using buildroot sample apps. A fresh opus subagent works in
+  this order, each step on qemu then the card: dynamic linking (musl
+  ld.so for sh64, elf32-sh64 shared objects/PLT/GOT, GCC -fPIC), TLS
+  (__thread for SHmedia, r16, binutils TLS relocations), C++ (libstdc++
+  on musl, exceptions across shared objects), then a package set on top
+  of sh5_cayman_defconfig: zlib, bzip2, xz, ncurses, readline, bash,
+  coreutils, tar, gzip, libffi, gettext, openssl, lua, perl, python3,
+  sdl (dummy video) + sdl_mixer/sdl_net, prboom (no WAD in buildroot:
+  starts and reports the missing IWAD unless the user supplies one), with
+  smoke tests per package per target, and a write-up of what a glibc
+  port needs. The main kernel tree's DEBUG-SHC fault dump was dropped.
