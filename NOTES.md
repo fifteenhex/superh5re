@@ -1030,3 +1030,10 @@ reproduce it. Confirmed facts move to `docs/`.
   is to be a commit series on top for rebasing onto the user's gitolite
   import. arch/sh64 has started (atomic_arch.h, bits/, crt_arch.h,
   kstat.h, pthread_arch.h, reloc.h, syscall_arch.h).
+  musl on gitolite (2026-11-12): the user imported their musl copy to
+  /workspace/git/musl.git (branches master, m68kgetthreadarea-20251203,
+  rs-1.0) and created an empty gitolite musl repo; with permission both
+  were updated to upstream master 7813e9119eb5 (fast-forward from
+  1b76ff07) with 78 tags, and the two branches pushed to gitolite too;
+  the bench key reads and writes it. The subagent rebases its sh64 port
+  onto it as intern-sh64-musl-20261112.
