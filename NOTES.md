@@ -964,3 +964,12 @@ reproduce it. Confirmed facts move to `docs/`.
   /proc/sys/vm/compact_memory` in a loop) on the unfixed compaction-on
   kernel, then on the fixed one (vmlinux-dbg-cmpfix), then the full
   second stage with compaction on.
+  Reproducer established on the card: `ctest memstress 12 30 compact`
+  (three 12 MB pattern processes, each writing 1 to
+  /proc/sys/vm/compact_memory every round so migration runs in a context
+  that shares the victims' addresses). Unfixed compaction-on kernel: in
+  round 1 processes 1 and 2 each read 11264 zero words (11 pages) where
+  their pattern should be, 1212 migrations, 10 minutes. Plain
+  `compact_memory` from the shell with memstress 12 x 40 had passed: the
+  polluted ASID belonged to the shell, which never touches those
+  addresses. Same test now running on vmlinux-dbg-cmpfix (bb6199e95590).
