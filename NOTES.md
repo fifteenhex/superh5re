@@ -973,3 +973,10 @@ reproduce it. Confirmed facts move to `docs/`.
   `compact_memory` from the shell with memstress 12 x 40 had passed: the
   polluted ASID belonged to the shell, which never touches those
   addresses. Same test now running on vmlinux-dbg-cmpfix (bb6199e95590).
+  Root cause confirmed (2026-11-12): the same `ctest memstress 12 30
+  compact` passes on vmlinux-dbg-cmpfix (bb6199e95590: __update_tlb()
+  returns unless current->active_mm == vma->vm_mm), ALL OK with 1061
+  migrations, where the unfixed kernel lost 11 pages per process in
+  round 1. Kernel branch: compaction re-enabled (defconfig line dropped,
+  the rst describes the root cause). Final validation running: the full
+  second stage on the fixed kernel with compaction on.
